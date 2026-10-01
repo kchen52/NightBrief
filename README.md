@@ -125,6 +125,15 @@ export ANDROID_HOME=~/android-sdk
 
 JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTest`.
 
+Connected UI tests live in `app/src/androidTest` and run only when a device or emulator is attached. They compile without one:
+
+```bash
+./gradlew :app:assembleDebugAndroidTest
+./gradlew :app:connectedDebugAndroidTest
+```
+
+The orchestrator clears the app's data before each test. Animations are disabled by the test options. Grant notification and location permission if the system dialog appears before the runner does.
+
 ## Attribution
 
 * **Open-Meteo** forecast data is used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit Open-Meteo (https://open-meteo.com/).

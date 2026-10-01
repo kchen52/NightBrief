@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -117,7 +118,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(checked = s.digestEnabled, onCheckedChange = vm::setDigestEnabled)
+                    Switch(
+                        checked = s.digestEnabled,
+                        onCheckedChange = vm::setDigestEnabled,
+                        modifier = Modifier.testTag("digest-enabled"),
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -129,7 +134,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(checked = s.bigNightAlertsEnabled, onCheckedChange = vm::setBigNightAlertsEnabled)
+                    Switch(
+                        checked = s.bigNightAlertsEnabled,
+                        onCheckedChange = vm::setBigNightAlertsEnabled,
+                        modifier = Modifier.testTag("big-night-enabled"),
+                    )
                 }
                 TextButton(onClick = { showTime = true }) { Text("Time: ${clockLabel(s.digestTime)}") }
                 Spacer(Modifier.height(8.dp))

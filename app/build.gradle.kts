@@ -14,6 +14,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
     }
 
     buildTypes {
@@ -33,7 +35,11 @@ android {
         noCompress += "gzip"
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-    testOptions { unitTests.isIncludeAndroidResources = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        animationsDisabled = true
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
 }
 
 // Compose UI tests need the debug-only ComponentActivity from ui-test-manifest.
@@ -63,4 +69,10 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestUtil(libs.androidx.test.orchestrator)
 }

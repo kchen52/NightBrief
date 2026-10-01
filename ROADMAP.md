@@ -54,7 +54,47 @@ Gear-aware exposure suggestions are already shipped. `TargetAdvisor` calls `Expo
 ## v1.0
 
 - [x] **Home-screen widget (Glance).** `NightBriefWidget` in `:app` reads `AppGraph` (forecast cache plus `BriefingService`) and shows the primary site’s score, band, and Milky Way window. `:work` cannot depend on `:app`, so `DigestWorker` and `PrefetchWorker` call `WidgetRefresh.request`, a same-app broadcast (`app.nightbrief.action.REFRESH_WIDGET`) that `NightBriefWidgetReceiver` turns into `updateAll`. `updatePeriodMillis` is 0.
-- [ ] **Wear OS glance (optional).** Same primary score and verdict on a tile or complication. Separate Wear module; do not block the phone widget on it. Not started.
+- [ ] **Wear OS glance (optional).** Same primary score and verdict on a tile or complication. Separate Wear module; do not block the phone widget on it. Not started. Proposed to move to Tier 3 below.
+
+## Proposed (product review, Oct 2026)
+
+Not committed scope. Ordered by value for effort. Before anything here, finish P0: the app has never been installed on a device, and no shipped feature has been seen by a user.
+
+### Decisions needed first
+
+- **Business model vs. the Bortle licence.** The grids are CC BY-NC 4.0, so any paid tier, ads, or in-app purchase means the light-pollution data has to be replaced first. Light pollution is only 5 points of the score, but Bortle also gates `TargetAdvisor` (`maxBortle`) and sets ISO in `ExposureCalculator.suggestIso`. Decide free vs. paid before v1.0. If paid, evaluate a VIIRS-derived source with a commercial-compatible licence and rebuild with `tools/build_bortle_grid.py`.
+- **How do we know the score is right?** The only checks are three engine fixtures. There is no signal from real nights. The session log below is the cheapest way to get one.
+
+### Tier 1 — small, uses data we already fetch
+
+- [ ] **Dew and frost risk.** `OpenMeteoClient` fetches `temperature_2m` and `dew_point_2m` and `HourlyWeather` stores them, but nothing reads them. Dew on the front element ends more nights than seeing does. In `:core-score`, flag dark hours where temperature − dew point ≤ 2 °C (frost when temperature ≤ 0 °C). Show "Dew likely from 23:40 — bring a heater" on Tonight and as a digest line, and add the overnight low ("dress for −4 °C"). Show it only; do not make it a score factor until the session log can calibrate it. Score fixtures stay unchanged.
+- [ ] **Cloud layers.** `cloud_cover_low/mid/high` are fetched and never shown. Thin high cirrus at 40% is a very different night from 40% low stratus. Add a low/mid/high split to the Hour by hour `TimelineCard`, and a short reason ("high thin cloud") on Tonight when high cloud makes up most of the total. Do not change the cloud weight without new fixtures (see `README.md`).
+- [ ] **Per-night confidence on Week.** Today a fixed footnote says nights 4–7 are estimated. Show an "est." marker on each `NightRow` from `NightScore.factors.any { it.estimated }` (or a coverage value on `OutlookNight`), so a planned trip on night 6 is not read as a firm Go.
+- [ ] **Configurable Big Night threshold.** Fixed at `Band.EXCELLENT.min` (85). At a Bortle 6 home site 85 almost never happens, so the alert never fires. Add a slider next to the existing `alternativeThreshold` slider (range 70–95) and store it in `AppState`.
+- [ ] **Red night-vision mode.** The app is used at the site, in the dark. A red-on-black colour scheme in `NightBriefTheme` (toggle in Settings plus a quick toggle on Tonight's app bar) protects dark adaptation. Theme only; no engine changes.
+- [ ] **Units.** Wind is always km/h (`NightDetail` timeline copy). The GEM box and the screenshots target North America. Add metric/imperial (km/h vs. mph, °C vs. °F for the dew feature above), with the default taken from the locale.
+
+### Tier 2 — differentiators
+
+- [ ] **Session log and score feedback.** The morning after a Go or Maybe night, ask once (from the digest or Tonight) "Did you shoot? How was it?" with 1–5 stars and an optional note. Store it locally next to the night's `NightScore` factors. This gives users a shooting history and gives us the first real data for comparing the score with what happened. Later, add "your sites tend to beat the forecast by N" and use the data to tune the dew and cloud-layer weights. Local only; no backend.
+- [ ] **Something to shoot on bright-Moon nights.** For about a week each month the Moon pushes most nights to Maybe or No-go, and `TargetAdvisor` has little to offer besides constellations. Add the Moon itself (lunar close-ups, with the phase and terminator angle) and "moonlit landscape" targets to `TargetCatalog`, chosen when illumination is above 0.5. This keeps users opening the app during the part of the month they otherwise skip.
+- [ ] **Local horizon per site.** Target windows and the Milky Way window assume a flat horizon (10° to 35° minimum altitude). Real sites have trees, ridges, and buildings. Add an optional minimum altitude for each of 8 compass directions to `Site` (entered in the site form, or by sweeping the phone with the compass later). Apply it in `TargetAdvisor.evaluate` and the Milky Way window. "The core clears the treeline at 23:10" is information no forecast site gives.
+- [ ] **Tracker and filter in the kit.** `GearKit` has only bodies and lenses, so every exposure is untracked and capped at 30 s. That makes `idealFocalMm = 200` for M31 or 300 for M42 hard to act on. Add an optional star tracker and filters (dual-band, light-pollution) to `GearKit`. With a tracker, suggest sub-exposure length and total integration time. With a dual-band filter, allow emission nebulae in brighter skies and under more Moon (relax `maxBortle` and `maxMoonIllumination` for `EMISSION_NEBULA`).
+- [ ] **Find darker sky nearby.** `SiteComparison` only compares saved sites. Offer "Darker sky within 60 km": sample the Bortle grid in rings around the primary site, score the best few candidates against the forecast, and show the results on the osmdroid map with a "Save as site" button. This is the natural next step after "is tonight good?" and helps users who have only one saved site. The grid stays streamed, so limit the number of lookups and run them on `Dispatchers.IO`.
+- [ ] **Share a night plan.** A shareable image card (score, best window, Milky Way window, top target, site name or a coarse location) for clubs and group chats. Low effort, and the main way new users would hear about the app.
+
+### Tier 3 — larger bets
+
+- [ ] **Sky events calendar.** Planets, conjunctions, eclipses, and comets. Needs planetary ephemeris in `:core-astro` (VSOP87 truncated, or bundled Chebyshev tables). It would add a year-ahead planning view to the 8-day forecast.
+- [ ] **Second forecast model for confidence.** Fetch a second Open-Meteo model and show "models agree" or "models disagree" on cloud. This doubles forecast calls per site; worth doing only if the session log shows cloud misses are the main complaint.
+- [ ] **Wear OS glance** (moved here from v1.0). Below the items above, since it adds a module and a device class to test, and the phone widget already covers glanceable use.
+
+### Debt that users would notice
+
+- **Corrupt settings wipe every site** (`ReplaceFileCorruptionHandler { AppState() }`). Add export/import of sites and gear (JSON via the share sheet), and keep a last-known-good copy to restore from.
+- **Notification id collision** between sites (`1000 + (hashCode and 0x0FFF)`). One site's digest can silently replace another's.
+- **No localisation.** `strings.xml` has only `app_name`. Move UI copy into resources before any non-English market.
+- **CI.** Add a workflow that runs the JVM, Robolectric, lint, and Paparazzi tasks, and skips the live-network `DigestWorkerTest`.
 
 ## Conventions for agents
 

@@ -5,6 +5,9 @@ import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
+import app.nightbrief.weather.KpForecast
+import app.nightbrief.weather.KpSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -40,6 +43,8 @@ data class Briefing(
     /** Tonight's report per site, in the order the sites were given. */
     val tonight: List<NightReport>,
     val outlooks: List<WeeklyOutlook>,
+    /** Planetary Kp series used for [NightReport.aurora]. Null when SWPC was not asked or the fetch failed. */
+    val kp: KpForecast? = null,
 ) {
     fun reportFor(siteId: String): NightReport? = tonight.firstOrNull { it.site.id == siteId }
     fun outlookFor(siteId: String): WeeklyOutlook? = outlooks.firstOrNull { it.site.id == siteId }
@@ -48,6 +53,8 @@ data class Briefing(
 class BriefingService(
     private val forecasts: ForecastSource,
     private val clock: Clock = Clock.systemUTC(),
+    /** Planetary Kp. Null leaves [NightReport.aurora] empty; a failed fetch does the same and does not fail the briefing. */
+    private val kp: KpSource? = null,
 ) {
     suspend fun brief(
         sites: List<Site>,
@@ -56,9 +63,11 @@ class BriefingService(
         forceRefresh: Boolean = false,
     ): Briefing = coroutineScope {
         val now = clock.instant()
+        val kpDeferred = async { fetchKp() }
         val fetched = sites.map { site ->
             async { site to runCatching { forecasts.forecast(site.latitude, site.longitude, forceRefresh) } }
         }.awaitAll()
+        val kpForecast = kpDeferred.await()
 
         val tonight = mutableListOf<NightReport>()
         val outlooks = mutableListOf<WeeklyOutlook>()
@@ -78,7 +87,7 @@ class BriefingService(
                     forecastStatus = fr?.status,
                     warnings = warnings,
                     includeSuggestions = offset == 0,
-                )
+                ).withAurora(kpForecast)
             }
             tonight += nights.first()
             outlooks += WeeklyOutlook(
@@ -86,15 +95,32 @@ class BriefingService(
                 nights.map { OutlookNight(it.date, it.scoreValue, it.ephemeris.moonIllumination, it.ephemeris.darkness, it.coverage) },
             )
         }
-        Briefing(now, tonight, outlooks)
+        Briefing(now, tonight, outlooks, kpForecast)
     }
 
     /** Plans a single site for a specific date (planning mode). */
     suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport {
+        val kpForecast = fetchKp()
         val fr = runCatching { forecasts.forecast(site.latitude, site.longitude) }
         return NightPlanner.plan(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(fr.exceptionOrNull()?.message),
-        )
+        ).withAurora(kpForecast)
+    }
+
+    private suspend fun fetchKp(): KpForecast? {
+        val source = kp ?: return null
+        return try {
+            source.fetch()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun NightReport.withAurora(forecast: KpForecast?): NightReport {
+        if (forecast == null) return this
+        return copy(aurora = Aurora.forNight(site, ephemeris, forecast))
     }
 }

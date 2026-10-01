@@ -63,6 +63,10 @@ object DigestComposer {
             val why = SiteComparison.joinReasons(it.reasons)
             lines += "${it.report.site.name} +${it.delta}" + if (why.isNotEmpty()) ": $why" else ""
         }
+        report.aurora?.let { aurora ->
+            val line = AuroraCopy.digestLine(aurora)
+            if (aurora.prominent) lines.add(0, line) else lines += line
+        }
         if (report.forecastStatus == ForecastStatus.STALE) {
             lines += "Offline — showing the last saved forecast"
         }

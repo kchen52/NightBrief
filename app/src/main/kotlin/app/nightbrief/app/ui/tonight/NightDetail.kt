@@ -34,6 +34,9 @@ import app.nightbrief.app.ui.common.ScoreGauge
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
+import app.nightbrief.score.AuroraChance
+import app.nightbrief.score.AuroraCopy
+import app.nightbrief.score.AuroraOutlook
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.NightReport
@@ -66,6 +69,7 @@ fun NightDetail(
         }
         HeroCard(report)
         SkyCard(report)
+        report.aurora?.let { AuroraCard(it) }
         MilkyWayCard(report)
         report.score?.let { BreakdownCard(report) }
         TimelineCard(report)
@@ -150,6 +154,30 @@ private fun SkyCard(report: NightReport) {
         }
         Text(
             "Moon-free darkness: ${Format.duration(e.moonFreeDarkDuration)} · Bortle ${report.site.bortle ?: "${report.site.effectiveBortle} (assumed)"}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AuroraCard(aurora: AuroraOutlook) {
+    val alert = aurora.prominent
+    val color = when (aurora.chance) {
+        AuroraChance.LIKELY -> NightColors.Excellent
+        AuroraChance.POSSIBLE -> NightColors.Amber
+        AuroraChance.UNLIKELY -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    SectionCard("Aurora") {
+        Text(
+            AuroraCopy.digestLine(aurora),
+            style = if (alert) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            color = color,
+            fontWeight = if (alert) FontWeight.SemiBold else FontWeight.Normal,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            AuroraCopy.detail(aurora),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

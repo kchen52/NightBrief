@@ -39,6 +39,8 @@ data class NightReport(
     val coverage: ForecastCoverage,
     val forecastStatus: ForecastStatus?,
     val warnings: List<String> = emptyList(),
+    /** Planetary Kp for this night's dark window, when SWPC data covers it. Not a score input. */
+    val aurora: AuroraOutlook? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 }

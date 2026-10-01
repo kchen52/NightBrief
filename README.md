@@ -11,7 +11,7 @@ Dependencies point inward. A module may use the ones it lists, not the other way
 | Module | Kind | Depends on | Role |
 | --- | --- | --- | --- |
 | `:core-astro` | JVM | — | Sun, Moon, and galactic-centre positions; night windows |
-| `:core-weather` | JVM | — | Open-Meteo and 7Timer clients, forecast cache |
+| `:core-weather` | JVM | — | Open-Meteo, 7Timer, and NOAA SWPC Kp clients, forecast cache |
 | `:core-sites` | JVM | — | Saved sites and Bortle lookup |
 | `:core-gear` | JVM | — | Camera bodies, lenses, NPF / 500-rule exposure hints |
 | `:core-score` | JVM | astro, weather, sites, gear | Night Score, tonight's plan, digest text, site comparison |
@@ -61,6 +61,7 @@ Bands: Excellent ≥ 85, Good ≥ 70, Fair ≥ 50, Marginal ≥ 30, otherwise Po
 
 * **Open-Meteo** forecast API, no key. Hourly cloud (including low/mid/high), humidity, temperature, dew point, 10 m wind and gusts, and wind at 250 hPa. The model is `gem_seamless` (Environment Canada GEM) when latitude ≥ 41.6 and longitude is between −141.1 and −52.5, which covers Canada and the northern US border where GEM's high-resolution domain still applies. Everywhere else the model is `best_match`. The same endpoint with `timezone=auto` (latitude and longitude only) returns the IANA zone in `timezone`. `TimeZoneLookup` uses that when a site's coordinates change; a zone typed by hand is left alone, and a failed lookup keeps the device zone.
 * **7Timer! ASTRO** (`7timer.info`) for seeing and transparency indexes. The nearest 7Timer sample within ±90 minutes is attached to each Open-Meteo hour. If 7Timer fails, the forecast is still used and the score falls back to the proxies above.
+* **NOAA SWPC** planetary K-index forecast (`noaa-planetary-k-index-forecast.json`) for aurora. The client accepts the current array of objects and the older header-row array. Each `time_tag` starts a 3-hour bin. The briefing keeps the peak Kp that overlaps a night's dark window and shows it on Tonight and in the digest. Kp is not a night-score factor. A site is treated as high-latitude when its geographic |latitude| is at least 55°; that is not the GEM weather box. If the SWPC fetch fails, the briefing is unchanged and the aurora row is omitted.
 * **Ephemeris** is computed on device from the Astronomical Almanac low-precision Sun and Moon formulas (`Bodies`), plus a simple horizontal transform. The Sun is good to about 0.01° and the Moon to about 0.3° in longitude. Rise/set, twilight, illumination, and galactic-centre altitude are checked in `NightEphemerisTest` against Skyfield 1.55 with the DE421 kernel.
 * **Bortle class** comes from the site if the user set one. Otherwise scoring uses class 5. When a site is added or edited, `AppGraph.bortleLookup` can fill the class from two grids shipped in `data/src/main/assets/`. Lookups are rare, so the grids are not kept in memory.
 
@@ -125,4 +126,5 @@ JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTe
 * **Open-Meteo** forecast data is used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit Open-Meteo (https://open-meteo.com/).
 * **OpenStreetMap.** The site map is an osmdroid `MapView` of OSM tiles. The picker shows “Map data © OpenStreetMap contributors”. Keep that credit. OSM data is © OpenStreetMap contributors and available under the [Open Database License](https://www.openstreetmap.org/copyright).
 * **7Timer!** seeing and transparency come from the ASTRO product at https://www.7timer.info/.
+* **NOAA SWPC** planetary Kp comes from https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json. Settings credits “Planetary Kp by NOAA SWPC.”
 * **Light pollution.** The bundled grids are resampled from Falchi F, Cinzano P, Duriscoe D, Kyba CCM, Elvidge CD, Baugh K, Portnov BA, Rybnikova NA, Furgoni R. The new world atlas of artificial night sky brightness. Sci. Adv. 2016;2:e1600377. Dataset doi:10.5880/GFZ.1.4.2016.001. That atlas is [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/): non-commercial use only. Show `LightPollutionAttribution.TEXT` in Settings: “Light pollution: Falchi et al. 2016, World Atlas of Artificial Night Sky Brightness (CC BY-NC 4.0), resampled to Bortle classes”.

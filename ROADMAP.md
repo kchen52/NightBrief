@@ -6,10 +6,10 @@ Native Android go/no-go digest (`app.nightbrief`, `versionName` 0.1.0, `minSdk` 
 
 MVP is the on-device night score, a 7-night outlook, site book with GPS / osmdroid picker / manual entry, gear exposure hints, and a morning digest notification.
 
-- Verified by **135** JVM/Robolectric `@Test` methods. The MVP run of `./gradlew assembleDebug :app:lintDebug test` was green at 82; aurora added 17 tests in `:core-weather` and `:core-score`. Meteors, ISS, Big Night, and Compose UI tests added the rest. Includes live-network `work/src/test/kotlin/app/nightbrief/work/DigestWorkerTest.kt` (`onboardedSitePostsTonightDigest`, 180s timeout) which calls Open-Meteo and 7Timer through `AppGraph.forecasts`, and NOAA SWPC through `AppGraph.briefings`. `./gradlew assembleRelease` completes with R8; the release APK has not been installed on a device.
+- Verified by **155** JVM/Robolectric `@Test` methods. The MVP run of `./gradlew assembleDebug :app:lintDebug test` was green at 82; aurora added 17 tests in `:core-weather` and `:core-score`. Meteors, ISS, Big Night selection, the planner horizon, widget copy, and Compose UI tests added the rest. Includes live-network `work/src/test/kotlin/app/nightbrief/work/DigestWorkerTest.kt` (`onboardedSitePostsTonightDigest`, 180s timeout) which calls Open-Meteo and 7Timer through `AppGraph.forecasts`, and NOAA SWPC through `AppGraph.briefings`. `./gradlew assembleRelease` completes with R8; the release APK has not been installed on a device.
 - JVM modules use `test`. `:data` and `:work` use `testDebugUnitTest` (Robolectric on `:work`).
-- Not yet installed on a device or emulator. No screenshot or Compose UI tests (`app/build.gradle.kts` test deps are JUnit only; no `androidTest`).
-- Release has never been built. `app/build.gradle.kts` sets `isMinifyEnabled = true` with `app/proguard-rules.pro`.
+- Not yet installed on a device or emulator. Compose UI coverage is `RoadmapUiTest` (Robolectric); there is no `androidTest` on a device.
+- `./gradlew assembleRelease` succeeds with R8 (`isMinifyEnabled = true`, `app/proguard-rules.pro`). The release APK has not been installed.
 
 ## P0 — verify the MVP on a device
 

@@ -118,8 +118,20 @@ object MeteorAdvisor {
             moonIllumination = moon.illumination,
             moonUpAtRadiantPeak = moonUp,
             moonRadiantSeparationDeg = separation,
-            interference = interference(moon.illumination, moonUp, separation),
+            interference = classifyInterference(moon.illumination, moonUp, separation),
         )
+    }
+
+    /** Moonlight penalty for a radiant sample. A bright Moon that has set is [MeteorInterference.NONE]. */
+    internal fun classifyInterference(
+        illumination: Double,
+        moonUp: Boolean,
+        separationDeg: Double,
+    ): MeteorInterference {
+        if (!moonUp) return MeteorInterference.NONE
+        if (illumination >= 0.7 && separationDeg < 60.0) return MeteorInterference.STRONG
+        if (illumination >= 0.4) return MeteorInterference.MODERATE
+        return MeteorInterference.NONE
     }
 
     private fun seasonPeakYear(shower: MeteorShower, date: LocalDate): Int {
@@ -143,13 +155,6 @@ object MeteorAdvisor {
         val endSameYear = LocalDate.of(2021, shower.activeEndMonth, shower.activeEndDay)
         val end = if (endSameYear.isBefore(start)) endSameYear.plusYears(1) else endSameYear
         return ChronoUnit.DAYS.between(start, end).toInt() + 1
-    }
-
-    private fun interference(illumination: Double, moonUp: Boolean, separationDeg: Double): MeteorInterference {
-        if (!moonUp) return MeteorInterference.NONE
-        if (illumination >= 0.7 && separationDeg < 60.0) return MeteorInterference.STRONG
-        if (illumination >= 0.4) return MeteorInterference.MODERATE
-        return MeteorInterference.NONE
     }
 
     private fun radiantPeak(shower: MeteorShower, ephemeris: NightEphemeris): RadiantSample {

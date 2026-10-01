@@ -22,9 +22,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.nightbrief.app.MainActivity
 import app.nightbrief.data.AppGraph
-import app.nightbrief.score.Band
-import app.nightbrief.score.NightReport
-import java.time.format.DateTimeFormatter
+import app.nightbrief.score.WidgetCopy
 
 class NightBriefWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -48,20 +46,9 @@ class NightBriefWidget : GlanceAppWidget() {
         val report = briefing.reportFor(primary.id)
         return WidgetContent.Night(
             siteName = primary.name,
-            scoreLine = scoreLine(report),
-            milkyWayLine = milkyWayLine(report),
+            scoreLine = WidgetCopy.scoreLine(report?.scoreValue),
+            milkyWayLine = WidgetCopy.milkyWayLine(report?.ephemeris?.milkyWay?.window, primary.zone),
         )
-    }
-
-    private fun scoreLine(report: NightReport?): String {
-        val score = report?.scoreValue ?: return "No score"
-        return "$score ${Band.of(score).label}"
-    }
-
-    private fun milkyWayLine(report: NightReport?): String {
-        val mw = report?.ephemeris?.milkyWay ?: return "Milky Way core not up"
-        val fmt = DateTimeFormatter.ofPattern("HH:mm").withZone(report.site.zone)
-        return "Milky Way ${fmt.format(mw.window.start)}–${fmt.format(mw.window.end)}"
     }
 }
 

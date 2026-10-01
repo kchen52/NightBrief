@@ -8,14 +8,14 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
-import app.nightbrief.score.Band
+import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.BigNightCandidate
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.weather.ForecastStatus
 import kotlinx.coroutines.CancellationException
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.time.format.TextStyle
 import java.util.Locale
 
 /**
@@ -118,16 +118,17 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
             forceRefresh = false,
         )
         val notifier = DigestNotifier(applicationContext)
-        val newlyAlerted = mutableMapOf<String, String>()
+        val alerts = BigNightAlerts.select(
+            candidates = briefing.tonight.map {
+                BigNightCandidate(it.site.id, it.site.name, it.date, it.scoreValue)
+            },
+            alreadyAlerted = state.lastBigNightAlerts,
+            enabled = true,
+        )
         val locale = Locale.getDefault()
-        for (report in briefing.tonight) {
-            val score = report.scoreValue ?: continue
-            if (score < Band.EXCELLENT.min) continue
-            val key = report.date.toString()
-            if (state.lastBigNightAlerts[report.site.id] == key) continue
-            val day = report.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
-            notifier.postBigNight(report.site.id, report.site.name, score, "$day $key")
-            newlyAlerted[report.site.id] = key
+        val newlyAlerted = alerts.associate { alert ->
+            notifier.postBigNight(alert.siteId, alert.siteName, alert.score, alert.dateLabel(locale))
+            alert.siteId to alert.nightKey
         }
         if (newlyAlerted.isNotEmpty()) {
             graph.settings.update { current ->

@@ -1,5 +1,6 @@
 package app.nightbrief.score
 
+import app.nightbrief.astro.IssPass
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
@@ -12,7 +13,9 @@ import app.nightbrief.weather.TleSource
 import app.nightbrief.weather.WeatherApiException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Clock
@@ -46,10 +49,17 @@ class MeteorAndIssBriefingTest {
         val tle = IssTle(LINE1, LINE2, clock.instant())
         val withIss = BriefingService(source, clock, iss = FixedTle(tle))
             .brief(listOf(toronto), kit, outlookDays = 1)
-        val passes = withIss.reportFor("home")!!.issPasses
+        val report = withIss.reportFor("home")!!
+        val passes = report.issPasses
         assertTrue("expected a dark-window pass, got ${passes.size}", passes.isNotEmpty())
-        val digest = DigestComposer.compose(withIss.reportFor("home")!!, emptyList())
+        val dark = report.ephemeris.darkWindow!!
+        assertTrue(passes.all { !it.peak.isBefore(dark.start) && !it.peak.isAfter(dark.end) })
+        val digest = DigestComposer.compose(report, emptyList())
         assertTrue(digest.lines.any { it.startsWith("ISS ") })
+
+        val planned = BriefingService(source, clock, iss = FixedTle(tle))
+            .plan(toronto, report.date, kit)
+        assertEquals(passes.map { it.peak }, planned.issPasses.map { it.peak })
 
         val failed = BriefingService(source, clock, iss = object : TleSource {
             override suspend fun fetchIss(): IssTle = throw WeatherApiException("celestrak down")
@@ -57,7 +67,57 @@ class MeteorAndIssBriefingTest {
         assertTrue(failed.reportFor("home")!!.issPasses.isEmpty())
         assertEquals(withIss.reportFor("home")!!.scoreValue, failed.reportFor("home")!!.scoreValue)
         assertTrue(failed.reportFor("home")!!.warnings.isEmpty())
+
+        val malformed = BriefingService(
+            source,
+            clock,
+            iss = FixedTle(IssTle("not-a-tle", "also-not", clock.instant())),
+        ).brief(listOf(toronto), kit, outlookDays = 1)
+        assertTrue(malformed.reportFor("home")!!.issPasses.isEmpty())
+        assertEquals(withIss.reportFor("home")!!.scoreValue, malformed.reportFor("home")!!.scoreValue)
     }
+
+    @Test
+    fun aShowerBelowTheWatchBarIsOmittedFromTheDigest() {
+        val date = LocalDate.of(2024, 8, 12)
+        val report = NightPlanner.plan(toronto, date, forecast(toronto, "2024-08-12T00:00:00Z"), kit)
+        val weak = report.copy(meteor = report.meteor!!.copy(peakRadiantAltitudeDeg = 5.0))
+        assertFalse(weak.meteor!!.worthWatching)
+        val lines = DigestComposer.compose(weak, emptyList()).lines
+        assertTrue(lines.none { it.contains("Perseids") })
+    }
+
+    @Test
+    fun aNightWithNoShowerOmitsTheMeteorLine() {
+        val date = LocalDate.of(2024, 3, 2)
+        val report = NightPlanner.plan(toronto, date, forecast(toronto, "2024-03-01T00:00:00Z"), kit)
+        assertNull(report.meteor)
+        assertTrue(DigestComposer.compose(report, emptyList()).lines.none { it.contains("ZHR") })
+    }
+
+    @Test
+    fun issLineUsesTheHighestPassAndDescribesAPartialSpan() {
+        assertNull(DigestComposer.issLine(emptyList()) { it.toString() })
+        val low = pass(peakAlt = 20.0, rise = "2024-03-15T01:00:00Z", set = "2024-03-15T01:04:00Z")
+        val high = pass(peakAlt = 62.4, rise = "2024-03-15T03:10:00Z", set = "2024-03-15T03:16:00Z", azimuth = 225.0)
+        val line = DigestComposer.issLine(listOf(low, high)) { it.toString().substring(11, 16) }
+        assertEquals("ISS 03:10–03:16, peak 62° SW · 2 passes", line)
+
+        val alreadyUp = high.copy(rise = null)
+        assertTrue(DigestComposer.issLine(listOf(alreadyUp)) { it.toString() }!!.contains("until "))
+        val stillUp = high.copy(set = null)
+        assertTrue(DigestComposer.issLine(listOf(stillUp)) { it.toString() }!!.contains("from "))
+        val peakOnly = high.copy(rise = null, set = null)
+        assertTrue(DigestComposer.issLine(listOf(peakOnly)) { it.toString() }!!.contains("at "))
+    }
+
+    private fun pass(peakAlt: Double, rise: String?, set: String?, azimuth: Double = 10.0) = IssPass(
+        rise = rise?.let(Instant::parse),
+        set = set?.let(Instant::parse),
+        peak = Instant.parse("2024-03-15T03:13:00Z"),
+        peakAltitudeDeg = peakAlt,
+        peakAzimuthDeg = azimuth,
+    )
 
     private fun forecast(site: Site, start: String): Forecast {
         val s = Instant.parse(start).epochSecond

@@ -17,11 +17,11 @@ import app.nightbrief.data.AppState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.robolectric.Shadows.shadowOf
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
 
@@ -70,6 +70,28 @@ class BigNightAlertTest {
         }
         assertEquals(ListenableWorker.Result.success(), result)
         assertEquals(0, notifications(context).activeNotifications.size)
+    }
+
+    @Test
+    fun emptySiteListPostsNothing() {
+        val context = context()
+        notifications(context).cancelAll()
+        val result = runBlocking {
+            AppGraph.get(context).settings.update { AppState(onboardingComplete = true) }
+            TestListenableWorkerBuilder<PrefetchWorker>(context).build().doWork()
+        }
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertEquals(0, notifications(context).activeNotifications.size)
+    }
+
+    @Test
+    fun widgetRefreshBroadcastStaysInTheApp() {
+        val context = context()
+        val app = context.applicationContext as Application
+        shadowOf(app).clearBroadcastIntents()
+        WidgetRefresh.request(context)
+        val refresh = shadowOf(app).broadcastIntents.single { it.action == WidgetRefresh.ACTION }
+        assertEquals(context.packageName, refresh.`package`)
     }
 
     private fun context(): Context = ApplicationProvider.getApplicationContext()

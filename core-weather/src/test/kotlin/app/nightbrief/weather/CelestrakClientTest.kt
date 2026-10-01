@@ -96,6 +96,49 @@ class CelestrakClientTest {
     }
 
     @Test
+    fun cacheOlderThanTheStaleLimitRethrowsAndACorruptFileIsReplaced() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-stale").resolve("iss.tle").toFile()
+        val origin = CelestrakClient(url = server.url("/gp.php").toString(), clock = clock)
+        val source = CachingTleSource(
+            origin = origin,
+            cacheFile = cacheFile,
+            maxAge = Duration.ofHours(1),
+            staleMaxAge = Duration.ofDays(7),
+            clock = clock,
+        )
+        server.enqueue(MockResponse().setBody(THREE_LINE))
+        source.fetchIss()
+
+        clock.instant = FETCHED.plus(Duration.ofDays(7))
+        server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
+        val stillUsable = source.fetchIss()
+        assertEquals(LINE1, stillUsable.line1)
+
+        clock.instant = FETCHED.plus(Duration.ofDays(7)).plusSeconds(1)
+        server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
+        val expired = runCatching { source.fetchIss() }.exceptionOrNull()
+        assertTrue(expired is WeatherApiException)
+
+        cacheFile.writeText("garbage")
+        clock.instant = FETCHED.plus(Duration.ofHours(2))
+        server.enqueue(MockResponse().setBody("$LINE1\n$LINE2\n"))
+        val replaced = source.fetchIss()
+        assertEquals(LINE2, replaced.line2)
+        assertTrue(cacheFile.readText().startsWith("v1\n"))
+    }
+
+    @Test
+    fun badChecksumThrowsWeatherApiException() = runTest {
+        val bad = LINE1.dropLast(1) + ((LINE1.last().digitToInt() + 1) % 10)
+        server.enqueue(MockResponse().setBody("$bad\n$LINE2\n"))
+        val error = runCatching {
+            CelestrakClient(url = server.url("/gp.php").toString()).fetchIss()
+        }.exceptionOrNull()
+        assertTrue(error is WeatherApiException)
+    }
+
+    @Test
     fun missingCachePlusOriginFailureThrows() = runTest {
         val cacheFile = Files.createTempDirectory("nightbrief-tle-miss").resolve("does-not-exist/iss.tle").toFile()
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))

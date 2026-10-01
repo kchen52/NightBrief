@@ -31,7 +31,6 @@ import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
-import app.nightbrief.weather.OpenMeteoClient
 import java.time.Instant
 import java.time.LocalDate
 
@@ -55,7 +54,6 @@ fun PlannedNightScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val site = state?.sites?.get(siteId)
     val tonight = site?.let { NightPlanner.tonight(Instant.now(), it.zone) }
-    val lastDate = tonight?.plusDays(OpenMeteoClient.DEFAULT_FORECAST_DAYS - 1L)
 
     Scaffold(
         topBar = {
@@ -65,13 +63,13 @@ fun PlannedNightScreen(
                 actions = {
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(-1)) },
-                        enabled = tonight != null && date.isAfter(tonight),
+                        enabled = tonight != null && NightPlanner.canStepToPreviousNight(date, tonight),
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous night")
                     }
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(1)) },
-                        enabled = lastDate != null && date.isBefore(lastDate),
+                        enabled = tonight != null && NightPlanner.canStepToNextNight(date, tonight),
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next night")
                     }

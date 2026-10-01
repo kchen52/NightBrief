@@ -122,6 +122,46 @@ class MeteorAdvisorTest {
     }
 
     @Test
+    fun overlappingShowersKeepTheHigherExpectedRate() {
+        val date = LocalDate.of(2026, 8, 12)
+        assertTrue(MeteorShowers.activeOn(date).any { it.id == "southern-delta-aquariids" })
+        val outlook = MeteorAdvisor.forNight(NightEphemeris.compute(date, zone, latitude, longitude))
+        assertEquals("perseids", outlook!!.shower.id)
+        assertTrue(outlook.expectedZhr > 25)
+    }
+
+    @Test
+    fun quadrantidsAtTheEndOfTheWindowFloorTheRateAndAreNotWorthWatching() {
+        val outlook = MeteorAdvisor.forNight(
+            NightEphemeris.compute(LocalDate.of(2026, 1, 12), zone, latitude, longitude),
+        )
+        assertNotNull(outlook)
+        outlook!!
+        assertEquals("quadrantids", outlook.shower.id)
+        assertEquals(9, outlook.daysFromPeak)
+        assertEquals(1, outlook.expectedZhr)
+        assertFalse(outlook.worthWatching)
+    }
+
+    @Test
+    fun ursidsFromTheFarSouthNeverClearTheHorizon() {
+        val eph = NightEphemeris.compute(LocalDate.of(2026, 12, 22), zone, latitudeDeg = -54.8, longitudeDeg = -68.3)
+        val outlook = MeteorAdvisor.forNight(eph)
+        assertEquals("ursids", outlook!!.shower.id)
+        assertTrue("radiant was ${outlook.peakRadiantAltitudeDeg}", outlook.peakRadiantAltitudeDeg < 20.0)
+        assertFalse(outlook.worthWatching)
+    }
+
+    @Test
+    fun moonlightClassificationFollowsIlluminationSeparationAndWhetherTheMoonIsUp() {
+        assertEquals(MeteorInterference.NONE, MeteorAdvisor.classifyInterference(0.95, moonUp = false, separationDeg = 10.0))
+        assertEquals(MeteorInterference.NONE, MeteorAdvisor.classifyInterference(0.3, moonUp = true, separationDeg = 10.0))
+        assertEquals(MeteorInterference.MODERATE, MeteorAdvisor.classifyInterference(0.4, moonUp = true, separationDeg = 10.0))
+        assertEquals(MeteorInterference.MODERATE, MeteorAdvisor.classifyInterference(0.9, moonUp = true, separationDeg = 60.0))
+        assertEquals(MeteorInterference.STRONG, MeteorAdvisor.classifyInterference(0.7, moonUp = true, separationDeg = 59.9))
+    }
+
+    @Test
     fun detailMentionsMoonlightOnlyWhenItInterferes() {
         val dark = MeteorAdvisor.detail(sampleOutlook(daysFromPeak = 0, interference = MeteorInterference.NONE))
         assertFalse(dark.contains("Moon"))
@@ -129,6 +169,9 @@ class MeteorAdvisorTest {
         assertTrue(bright.contains("Moon"))
         val up = MeteorAdvisor.detail(sampleOutlook(daysFromPeak = 0, interference = MeteorInterference.MODERATE))
         assertTrue(up.contains("Moon"))
+        assertTrue(MeteorAdvisor.detail(sampleOutlook(daysFromPeak = -1, interference = MeteorInterference.NONE)).contains("tomorrow"))
+        assertTrue(MeteorAdvisor.detail(sampleOutlook(daysFromPeak = -3, interference = MeteorInterference.NONE)).contains("in 3 days"))
+        assertTrue(MeteorAdvisor.detail(sampleOutlook(daysFromPeak = 4, interference = MeteorInterference.NONE)).contains("peaked 4 days ago"))
     }
 
     private fun expectedInterference(outlook: MeteorOutlook): MeteorInterference = when {

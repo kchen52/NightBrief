@@ -1,12 +1,15 @@
 package app.nightbrief.score
 
 import app.nightbrief.astro.Darkness
+import app.nightbrief.astro.IssPasses
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
+import app.nightbrief.weather.IssTle
 import app.nightbrief.weather.KpForecast
 import app.nightbrief.weather.KpSource
+import app.nightbrief.weather.TleSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -50,24 +53,40 @@ data class Briefing(
     fun outlookFor(siteId: String): WeeklyOutlook? = outlooks.firstOrNull { it.site.id == siteId }
 }
 
-class BriefingService(
-    private val forecasts: ForecastSource,
-    private val clock: Clock = Clock.systemUTC(),
-    /** Planetary Kp. Null leaves [NightReport.aurora] empty; a failed fetch does the same and does not fail the briefing. */
-    private val kp: KpSource? = null,
-) {
+/** Scores nights for the UI and for background workers. Tests can supply a fake. */
+interface BriefingSource {
     suspend fun brief(
         sites: List<Site>,
         kit: GearKit,
         outlookDays: Int = 7,
         forceRefresh: Boolean = false,
+    ): Briefing
+
+    suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport
+}
+
+class BriefingService(
+    private val forecasts: ForecastSource,
+    private val clock: Clock = Clock.systemUTC(),
+    /** Planetary Kp. Null leaves [NightReport.aurora] empty; a failed fetch does the same and does not fail the briefing. */
+    private val kp: KpSource? = null,
+    /** ISS elements. Null or a failed fetch leaves [NightReport.issPasses] empty and does not fail the briefing. */
+    private val iss: TleSource? = null,
+) : BriefingSource {
+    override suspend fun brief(
+        sites: List<Site>,
+        kit: GearKit,
+        outlookDays: Int,
+        forceRefresh: Boolean,
     ): Briefing = coroutineScope {
         val now = clock.instant()
         val kpDeferred = async { fetchKp() }
+        val issDeferred = async { fetchIss() }
         val fetched = sites.map { site ->
             async { site to runCatching { forecasts.forecast(site.latitude, site.longitude, forceRefresh) } }
         }.awaitAll()
         val kpForecast = kpDeferred.await()
+        val issTle = issDeferred.await()
 
         val tonight = mutableListOf<NightReport>()
         val outlooks = mutableListOf<WeeklyOutlook>()
@@ -87,7 +106,7 @@ class BriefingService(
                     forecastStatus = fr?.status,
                     warnings = warnings,
                     includeSuggestions = offset == 0,
-                ).withAurora(kpForecast)
+                ).withAurora(kpForecast).withIss(issTle)
             }
             tonight += nights.first()
             outlooks += WeeklyOutlook(
@@ -99,13 +118,14 @@ class BriefingService(
     }
 
     /** Plans a single site for a specific date (planning mode). */
-    suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport {
+    override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport {
         val kpForecast = fetchKp()
+        val issTle = fetchIss()
         val fr = runCatching { forecasts.forecast(site.latitude, site.longitude) }
         return NightPlanner.plan(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(fr.exceptionOrNull()?.message),
-        ).withAurora(kpForecast)
+        ).withAurora(kpForecast).withIss(issTle)
     }
 
     private suspend fun fetchKp(): KpForecast? {
@@ -119,8 +139,35 @@ class BriefingService(
         }
     }
 
+    private suspend fun fetchIss(): IssTle? {
+        val source = iss ?: return null
+        return try {
+            source.fetchIss()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun NightReport.withAurora(forecast: KpForecast?): NightReport {
         if (forecast == null) return this
         return copy(aurora = Aurora.forNight(site, ephemeris, forecast))
+    }
+
+    private fun NightReport.withIss(tle: IssTle?): NightReport {
+        if (tle == null) return this
+        val window = ephemeris.darkWindow ?: return this
+        val passes = runCatching {
+            IssPasses.during(
+                tle.line1,
+                tle.line2,
+                window.start,
+                window.end,
+                site.latitude,
+                site.longitude,
+            )
+        }.getOrDefault(emptyList())
+        return copy(issPasses = passes)
     }
 }

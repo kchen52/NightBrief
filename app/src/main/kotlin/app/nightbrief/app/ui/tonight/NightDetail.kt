@@ -34,11 +34,14 @@ import app.nightbrief.app.ui.common.ScoreGauge
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
+import app.nightbrief.astro.IssPass
 import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.AuroraCopy
 import app.nightbrief.score.AuroraOutlook
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
+import app.nightbrief.score.MeteorAdvisor
+import app.nightbrief.score.MeteorOutlook
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.SiteAlternative
 import app.nightbrief.score.SiteComparison
@@ -46,6 +49,7 @@ import app.nightbrief.score.TargetSuggestion
 import app.nightbrief.score.TimelineHour
 import app.nightbrief.score.Verdict
 import app.nightbrief.weather.ForecastStatus
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 @Composable
@@ -70,6 +74,8 @@ fun NightDetail(
         HeroCard(report)
         SkyCard(report)
         report.aurora?.let { AuroraCard(it) }
+        report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
+        if (report.issPasses.isNotEmpty()) IssCard(report)
         MilkyWayCard(report)
         report.score?.let { BreakdownCard(report) }
         TimelineCard(report)
@@ -182,6 +188,54 @@ private fun AuroraCard(aurora: AuroraOutlook) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
+    SectionCard("Meteors") {
+        Text(MeteorAdvisor.digestLine(meteor), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            MeteorAdvisor.detail(meteor),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Radiant ${Format.azimuth(meteor.peakRadiantAzimuthDeg)} at ${Format.time(meteor.peakRadiantTime, report.site.zone)}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun IssCard(report: NightReport) {
+    val zone = report.site.zone
+    SectionCard("ISS") {
+        report.issPasses.forEachIndexed { i, pass ->
+            if (i > 0) HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            IssPassRow(pass, zone)
+        }
+    }
+}
+
+@Composable
+private fun IssPassRow(pass: IssPass, zone: ZoneId) {
+    val rise = pass.rise
+    val set = pass.set
+    val span = when {
+        rise != null && set != null -> "${Format.time(rise, zone)} – ${Format.time(set, zone)}"
+        rise != null -> "From ${Format.time(rise, zone)}"
+        set != null -> "Until ${Format.time(set, zone)}"
+        else -> "Peak ${Format.time(pass.peak, zone)}"
+    }
+    Text(span, style = MaterialTheme.typography.bodyLarge)
+    Text(
+        "Peak ${Format.degrees(pass.peakAltitudeDeg)} ${DigestComposer.compass(pass.peakAzimuthDeg)} at ${Format.time(pass.peak, zone)}",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

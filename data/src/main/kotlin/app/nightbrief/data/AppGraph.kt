@@ -2,11 +2,15 @@ package app.nightbrief.data
 
 import android.content.Context
 import app.nightbrief.score.BriefingService
+import app.nightbrief.score.BriefingSource
 import app.nightbrief.sites.BortleLookup
 import app.nightbrief.sites.CompositeBortleLookup
 import app.nightbrief.sites.StreamingGridBortleLookup
+import app.nightbrief.weather.CachingTleSource
+import app.nightbrief.weather.CelestrakClient
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
+import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.SwpcKpClient
 import app.nightbrief.weather.TimeZoneLookup
 import kotlinx.coroutines.CoroutineScope
@@ -24,11 +28,20 @@ class AppGraph private constructor(context: Context) {
     val settings: SettingsRepository =
         SettingsRepository.create(File(context.filesDir, "datastore/app_state.json"), appScope)
 
-    val forecasts = ForecastRepository(cache = FileForecastCache(File(context.filesDir, "forecasts")))
+    private val realForecasts: ForecastSource =
+        ForecastRepository(cache = FileForecastCache(File(context.filesDir, "forecasts")))
+
+    var forecasts: ForecastSource = realForecasts
+        private set
 
     val timeZoneLookup = TimeZoneLookup()
 
-    val briefings = BriefingService(forecasts, kp = SwpcKpClient())
+    val issTles = CachingTleSource(CelestrakClient(), File(context.filesDir, "tle/iss.txt"))
+
+    private val realBriefings: BriefingSource = BriefingService(realForecasts, kp = SwpcKpClient(), iss = issTles)
+
+    var briefings: BriefingSource = realBriefings
+        private set
 
     /**
      * North America grid, then the world fallback. Null only when neither asset is packaged.
@@ -71,5 +84,20 @@ class AppGraph private constructor(context: Context) {
             instance ?: synchronized(this) {
                 instance ?: AppGraph(context.applicationContext).also { instance = it }
             }
+
+    }
+
+    /**
+     * Points prefetch and digest at fakes without opening a second settings file.
+     * [resetSourcesForTest] puts the real clients back.
+     */
+    fun replaceSourcesForTest(forecasts: ForecastSource, briefings: BriefingSource) {
+        this.forecasts = forecasts
+        this.briefings = briefings
+    }
+
+    fun resetSourcesForTest() {
+        forecasts = realForecasts
+        briefings = realBriefings
     }
 }

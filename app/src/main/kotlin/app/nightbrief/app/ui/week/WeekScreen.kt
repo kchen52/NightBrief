@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,8 +107,13 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
 }
 
 @Composable
-private fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    SectionCard(modifier = modifier.clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick)) {
+internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    SectionCard(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .testTag("week-night"),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(96.dp)) {
                 Text(

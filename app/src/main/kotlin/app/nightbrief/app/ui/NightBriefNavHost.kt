@@ -164,7 +164,18 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 if (date == null) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
-                    PlannedNightScreen(vm, siteId, date, onBack = { navController.popBackStack() })
+                    PlannedNightScreen(
+                        vm,
+                        siteId,
+                        date,
+                        onBack = { navController.popBackStack() },
+                        onSelectDate = { newDate ->
+                            navController.navigate(Routes.night(siteId, newDate)) {
+                                popUpTo(Routes.Night) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                    )
                 }
             }
         }

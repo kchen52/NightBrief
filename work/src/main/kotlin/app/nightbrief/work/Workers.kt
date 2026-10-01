@@ -7,11 +7,16 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import app.nightbrief.data.AppGraph
+import app.nightbrief.data.AppState
+import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.BigNightCandidate
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.weather.ForecastStatus
+import kotlinx.coroutines.CancellationException
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * Fetches fresh forecasts for every saved site, scores tonight, and posts a digest for each site due.
@@ -55,6 +60,7 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             if (refresh) return Result.retry()
             DigestScheduler.scheduleRefresh(applicationContext, needsRetry)
         }
+        WidgetRefresh.request(applicationContext)
         return Result.success()
     }
 
@@ -74,15 +80,60 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     }
 }
 
-/** Keeps the forecast cache warm so the morning digest has data even if the network is down at 08:00. */
+/**
+ * Keeps the forecast cache warm so the morning digest has data even if the network is down at 08:00.
+ * After a successful fetch, scores tonight from that cache and posts a Big Night alert at 85 or above.
+ */
 class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val graph = AppGraph.get(applicationContext)
-        val sites = graph.settings.current().sites.sites
+        val state = graph.settings.current()
+        val sites = state.sites.sites
+        if (!state.onboardingComplete || sites.isEmpty()) return Result.success()
+
         var failures = 0
         for (site in sites) {
             runCatching { graph.forecasts.forecast(site.latitude, site.longitude) }.onFailure { failures++ }
         }
-        return if (failures > 0 && failures == sites.size) Result.retry() else Result.success()
+        if (failures > 0 && failures == sites.size) return Result.retry()
+
+        if (state.bigNightAlertsEnabled) {
+            try {
+                postBigNightAlerts(graph, state)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Scoring or notifying must not turn a saved prefetch into a retry.
+            }
+        }
+        WidgetRefresh.request(applicationContext)
+        return Result.success()
+    }
+
+    private suspend fun postBigNightAlerts(graph: AppGraph, state: AppState) {
+        val briefing = graph.briefings.brief(
+            sites = state.sites.primaryFirst(),
+            kit = state.gear,
+            outlookDays = 1,
+            forceRefresh = false,
+        )
+        val notifier = DigestNotifier(applicationContext)
+        val alerts = BigNightAlerts.select(
+            candidates = briefing.tonight.map {
+                BigNightCandidate(it.site.id, it.site.name, it.date, it.scoreValue)
+            },
+            alreadyAlerted = state.lastBigNightAlerts,
+            enabled = true,
+        )
+        val locale = Locale.getDefault()
+        val newlyAlerted = alerts.associate { alert ->
+            notifier.postBigNight(alert.siteId, alert.siteName, alert.score, alert.dateLabel(locale))
+            alert.siteId to alert.nightKey
+        }
+        if (newlyAlerted.isNotEmpty()) {
+            graph.settings.update { current ->
+                current.copy(lastBigNightAlerts = current.lastBigNightAlerts + newlyAlerted)
+            }
+        }
     }
 }

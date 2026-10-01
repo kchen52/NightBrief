@@ -15,6 +15,10 @@ data class AppState(
     /** Global digest time for the primary site ("HH:mm"). */
     val digestTime: String = "08:00",
     val digestEnabled: Boolean = true,
+    /** Post a notification when a site's tonight score reaches 85. */
+    val bigNightAlertsEnabled: Boolean = true,
+    /** Site id -> ISO local night date (yyyy-MM-dd) already alerted. */
+    val lastBigNightAlerts: Map<String, String> = emptyMap(),
     /** Minimum score lead before the digest mentions another site. */
     val alternativeThreshold: Int = SiteComparison.DEFAULT_THRESHOLD,
 ) {

@@ -1,11 +1,13 @@
 package app.nightbrief.score
 
 import app.nightbrief.astro.Darkness
+import app.nightbrief.astro.IssPass
 import app.nightbrief.astro.NightEphemeris
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.ForecastStatus
+import app.nightbrief.weather.OpenMeteoClient
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -41,6 +43,10 @@ data class NightReport(
     val warnings: List<String> = emptyList(),
     /** Planetary Kp for this night's dark window, when SWPC data covers it. Not a score input. */
     val aurora: AuroraOutlook? = null,
+    /** Best active shower for this night, or null when none is active. Not a score input. */
+    val meteor: MeteorOutlook? = null,
+    /** ISS passes whose peak falls in the dark window. Empty when no TLE was available. */
+    val issPasses: List<IssPass> = emptyList(),
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -55,6 +61,20 @@ object NightPlanner {
         val local = now.atZone(zone)
         return if (local.toLocalTime().isBefore(LocalTime.of(6, 0))) local.toLocalDate().minusDays(1) else local.toLocalDate()
     }
+
+    /** Last evening the planner can select. [forecastDays] matches Open-Meteo's `forecast_days`. */
+    fun planningLastDate(
+        tonight: LocalDate,
+        forecastDays: Int = OpenMeteoClient.DEFAULT_FORECAST_DAYS,
+    ): LocalDate = tonight.plusDays((forecastDays.coerceAtLeast(1) - 1).toLong())
+
+    fun canStepToPreviousNight(date: LocalDate, tonight: LocalDate): Boolean = date.isAfter(tonight)
+
+    fun canStepToNextNight(
+        date: LocalDate,
+        tonight: LocalDate,
+        forecastDays: Int = OpenMeteoClient.DEFAULT_FORECAST_DAYS,
+    ): Boolean = date.isBefore(planningLastDate(tonight, forecastDays))
 
     fun plan(
         site: Site,
@@ -128,6 +148,7 @@ object NightPlanner {
             coverage = coverage,
             forecastStatus = forecastStatus,
             warnings = warnings,
+            meteor = MeteorAdvisor.forNight(eph),
         )
     }
 

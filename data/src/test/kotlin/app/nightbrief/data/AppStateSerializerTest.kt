@@ -17,6 +17,8 @@ class AppStateSerializerTest {
             sites = SiteBook().add(Site("home", "Home", 43.65, -79.38, "America/Toronto", bortle = 8)),
             gear = GearCatalog.exampleKit,
             digestTime = "07:45",
+            bigNightAlertsEnabled = false,
+            lastBigNightAlerts = mapOf("home" to "2026-08-12"),
         )
         val out = ByteArrayOutputStream()
         AppStateSerializer.writeTo(state, out)
@@ -33,5 +35,13 @@ class AppStateSerializerTest {
     fun toleratesUnknownFields() = runTest {
         val json = """{"onboardingComplete":true,"futureField":42}"""
         assertEquals(true, AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray())).onboardingComplete)
+    }
+
+    @Test
+    fun missingBigNightKeysUseDefaults() = runTest {
+        val json = """{"onboardingComplete":true}"""
+        val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
+        assertEquals(true, state.bigNightAlertsEnabled)
+        assertEquals(emptyMap<String, String>(), state.lastBigNightAlerts)
     }
 }

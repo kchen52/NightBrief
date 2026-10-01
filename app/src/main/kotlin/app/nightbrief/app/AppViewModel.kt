@@ -2,6 +2,7 @@ package app.nightbrief.app
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import java.time.LocalDate
 
 data class BriefingUiState(
@@ -31,8 +33,12 @@ data class BriefingUiState(
     val error: String? = null,
 )
 
-class AppViewModel(app: Application) : AndroidViewModel(app) {
+class AppViewModel(
+    app: Application,
+    private val savedState: SavedStateHandle = SavedStateHandle(),
+) : AndroidViewModel(app) {
     private val graph = AppGraph.get(app)
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     val state: StateFlow<AppState?> = graph.settings.state
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -43,9 +49,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _selectedSiteId = MutableStateFlow<String?>(null)
     val selectedSiteId: StateFlow<String?> = _selectedSiteId.asStateFlow()
 
-    /** Draft for the onboarding flow; lives here so it survives configuration changes. */
-    val onboardingSite = MutableStateFlow(SiteDraft(name = "Home", makePrimary = true))
-    val onboardingGear = MutableStateFlow<GearKit?>(null)
+    /**
+     * Onboarding drafts. Stored in [SavedStateHandle] so they survive process death,
+     * not only configuration changes.
+     */
+    val onboardingSite = MutableStateFlow(readSite())
+    val onboardingGear = MutableStateFlow(readGear())
 
     private var refreshJob: Job? = null
 
@@ -95,6 +104,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun lookupTimeZone(lat: Double, lon: Double): String? =
         withContext(Dispatchers.IO) { graph.timeZoneLookup.zoneFor(lat, lon) }
 
+    fun updateOnboardingSite(draft: SiteDraft) {
+        onboardingSite.value = draft
+        savedState[ONBOARDING_SITE] = json.encodeToString(SiteDraft.serializer(), draft)
+    }
+
+    fun updateOnboardingGear(kit: GearKit) {
+        onboardingGear.value = kit
+        savedState[ONBOARDING_GEAR] = json.encodeToString(GearKit.serializer(), kit)
+    }
+
+    /** Values currently held for process-death restore. Tests rebuild a handle from this map. */
+    internal fun exportOnboardingState(): Map<String, Any?> = buildMap {
+        savedState.get<String>(ONBOARDING_SITE)?.let { put(ONBOARDING_SITE, it) }
+        savedState.get<String>(ONBOARDING_GEAR)?.let { put(ONBOARDING_GEAR, it) }
+    }
+
+    private fun readSite(): SiteDraft {
+        val raw = savedState.get<String>(ONBOARDING_SITE) ?: return SiteDraft(name = "Home", makePrimary = true)
+        return runCatching { json.decodeFromString(SiteDraft.serializer(), raw) }
+            .getOrDefault(SiteDraft(name = "Home", makePrimary = true))
+    }
+
+    private fun readGear(): GearKit? {
+        val raw = savedState.get<String>(ONBOARDING_GEAR) ?: return null
+        return runCatching { json.decodeFromString(GearKit.serializer(), raw) }.getOrNull()
+    }
+
     fun completeOnboarding(digestTime: String) {
         val draft = onboardingSite.value
         if (!draft.isValid) return
@@ -125,6 +161,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDigestTime(time: String) = mutate { it.copy(digestTime = time) }
     fun setDigestEnabled(enabled: Boolean) = mutate { it.copy(digestEnabled = enabled) }
+    fun setBigNightAlertsEnabled(enabled: Boolean) = mutate { it.copy(bigNightAlertsEnabled = enabled) }
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
 
     fun sendDigestNow() {
@@ -134,6 +171,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rescheduleDigest() {
         viewModelScope.launch { DigestScheduler.reschedule(getApplication()) }
+    }
+
+    private companion object {
+        const val ONBOARDING_SITE = "onboarding.site"
+        const val ONBOARDING_GEAR = "onboarding.gear"
     }
 
     private fun mutate(transform: (AppState) -> AppState) {

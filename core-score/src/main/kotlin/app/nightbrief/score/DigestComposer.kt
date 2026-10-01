@@ -1,6 +1,7 @@
 package app.nightbrief.score
 
 import app.nightbrief.astro.Darkness
+import app.nightbrief.astro.IssPass
 import app.nightbrief.astro.NightEphemeris
 import app.nightbrief.weather.ForecastStatus
 import java.time.Instant
@@ -63,6 +64,8 @@ object DigestComposer {
             val why = SiteComparison.joinReasons(it.reasons)
             lines += "${it.report.site.name} +${it.delta}" + if (why.isNotEmpty()) ": $why" else ""
         }
+        report.meteor?.takeIf { it.worthWatching }?.let { lines += MeteorAdvisor.digestLine(it) }
+        issLine(report.issPasses, ::fmt)?.let { lines += it }
         report.aurora?.let { aurora ->
             val line = AuroraCopy.digestLine(aurora)
             if (aurora.prominent) lines.add(0, line) else lines += line
@@ -96,6 +99,23 @@ object DigestComposer {
             rise != null && rise in dark -> "$phase, rises ${fmt(rise)}"
             else -> "$phase, ${free.toMinutes() / 60}h ${free.toMinutes() % 60}m moon-free"
         }
+    }
+
+    /** One line for the highest pass, plus a count when the dark window has more than one. */
+    fun issLine(passes: List<IssPass>, fmt: (Instant) -> String): String? {
+        if (passes.isEmpty()) return null
+        val best = passes.maxBy { it.peakAltitudeDeg }
+        val rise = best.rise
+        val set = best.set
+        val peak = "${best.peakAltitudeDeg.roundToInt()}° ${compass(best.peakAzimuthDeg)}"
+        val span = when {
+            rise != null && set != null -> "${fmt(rise)}–${fmt(set)}"
+            rise != null -> "from ${fmt(rise)}"
+            set != null -> "until ${fmt(set)}"
+            else -> "at ${fmt(best.peak)}"
+        }
+        val extra = if (passes.size > 1) " · ${passes.size} passes" else ""
+        return "ISS $span, peak $peak$extra"
     }
 
     fun compass(azimuthDeg: Double): String {

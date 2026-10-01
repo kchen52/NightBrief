@@ -45,6 +45,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -117,7 +120,31 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(checked = s.digestEnabled, onCheckedChange = vm::setDigestEnabled)
+                    Switch(
+                        checked = s.digestEnabled,
+                        onCheckedChange = vm::setDigestEnabled,
+                        modifier = Modifier
+                            .testTag("digest-enabled")
+                            .semantics { contentDescription = "Daily digest" },
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Big Night alerts", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Notify when a site reaches 85 tonight",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = s.bigNightAlertsEnabled,
+                        onCheckedChange = vm::setBigNightAlertsEnabled,
+                        modifier = Modifier
+                            .testTag("big-night-enabled")
+                            .semantics { contentDescription = "Big Night alerts" },
+                    )
                 }
                 TextButton(onClick = { showTime = true }) { Text("Time: ${clockLabel(s.digestTime)}") }
                 Spacer(Modifier.height(8.dp))
@@ -201,6 +228,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Text("Weather by Open-Meteo.com (CC BY 4.0).", style = MaterialTheme.typography.bodyMedium)
                 Text("Seeing and transparency by 7Timer!.", style = MaterialTheme.typography.bodyMedium)
                 Text("Planetary Kp by NOAA SWPC.", style = MaterialTheme.typography.bodyMedium)
+                Text("ISS orbits by Celestrak.", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Meteor rates are a static annual table, not a live feed.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Text("Map data © OpenStreetMap contributors.", style = MaterialTheme.typography.bodyMedium)
                 Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)
                 Text(

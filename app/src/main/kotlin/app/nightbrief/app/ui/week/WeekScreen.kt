@@ -107,7 +107,7 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
 }
 
 @Composable
-private fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, onClick: () -> Unit) {
+internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, onClick: () -> Unit) {
     SectionCard(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))

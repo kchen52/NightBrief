@@ -1,6 +1,18 @@
 # NightBrief
 
-NightBrief is a native Android app that answers a single question before you pack the car: is tonight worth imaging from one of your sites? It scores the coming night from cloud, moon and twilight, transparency, wind, seeing, and sky darkness, then delivers a morning go/no-go digest. You can keep several sites, compare them, and look a few nights ahead.
+NightBrief is a native Android app that answers one question before you pack the car: is tonight worth imaging?
+
+It scores the night at each place you shoot from — clouds, Moon, darkness, transparency, wind, seeing, and sky brightness — and turns that into a go, maybe, or no-go. Tonight shows the score, the sky, and the Milky Way window. This week lines up the next few nights. The camera and lenses you own turn a target into an exposure. A morning notification carries the same answer, a home-screen widget shows the score, and a night at 85 or above can raise a Big Night alert. A shower worth watching, or an ISS pass in the dark window, shows up on Tonight as well.
+
+The screens below are the app's Compose UI for a clear August 2024 night at a Bortle 4 site near Toronto, using the example Canon EOS R7 and Sigma 10–18mm kit.
+
+| Tonight | This week |
+| --- | --- |
+| ![Tonight: Home scores 91, Go, Excellent](docs/screenshots/tonight.png) | ![This week: Monday is the best night](docs/screenshots/week.png) |
+
+| Perseids and an ISS pass | Gear |
+| --- | --- |
+| ![Perseids tonight and an ISS pass](docs/screenshots/meteors.png) | ![Gear: Canon EOS R7 and a Sigma 10–18mm lens](docs/screenshots/gear.png) |
 
 The app is Kotlin, `minSdk` 26. `:app` is the Compose UI: tonight, a week outlook, a planner for one site and date, and a site list with an OpenStreetMap picker. Saved gear drives the exposure hints on those screens. Forecasts, ephemeris, scoring, and settings live in the libraries below.
 
@@ -125,11 +137,11 @@ export ANDROID_HOME=~/android-sdk
 
 JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTest`.
 
-Paparazzi golden screenshots for Tonight (score, stale forecast, Perseids, and an ISS pass) live in `app/src/test/snapshots`. Record and check them with:
+Paparazzi golden screenshots live in `app/src/test/snapshots`. `TonightScreenshotTest` covers a scored night, the stale-forecast banner, and the Perseids and ISS cards. `ReadmeScreenshotTest` is the phone frames in `docs/screenshots` (the meteor frame there is cropped to the cards). Record and check them with:
 
 ```bash
-./gradlew :app:recordPaparazziDebug --tests app.nightbrief.app.ui.TonightScreenshotTest
-./gradlew :app:verifyPaparazziDebug --tests app.nightbrief.app.ui.TonightScreenshotTest
+./gradlew :app:recordPaparazziDebug --tests 'app.nightbrief.app.ui.*ScreenshotTest'
+./gradlew :app:verifyPaparazziDebug --tests 'app.nightbrief.app.ui.*ScreenshotTest'
 ```
 
 Connected UI tests live in `app/src/androidTest` and run only when a device or emulator is attached. They compile without one:

@@ -87,8 +87,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return withContext(Dispatchers.Default) { graph.briefings.plan(site, date, s.gear) }
     }
 
-    /** Bortle class from the bundled light-pollution grid, if the app ships one. */
-    fun lookupBortle(lat: Double, lon: Double): Int? = graph.bortleLookup?.lookup(lat, lon)
+    /** Bortle class from the bundled light-pollution grid, or null when those grids have no data there. */
+    suspend fun lookupBortle(lat: Double, lon: Double): Int? =
+        withContext(Dispatchers.IO) { graph.bortleLookup?.lookup(lat, lon) }
+
+    /** IANA time zone from Open-Meteo, or null when the lookup fails. */
+    suspend fun lookupTimeZone(lat: Double, lon: Double): String? =
+        withContext(Dispatchers.IO) { graph.timeZoneLookup.zoneFor(lat, lon) }
 
     fun completeOnboarding(digestTime: String) {
         val draft = onboardingSite.value

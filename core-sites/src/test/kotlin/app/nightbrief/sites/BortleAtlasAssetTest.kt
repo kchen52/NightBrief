@@ -17,10 +17,10 @@ import java.util.zip.GZIPInputStream
 class BortleAtlasAssetTest {
     @Test
     fun shippedGridsMatchKnownSkies() {
-        val naFile = asset("bortle_na.nblp.gz")
-        val worldFile = asset("bortle_world.nblp.gz")
-        println("bortle_na.nblp.gz ${naFile.length()} bytes")
-        println("bortle_world.nblp.gz ${worldFile.length()} bytes")
+        val naFile = asset("bortle_na.nblp.gzip")
+        val worldFile = asset("bortle_world.nblp.gzip")
+        println("bortle_na.nblp.gzip ${naFile.length()} bytes")
+        println("bortle_world.nblp.gzip ${worldFile.length()} bytes")
 
         val naBytes = gunzip(naFile)
         val worldBytes = gunzip(worldFile)

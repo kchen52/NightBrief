@@ -9,7 +9,8 @@ val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
     save = {
         arrayListOf(
             it.id, it.name, it.latitude, it.longitude, it.bortle, it.bortleSource.name,
-            it.zoneId, it.digestTimeOverride, it.makePrimary,
+            it.zoneId, it.zoneEdited, it.savedLatitude, it.savedLongitude, it.savedZoneId,
+            it.digestTimeOverride, it.makePrimary,
         )
     },
     restore = { saved ->
@@ -22,8 +23,12 @@ val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
             bortle = v[4] as Int?,
             bortleSource = BortleSource.valueOf(v[5] as String),
             zoneId = v[6] as String,
-            digestTimeOverride = v[7] as String?,
-            makePrimary = v[8] as Boolean,
+            zoneEdited = v[7] as Boolean,
+            savedLatitude = v[8] as String?,
+            savedLongitude = v[9] as String?,
+            savedZoneId = v[10] as String?,
+            digestTimeOverride = v[11] as String?,
+            makePrimary = v[12] as Boolean,
         )
     },
 )

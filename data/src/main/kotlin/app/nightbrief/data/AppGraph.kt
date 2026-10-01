@@ -7,6 +7,7 @@ import app.nightbrief.sites.CompositeBortleLookup
 import app.nightbrief.sites.StreamingGridBortleLookup
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
+import app.nightbrief.weather.TimeZoneLookup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,16 +25,17 @@ class AppGraph private constructor(context: Context) {
 
     val forecasts = ForecastRepository(cache = FileForecastCache(File(context.filesDir, "forecasts")))
 
+    val timeZoneLookup = TimeZoneLookup()
+
     val briefings = BriefingService(forecasts)
 
     /**
      * North America grid, then the world fallback. Null only when neither asset is packaged.
      *
-     * Lookup does blocking I/O (~up to a second) and must be called off the main thread.
-     * Each call opens the gzip asset, reads the header, and skips to a single byte.
-     * `AssetManager.open` returns the raw gzip bytes (it undoes APK deflate only);
-     * the stream below gunzips them. The packaged names end in `.gzip` rather than
-     * `.gz`: the asset merger unpacks `*.gz` and would undo this compression.
+     * Lookup does blocking I/O (up to about a second) and must be called off the main thread.
+     * Each call opens the gzip asset, reads the header, and skips to one byte.
+     * The files are named `.gzip` so the asset merger does not unpack them (it gunzips `*.gz`).
+     * `AssetManager.open` returns those bytes; it undoes APK deflate only.
      */
     val bortleLookup: BortleLookup? = listOfNotNull(
         streamingBortle(context, BORTLE_NA_ASSET),
@@ -56,9 +58,9 @@ class AppGraph private constructor(context: Context) {
         }
 
     companion object {
-        /** Gzip bytes. Not `*.gz`: AGP would unpack that name during the asset merge. */
+        /** North America grid, gzip bytes. The `.gzip` suffix keeps the asset merger from unpacking it. */
         const val BORTLE_NA_ASSET = "bortle_na.nblp.gzip"
-        /** Gzip bytes. Not `*.gz`: AGP would unpack that name during the asset merge. */
+        /** World grid, gzip bytes. The `.gzip` suffix keeps the asset merger from unpacking it. */
         const val BORTLE_WORLD_ASSET = "bortle_world.nblp.gzip"
 
         @Volatile

@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.data.LightPollutionAttribution
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.work.DigestNotifier
 import app.nightbrief.work.DigestScheduler
@@ -200,6 +201,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Text("Weather by Open-Meteo.com (CC BY 4.0).", style = MaterialTheme.typography.bodyMedium)
                 Text("Seeing and transparency by 7Timer!.", style = MaterialTheme.typography.bodyMedium)
                 Text("Map data © OpenStreetMap contributors.", style = MaterialTheme.typography.bodyMedium)
+                Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "The light-pollution data is licensed for non-commercial use only.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Text(
                     "Ephemeris uses Astronomical Almanac low-precision formulas.",
                     style = MaterialTheme.typography.bodyMedium,

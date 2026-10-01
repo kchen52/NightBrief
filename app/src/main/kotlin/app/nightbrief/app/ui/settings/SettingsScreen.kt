@@ -119,6 +119,18 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                     Switch(checked = s.digestEnabled, onCheckedChange = vm::setDigestEnabled)
                 }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Big Night alerts", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Notify when a site reaches 85 tonight",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = s.bigNightAlertsEnabled, onCheckedChange = vm::setBigNightAlertsEnabled)
+                }
                 TextButton(onClick = { showTime = true }) { Text("Time: ${clockLabel(s.digestTime)}") }
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -201,6 +213,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Text("Weather by Open-Meteo.com (CC BY 4.0).", style = MaterialTheme.typography.bodyMedium)
                 Text("Seeing and transparency by 7Timer!.", style = MaterialTheme.typography.bodyMedium)
                 Text("Planetary Kp by NOAA SWPC.", style = MaterialTheme.typography.bodyMedium)
+                Text("ISS orbits by Celestrak.", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Meteor rates are a static annual table, not a live feed.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Text("Map data © OpenStreetMap contributors.", style = MaterialTheme.typography.bodyMedium)
                 Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)
                 Text(

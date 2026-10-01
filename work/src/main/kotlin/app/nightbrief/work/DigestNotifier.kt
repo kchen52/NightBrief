@@ -48,6 +48,20 @@ class DigestNotifier(private val context: Context) {
         NotificationManagerCompat.from(context).notify(notificationId(digest.siteId), notification)
     }
 
+    fun postBigNight(siteId: String, siteName: String, score: Int, dateLabel: String) {
+        if (!canNotify()) return
+        val notification = NotificationCompat.Builder(context, CHANNEL_BIG_NIGHT)
+            .setSmallIcon(R.drawable.ic_stat_nightbrief)
+            .setContentTitle("Big Night at $siteName")
+            .setContentText("Tonight scores $score. $dateLabel")
+            .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setContentIntent(openTonight(siteId))
+            .setAutoCancel(true)
+            .build()
+        @Suppress("MissingPermission")
+        NotificationManagerCompat.from(context).notify(bigNightNotificationId(siteId), notification)
+    }
+
     fun progressNotification(): Notification =
         NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_stat_nightbrief)
@@ -69,17 +83,25 @@ class DigestNotifier(private val context: Context) {
 
     companion object {
         const val CHANNEL_DIGEST = "digest"
+        const val CHANNEL_BIG_NIGHT = "big_night"
         const val CHANNEL_PROGRESS = "progress"
         const val PROGRESS_ID = 9000
         const val EXTRA_SITE_ID = "app.nightbrief.extra.SITE_ID"
 
         fun notificationId(siteId: String): Int = 1000 + (siteId.hashCode() and 0x0FFF)
 
+        fun bigNightNotificationId(siteId: String): Int = 2000 + (siteId.hashCode() and 0x0FFF)
+
         fun ensureChannels(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_DIGEST, "Daily digest", NotificationManager.IMPORTANCE_DEFAULT).apply {
                     description = "Morning go/no-go summary for tonight"
+                },
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_BIG_NIGHT, "Big Night alerts", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Posted when tonight scores 85 or above"
                 },
             )
             nm.createNotificationChannel(

@@ -22,7 +22,7 @@ class OpenMeteoClient(
     suspend fun fetch(
         latitude: Double,
         longitude: Double,
-        days: Int = 8,
+        days: Int = DEFAULT_FORECAST_DAYS,
         model: WeatherModel = WeatherModel.forLocation(latitude, longitude),
     ): Forecast {
         val url = baseUrl.toHttpUrl().newBuilder()
@@ -86,6 +86,9 @@ class OpenMeteoClient(
     }
 
     companion object {
+        /** Open-Meteo `forecast_days` used by the app. Planning dates run from tonight through tonight + (this - 1). */
+        const val DEFAULT_FORECAST_DAYS = 8
+
         val HOURLY_FIELDS = listOf(
             "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
             "relative_humidity_2m", "temperature_2m", "dew_point_2m",

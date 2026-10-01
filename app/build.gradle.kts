@@ -33,6 +33,13 @@ android {
         noCompress += "gzip"
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    testOptions { unitTests.isIncludeAndroidResources = true }
+}
+
+// Compose UI tests need the debug-only ComponentActivity from ui-test-manifest.
+// Release unit tests do not get that manifest entry, so they cannot host createComposeRule.
+tasks.matching { it.name == "testReleaseUnitTest" }.configureEach {
+    enabled = false
 }
 
 dependencies {
@@ -48,6 +55,12 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.osmdroid)
+    implementation(libs.androidx.glance.appwidget)
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
 }

@@ -1,6 +1,7 @@
 package app.nightbrief.score
 
 import app.nightbrief.astro.Darkness
+import app.nightbrief.astro.IssPass
 import app.nightbrief.astro.NightEphemeris
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
@@ -41,6 +42,10 @@ data class NightReport(
     val warnings: List<String> = emptyList(),
     /** Planetary Kp for this night's dark window, when SWPC data covers it. Not a score input. */
     val aurora: AuroraOutlook? = null,
+    /** Best active shower for this night, or null when none is active. Not a score input. */
+    val meteor: MeteorOutlook? = null,
+    /** ISS passes whose peak falls in the dark window. Empty when no TLE was available. */
+    val issPasses: List<IssPass> = emptyList(),
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -128,6 +133,7 @@ object NightPlanner {
             coverage = coverage,
             forecastStatus = forecastStatus,
             warnings = warnings,
+            meteor = MeteorAdvisor.forNight(eph),
         )
     }
 

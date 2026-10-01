@@ -125,6 +125,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDigestTime(time: String) = mutate { it.copy(digestTime = time) }
     fun setDigestEnabled(enabled: Boolean) = mutate { it.copy(digestEnabled = enabled) }
+    fun setBigNightAlertsEnabled(enabled: Boolean) = mutate { it.copy(bigNightAlertsEnabled = enabled) }
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
 
     fun sendDigestNow() {

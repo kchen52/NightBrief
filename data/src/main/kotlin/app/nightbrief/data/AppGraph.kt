@@ -5,6 +5,8 @@ import app.nightbrief.score.BriefingService
 import app.nightbrief.sites.BortleLookup
 import app.nightbrief.sites.CompositeBortleLookup
 import app.nightbrief.sites.StreamingGridBortleLookup
+import app.nightbrief.weather.CachingTleSource
+import app.nightbrief.weather.CelestrakClient
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.SwpcKpClient
@@ -28,7 +30,9 @@ class AppGraph private constructor(context: Context) {
 
     val timeZoneLookup = TimeZoneLookup()
 
-    val briefings = BriefingService(forecasts, kp = SwpcKpClient())
+    val issTles = CachingTleSource(CelestrakClient(), File(context.filesDir, "tle/iss.txt"))
+
+    val briefings = BriefingService(forecasts, kp = SwpcKpClient(), iss = issTles)
 
     /**
      * North America grid, then the world fallback. Null only when neither asset is packaged.

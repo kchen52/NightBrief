@@ -1,0 +1,136 @@
+package app.nightbrief.weather
+
+import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneOffset
+
+class ForecastRepositoryTest {
+    private lateinit var server: MockWebServer
+    private var openMeteoCode = 200
+    private var sevenTimerCode = 200
+    private val requests = mutableListOf<String>()
+
+    private fun resource(name: String) = javaClass.classLoader.getResource(name)!!.readText()
+
+    @Before
+    fun setUp() {
+        server = MockWebServer()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.path.orEmpty()
+                requests += path
+                return when {
+                    path.startsWith("/om") -> MockResponse().setResponseCode(openMeteoCode)
+                        .setBody(if (openMeteoCode == 200) resource("open_meteo_gem.json") else "{\"error\":true,\"reason\":\"down\"}")
+                    path.startsWith("/7t") -> MockResponse().setResponseCode(sevenTimerCode)
+                        .setBody(if (sevenTimerCode == 200) resource("seven_timer_astro.json") else "")
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        server.start()
+    }
+
+    @After
+    fun tearDown() = server.shutdown()
+
+    private class MutableClock(var now: Instant) : Clock() {
+        override fun getZone() = ZoneOffset.UTC
+        override fun withZone(zone: java.time.ZoneId?) = this
+        override fun instant() = now
+    }
+
+    private val clock = MutableClock(Instant.parse("2026-10-01T12:00:00Z"))
+
+    private fun repo(cache: ForecastCache = InMemoryForecastCache()) = ForecastRepository(
+        openMeteo = OpenMeteoClient(baseUrl = server.url("/om").toString(), clock = clock),
+        sevenTimer = SevenTimerClient(baseUrl = server.url("/7t").toString()),
+        cache = cache,
+        clock = clock,
+    )
+
+    @Test
+    fun mergesOpenMeteoAndSevenTimer() = runTest {
+        val result = repo().forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.FRESH, result.status)
+        val f = result.forecast
+        assertEquals("gem_seamless", f.model)
+        assertEquals(24, f.hours.size)
+        val h = f.at(Instant.ofEpochSecond(1790866800))!!
+        assertEquals(100, h.cloudCover)
+        assertEquals(99.6, h.jetStreamKmh!!, 0.01)
+        assertEquals(5, h.seeing)
+        assertEquals(5, h.transparency)
+        assertEquals(4, f.at(Instant.ofEpochSecond(1790866800 + 3 * 3600))!!.seeing)
+        assertNull("hours before 7Timer coverage keep null seeing", f.hours.first().seeing)
+        assertTrue(requests.first { it.startsWith("/om") }.contains("models=gem_seamless"))
+    }
+
+    @Test
+    fun sevenTimerOutageIsNonFatal() = runTest {
+        sevenTimerCode = 503
+        val result = repo().forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.FRESH, result.status)
+        assertTrue(result.forecast.hours.all { it.seeing == null })
+        assertEquals(1, result.warnings.size)
+    }
+
+    @Test
+    fun servesRecentCacheWithoutNetwork() = runTest {
+        val r = repo()
+        r.forecast(43.65, -79.38)
+        val before = requests.size
+        clock.now = clock.now.plus(Duration.ofMinutes(30))
+        assertEquals(ForecastStatus.CACHED, r.forecast(43.65, -79.38).status)
+        assertEquals(before, requests.size)
+    }
+
+    @Test
+    fun fallsBackToStaleCacheWhenFetchFails() = runTest {
+        val r = repo()
+        r.forecast(43.65, -79.38)
+        clock.now = clock.now.plus(Duration.ofHours(6))
+        openMeteoCode = 500
+        val result = r.forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.STALE, result.status)
+        assertEquals(24, result.forecast.hours.size)
+    }
+
+    @Test(expected = WeatherApiException::class)
+    fun failsWithoutCache() = runTest {
+        openMeteoCode = 500
+        repo().forecast(43.65, -79.38)
+    }
+
+    @Test
+    fun fileCacheRoundTrips() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("fc").toFile()
+        repo(FileForecastCache(dir)).forecast(43.65, -79.38)
+        openMeteoCode = 500
+        clock.now = clock.now.plus(Duration.ofHours(2))
+        val result = repo(FileForecastCache(dir)).forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.STALE, result.status)
+        assertEquals(5, result.forecast.at(Instant.ofEpochSecond(1790866800))!!.seeing)
+        dir.deleteRecursively()
+    }
+
+    @Test
+    fun modelSelection() {
+        assertEquals(WeatherModel.GEM_SEAMLESS, WeatherModel.forLocation(43.65, -79.38)) // Toronto
+        assertEquals(WeatherModel.GEM_SEAMLESS, WeatherModel.forLocation(53.55, -113.49)) // Edmonton
+        assertEquals(WeatherModel.BEST_MATCH, WeatherModel.forLocation(33.0, -112.0)) // Arizona
+        assertEquals(WeatherModel.BEST_MATCH, WeatherModel.forLocation(51.5, -0.12)) // London
+    }
+}

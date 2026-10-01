@@ -147,6 +147,26 @@ class BuildBortleGridTest(unittest.TestCase):
         self.assertEqual(mean_header["cell"], 2.0)
         self.assertEqual(list(mean_bytes), [expected_mean])
 
+    def test_bbox_flag_accepts_a_leading_minus(self):
+        args = grid.parse_args(
+            ["in.tif", "out.nblp", "--bbox", "-90,-180,90,180", "--aggregate", "mean"]
+        )
+        self.assertEqual(grid.parse_bbox(args.bbox), (-90.0, -180.0, 90.0, 180.0))
+        self.assertEqual(args.aggregate, "mean")
+
+    def test_cell_count_matches_shipped_grid_dimensions(self):
+        # 1/120 and 0.05 must land on whole cells. The snapped North America
+        # span is 5760 * (1/120), which is a hair under 48 in float64.
+        cell = 1 / 120
+        self.assertEqual(grid.cell_count(48.0, cell), 5760)
+        self.assertEqual(grid.cell_count(120.0, cell), 14400)
+        self.assertEqual(grid.cell_count(180.0, 0.05), 3600)
+        self.assertEqual(grid.cell_count(360.0, 0.05), 7200)
+        south = 23.99585795450009
+        north = south + 5760 * cell
+        self.assertEqual(grid.cell_count(north - south, cell), 5760)
+        self.assertEqual(grid.cell_count(-50.0 - (-170.0), cell), 14400)
+
     def test_sqm_units_and_nodata_zero(self):
         # south row 18.0 (B8), 17.0 (B9); north row 22.2 (B1), nodata.
         nodata = -9999.0

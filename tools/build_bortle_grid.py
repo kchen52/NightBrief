@@ -186,6 +186,49 @@ def _default_cell(src) -> float:
     return max(pixel_x, pixel_y)
 
 
+def _iter_source_windows(dataset, south: float, west: float, north: float, east: float):
+    """Yield read windows that cover every source pixel whose center can fall in the bbox.
+
+    A dateline-crossing box (``east <= west``) scans the whole raster; longitude is
+    wrapped later. Otherwise the window is the source pixels that intersect the bbox,
+    padded by one pixel so rounding cannot drop an edge sample.
+    """
+    try:
+        import rasterio
+        from rasterio.windows import Window, from_bounds
+    except ImportError as exc:  # pragma: no cover
+        raise SystemExit(
+            "rasterio is required to read a GeoTIFF. "
+            "Install it with: pip install -r tools/requirements.txt"
+        ) from exc
+
+    full = Window(0, 0, dataset.width, dataset.height)
+    if east > west:
+        try:
+            raw = from_bounds(west, south, east, north, dataset.transform)
+        except rasterio.errors.WindowError:
+            return
+        col0 = max(0, math.floor(raw.col_off) - 1)
+        row0 = max(0, math.floor(raw.row_off) - 1)
+        col1 = min(dataset.width, math.ceil(raw.col_off + raw.width) + 1)
+        row1 = min(dataset.height, math.ceil(raw.row_off + raw.height) + 1)
+        if col1 <= col0 or row1 <= row0:
+            return
+        region = Window(col0, row0, col1 - col0, row1 - row0)
+    else:
+        region = full
+
+    chunk_rows = 512
+    row = int(region.row_off)
+    end = row + int(region.height)
+    col = int(region.col_off)
+    width = int(region.width)
+    while row < end:
+        height = min(chunk_rows, end - row)
+        yield Window(col, row, width, height)
+        row += height
+
+
 def convert(
     dataset,
     output_path: str,
@@ -214,19 +257,28 @@ def convert(
         raise SystemExit("--cell-deg must be positive")
     rows = cell_count(north - south, cell)
     cols = cell_count(lon_span, cell)
+    cells = rows * cols
 
-    pooled_max = np.full((rows, cols), -np.inf, dtype=np.float64)
-    pooled_sum = np.zeros((rows, cols), dtype=np.float64)
-    pooled_count = np.zeros((rows, cols), dtype=np.int64)
+    if aggregate == "max":
+        pooled_max = np.full((rows, cols), -np.inf, dtype=np.float64)
+    else:
+        pooled_sum = np.zeros(cells, dtype=np.float64)
+        pooled_count = np.zeros(cells, dtype=np.int64)
 
     transform = dataset.transform
-    for _, window in dataset.block_windows(1):
+    report = cells >= 1_000_000
+    for window in _iter_source_windows(dataset, south, west, north, east):
         row_off = int(window.row_off)
         col_off = int(window.col_off)
         height = int(window.height)
         width = int(window.width)
         if height == 0 or width == 0:
             continue
+        if report:
+            print(
+                f"binning source rows {row_off}:{row_off + height} ({width} cols)",
+                file=sys.stderr,
+            )
         block = dataset.read(1, window=window, masked=True)
         brightness = _block_brightness(block, input_units)
         row_centers = np.arange(row_off, row_off + height, dtype=np.float64) + 0.5
@@ -247,16 +299,27 @@ def convert(
         if aggregate == "max":
             np.maximum.at(pooled_max, (rr, cc), vals)
         else:
-            np.add.at(pooled_sum, (rr, cc), vals)
-            np.add.at(pooled_count, (rr, cc), 1)
+            # Bin only the index span this chunk actually touches. A full-grid
+            # bincount would allocate rows*cols for every source chunk.
+            flat = rr * np.int64(cols) + cc
+            base = int(flat.min())
+            local = flat - base
+            width = int(local.max()) + 1
+            pooled_sum[base:base + width] += np.bincount(local, weights=vals, minlength=width)
+            pooled_count[base:base + width] += np.bincount(local, minlength=width)
 
     if aggregate == "max":
         valid = np.isfinite(pooled_max)
         luminance = pooled_max
     else:
-        valid = pooled_count > 0
-        luminance = np.zeros_like(pooled_sum)
-        np.divide(pooled_sum, pooled_count, out=luminance, where=valid)
+        valid = (pooled_count > 0).reshape(rows, cols)
+        luminance = np.zeros((rows, cols), dtype=np.float64)
+        np.divide(
+            pooled_sum.reshape(rows, cols),
+            pooled_count.reshape(rows, cols),
+            out=luminance,
+            where=valid,
+        )
 
     grid = _classify(luminance, valid, input_units)
     write_nblp(output_path, south, west, cell, grid)
@@ -310,6 +373,25 @@ def parse_bbox(text: str) -> tuple[float, float, float, float]:
     return south, west, north, east
 
 
+def _attach_bbox_value(argv: list[str]) -> list[str]:
+    """Join ``--bbox -90,...`` into ``--bbox=-90,...``.
+
+    A value that starts with ``-`` is otherwise parsed as a new option, which
+    rejects the world box ``-90,-180,90,180``.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token == "--bbox" and index + 1 < len(argv) and not argv[index + 1].startswith("--"):
+            out.append("--bbox=" + argv[index + 1])
+            index += 2
+            continue
+        out.append(token)
+        index += 1
+    return out
+
+
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -343,7 +425,8 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         default="max",
         help="max: brightest sample in the cell, the worst-case sky (default). mean: mean luminance",
     )
-    return parser.parse_args(list(argv) if argv is not None else None)
+    raw = list(argv) if argv is not None else sys.argv[1:]
+    return parser.parse_args(_attach_bbox_value(raw))
 
 
 def main(argv: Iterable[str] | None = None) -> None:

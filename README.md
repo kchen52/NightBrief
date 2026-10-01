@@ -12,7 +12,7 @@ Dependencies point inward. A module may use the ones it lists, not the other way
 | --- | --- | --- | --- |
 | `:core-astro` | JVM | — | Sun, Moon, and galactic-centre positions; night windows |
 | `:core-weather` | JVM | — | Open-Meteo and 7Timer clients, forecast cache |
-| `:core-sites` | JVM | — | Saved sites and the optional Bortle grid |
+| `:core-sites` | JVM | — | Saved sites and Bortle lookup |
 | `:core-gear` | JVM | — | Camera bodies, lenses, NPF / 500-rule exposure hints |
 | `:core-score` | JVM | astro, weather, sites, gear | Night Score, tonight's plan, digest text, site comparison |
 | `:data` | Android | score | `AppState` datastore and the process-wide `AppGraph` |
@@ -62,18 +62,35 @@ Bands: Excellent ≥ 85, Good ≥ 70, Fair ≥ 50, Marginal ≥ 30, otherwise Po
 * **Open-Meteo** forecast API, no key. Hourly cloud (including low/mid/high), humidity, temperature, dew point, 10 m wind and gusts, and wind at 250 hPa. The model is `gem_seamless` (Environment Canada GEM) when latitude ≥ 41.6 and longitude is between −141.1 and −52.5, which covers Canada and the northern US border where GEM's high-resolution domain still applies. Everywhere else the model is `best_match`.
 * **7Timer! ASTRO** (`7timer.info`) for seeing and transparency indexes. The nearest 7Timer sample within ±90 minutes is attached to each Open-Meteo hour. If 7Timer fails, the forecast is still used and the score falls back to the proxies above.
 * **Ephemeris** is computed on device from the Astronomical Almanac low-precision Sun and Moon formulas (`Bodies`), plus a simple horizontal transform. The Sun is good to about 0.01° and the Moon to about 0.3° in longitude. Rise/set, twilight, illumination, and galactic-centre altitude are checked in `NightEphemerisTest` against Skyfield 1.55 with the DE421 kernel.
-* **Bortle class** comes from the site if the user set one. Otherwise scoring uses class 5. If the app ships an asset named `bortle.nblp`, `AppGraph` loads it and the site editor can fill the class from the map. The file is optional; the repo does not include a world grid.
+* **Bortle class** comes from the site if the user set one. Otherwise scoring uses class 5. When a site is added or edited, `AppGraph.bortleLookup` can fill the class from two grids shipped in `data/src/main/assets/`. Lookups are rare, so the grids are not kept in memory.
 
-Build a grid from a light-pollution GeoTIFF (for example the 2015 World Atlas of Artificial Night Sky Brightness, artificial brightness in mcd/m²) with `tools/build_bortle_grid.py`. The writer uses the same mcd → SQM → Bortle thresholds as `BortleClass.fromArtificialBrightness`. `--input-units sqm` accepts a mag/arcsec² raster. `--cell-deg` downsamples by pooling linear luminance: **max** (the default) keeps the brightest sample in the cell, the worst sky; **mean** uses the average luminance. Output is the NBLP v1 layout documented in `Bortle.kt`: big-endian magic `NBLP`, version 1, south latitude, west longitude, cell size, row count, column count, then row-major uint8 classes starting at the south-west corner (`0` = no data, `1`..`9` = Bortle).
+  * `bortle_na.nblp.gz` — North America at the atlas's native 30 arcsec (exactly 1/120°). 14400 × 5760 cells. Longitude runs from −170° to −50°. Those meridians already fall on atlas pixel edges: the published pixel scale is 0.00833333° (3.3 nanodegrees short of 1/120°), so the grid's east edge sits about 0.19 arcsec east of the source pixel edge. Latitude is shifted half a pixel so each cell is centered on one atlas pixel. The south edge is 23.99585795450009° (14.91 arcsec south of 24°) and the north edge is 71.99585795450008° (14.91 arcsec south of 72°). The atlas north-west corner is longitude −180°, latitude 85.0541668645°, so pixel centers lie about 15 arcsec off a grid whose edges are whole degrees. Putting the south edge at exactly 24° would have centered each cell 15 arcsec north of its sample. Across the 5760 rows the pixel-scale mismatch drifts the northernmost cell center by about 0.07 arcsec, still far under half a pixel.
+  * `bortle_world.nblp.gz` — world fallback at 0.05°. 7200 × 3600 cells covering −180°..180° and −90°..90°. Cells the atlas does not cover (south of about −60° and north of about 85°, including both poles) are 0, which lookup treats as no data.
+
+  Both grids use `--aggregate mean`: the mean artificial luminance in the cell, then the same mcd → SQM → Bortle thresholds as `BortleClass.fromArtificialBrightness`. `CompositeBortleLookup` tries North America first and falls through to the world grid when that lookup returns null (outside the North America bbox, or a 0 byte).
+
+  `StreamingGridBortleLookup` opens the asset on every call, reads the 40-byte NBLP v1 header, skips to `row * cols + col`, reads one byte, and closes the stream. The repo files are gzip. `AppGraph` opens the packaged copies with `BufferedInputStream(GZIPInputStream(context.assets.open(...)))`.
+
+  AGP's asset merger (`MergedAssetWriter`) gunzips every asset whose name ends in `.gz` and drops that suffix. Checked in as `bortle_*.nblp.gz`, those files would land in the APK as uncompressed `.nblp` (~110 MB) and `GZIPInputStream` would fail. `:data` ignores `*.gz` in `src/main/assets` and copies the same bytes to `bortle_na.nblp.gzip` and `bortle_world.nblp.gzip`, which the merger leaves alone. `AssetManager.open` returns those gzip bytes. It only undoes zip-deflate on the APK entry. `:data` also marks `gzip` as `noCompress`. The application module should set the same `noCompress` entry so aapt2 stores the gzip bytes as-is. Reading still works if it deflates them, because AssetManager strips that layer before `GZIPInputStream`.
+
+  Uncompressed, the North America grid is 82,944,040 bytes and the world grid is 25,920,040 bytes. Gzip brings them to 791,414 bytes and 500,190 bytes. Lookup does blocking I/O and can take up to about a second on the far corner of the North America grid. Call it off the main thread.
+
+  Rebuild from the Falchi GeoTIFF (artificial brightness in mcd/m²) with `tools/build_bortle_grid.py`, then gzip the raw `.nblp` and do not commit the uncompressed file:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r tools/requirements.txt
-.venv/bin/python tools/build_bortle_grid.py atlas.tif bortle.nblp --cell-deg 0.1
+.venv/bin/python tools/build_bortle_grid.py World_Atlas_2015.tif bortle_na.nblp \
+  --bbox 23.99585795450009,-170,71.99585795450008,-50 \
+  --cell-deg 0.008333333333333333 --aggregate mean
+.venv/bin/python tools/build_bortle_grid.py World_Atlas_2015.tif bortle_world.nblp \
+  --bbox -90,-180,90,180 --cell-deg 0.05 --aggregate mean
+gzip -9 -c bortle_na.nblp > data/src/main/assets/bortle_na.nblp.gz
+gzip -9 -c bortle_world.nblp > data/src/main/assets/bortle_world.nblp.gz
 .venv/bin/python tools/test_build_bortle_grid.py
 ```
 
-Place the file at `app/src/main/assets/bortle.nblp` if you want lookup inside the app. The tool needs [rasterio](https://rasterio.readthedocs.io/); without it, it exits and tells you to install `tools/requirements.txt`.
+  `--input-units sqm` accepts a mag/arcsec² raster. `--cell-deg` bins source pixels into the output cells. **max** (the tool's default) keeps the brightest sample, the worst sky; the shipped grids use **mean**. Leave the committed files gzip-compressed. NBLP v1, documented in `Bortle.kt`, is big-endian magic `NBLP`, version 1, south latitude, west longitude, cell size, row count, column count (40 bytes), then row-major uint8 classes from the south-west corner (`0` = no data, `1`..`9` = Bortle). The tool needs [rasterio](https://rasterio.readthedocs.io/); without it, it exits and tells you to install `tools/requirements.txt`. The atlas is the 2015 World Atlas of Artificial Night Sky Brightness (Falchi et al.), CC BY-NC 4.0, non-commercial use only. Settings should show `LightPollutionAttribution.TEXT`.
 
 Forecasts are cached as one JSON file per ~1 km cell under the app's files directory. A result younger than 60 minutes is served without a network call unless a refresh is forced. The morning digest always forces a refresh. If that fetch throws and a cached forecast is younger than 48 hours, the digest is built from that stale forecast and the notification says so.
 
@@ -108,4 +125,4 @@ JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTe
 * **Open-Meteo** forecast data is used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit Open-Meteo (https://open-meteo.com/).
 * **OpenStreetMap.** The site map is an osmdroid `MapView` of OSM tiles. The picker shows “Map data © OpenStreetMap contributors”. Keep that credit. OSM data is © OpenStreetMap contributors and available under the [Open Database License](https://www.openstreetmap.org/copyright).
 * **7Timer!** seeing and transparency come from the ASTRO product at https://www.7timer.info/.
-* A bundled `bortle.nblp` is derived data. If you build it from the World Atlas of Artificial Night Sky Brightness (Falchi et al.), cite that atlas and follow its licence; NightBrief does not ship the grid.
+* **Light pollution.** The bundled grids are resampled from Falchi F, Cinzano P, Duriscoe D, Kyba CCM, Elvidge CD, Baugh K, Portnov BA, Rybnikova NA, Furgoni R. The new world atlas of artificial night sky brightness. Sci. Adv. 2016;2:e1600377. Dataset doi:10.5880/GFZ.1.4.2016.001. That atlas is [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/): non-commercial use only. Show `LightPollutionAttribution.TEXT` in Settings: “Light pollution: Falchi et al. 2016, World Atlas of Artificial Night Sky Brightness (CC BY-NC 4.0), resampled to Bortle classes”.

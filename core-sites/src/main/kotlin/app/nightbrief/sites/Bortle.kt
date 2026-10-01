@@ -51,44 +51,132 @@ fun interface BortleLookup {
 }
 
 /**
- * Reads a compact light-pollution raster (see `tools/build_bortle_grid.py`).
+ * NBLP v1 header shared by [GridBortleLookup] and [StreamingGridBortleLookup].
  *
- * Format (big-endian): magic "NBLP", int version (1), double south latitude, double west longitude,
- * double cell size in degrees, int rows, int cols, then rows*cols bytes in row-major order from the
- * south-west corner. Each byte is a Bortle class 1..9, or 0 for no data.
+ * Big-endian, 40 bytes: magic "NBLP" (int), version (int, 1), south latitude (double),
+ * west longitude (double), cell size in degrees (double), rows (int), cols (int).
+ * The payload is `rows * cols` bytes, row-major from the south-west corner.
+ * Each byte is a Bortle class 1..9, or 0 for no data.
+ */
+internal data class NblpHeader(
+    val south: Double,
+    val west: Double,
+    val cell: Double,
+    val rows: Int,
+    val cols: Int,
+) {
+    /** Payload index of the cell containing [latitude]/[longitude], or null if outside. */
+    fun indexOf(latitude: Double, longitude: Double): Int? {
+        val r = floor((latitude - south) / cell).toInt()
+        val c = floor((longitude - west) / cell).toInt()
+        if (r !in 0 until rows || c !in 0 until cols) return null
+        return r * cols + c
+    }
+
+    companion object {
+        const val BYTES = 40
+        private const val MAGIC = 0x4E424C50 // "NBLP"
+        private const val VERSION = 1
+
+        fun read(input: DataInputStream): NblpHeader {
+            require(input.readInt() == MAGIC) { "not a NightBrief light-pollution grid" }
+            require(input.readInt() == VERSION) { "unsupported grid version" }
+            val south = input.readDouble()
+            val west = input.readDouble()
+            val cell = input.readDouble()
+            val rows = input.readInt()
+            val cols = input.readInt()
+            require(rows > 0 && cols > 0 && cell > 0) { "invalid grid header" }
+            return NblpHeader(south, west, cell, rows, cols)
+        }
+    }
+}
+
+private fun bortleOrNull(value: Int): Int? = if (value in 1..9) value else null
+
+/**
+ * [InputStream.skip] may skip fewer bytes than requested, and some streams return 0
+ * before EOF. Keep going, and if [InputStream.skip] returns 0 fall back to [InputStream.read].
+ */
+internal fun skipFully(input: InputStream, count: Long) {
+    var remaining = count
+    while (remaining > 0) {
+        val skipped = input.skip(remaining)
+        if (skipped > 0) {
+            remaining -= skipped
+            continue
+        }
+        if (input.read() < 0) {
+            throw java.io.EOFException("unexpected end of light-pollution grid")
+        }
+        remaining -= 1
+    }
+}
+
+/**
+ * Reads a compact light-pollution raster into memory (see `tools/build_bortle_grid.py`).
+ * Prefer [StreamingGridBortleLookup] for the shipped grids.
  */
 class GridBortleLookup private constructor(
-    private val south: Double,
-    private val west: Double,
-    private val cell: Double,
-    private val rows: Int,
-    private val cols: Int,
+    private val header: NblpHeader,
     private val data: ByteArray,
 ) : BortleLookup {
 
     override fun lookup(latitude: Double, longitude: Double): Int? {
-        val r = floor((latitude - south) / cell).toInt()
-        val c = floor((longitude - west) / cell).toInt()
-        if (r !in 0 until rows || c !in 0 until cols) return null
-        val v = data[r * cols + c].toInt()
-        return if (v in 1..9) v else null
+        val index = header.indexOf(latitude, longitude) ?: return null
+        return bortleOrNull(data[index].toInt() and 0xFF)
     }
 
     companion object {
-        private const val MAGIC = 0x4E424C50 // "NBLP"
-
         fun read(input: InputStream): GridBortleLookup = DataInputStream(input.buffered()).use { s ->
-            require(s.readInt() == MAGIC) { "not a NightBrief light-pollution grid" }
-            require(s.readInt() == 1) { "unsupported grid version" }
-            val south = s.readDouble()
-            val west = s.readDouble()
-            val cell = s.readDouble()
-            val rows = s.readInt()
-            val cols = s.readInt()
-            require(rows > 0 && cols > 0 && cell > 0) { "invalid grid header" }
-            val data = ByteArray(rows * cols)
+            val header = NblpHeader.read(s)
+            val data = ByteArray(header.rows * header.cols)
             s.readFully(data)
-            GridBortleLookup(south, west, cell, rows, cols, data)
+            GridBortleLookup(header, data)
         }
+    }
+}
+
+/**
+ * Looks up one NBLP cell without retaining the grid.
+ *
+ * Each call opens [open], parses the 40-byte header, skips to `row * cols + col`,
+ * reads one byte, and closes the stream. Pass a gzip asset through [java.util.zip.GZIPInputStream]
+ * (see `AppGraph`). The header is not cached; only that one byte is kept.
+ *
+ * This does blocking I/O. On the North America grid the worst case reads the whole
+ * gzip stream and can take about a second. Call it off the main thread.
+ */
+class StreamingGridBortleLookup(
+    private val open: () -> InputStream,
+) : BortleLookup {
+
+    override fun lookup(latitude: Double, longitude: Double): Int? {
+        open().use { input ->
+            // DataInputStream does not buffer, so the underlying stream stays aligned for skipFully.
+            val header = NblpHeader.read(DataInputStream(input))
+            val index = header.indexOf(latitude, longitude) ?: return null
+            skipFully(input, index.toLong())
+            val value = input.read()
+            if (value < 0) throw java.io.EOFException("unexpected end of light-pollution grid")
+            return bortleOrNull(value)
+        }
+    }
+}
+
+/**
+ * Tries each lookup in order and returns the first non-null class.
+ * A null means that lookup has no data there (outside its grid, or a 0 byte).
+ */
+class CompositeBortleLookup(
+    private val lookups: List<BortleLookup>,
+) : BortleLookup {
+
+    override fun lookup(latitude: Double, longitude: Double): Int? {
+        for (lookup in lookups) {
+            val value = lookup.lookup(latitude, longitude)
+            if (value != null) return value
+        }
+        return null
     }
 }

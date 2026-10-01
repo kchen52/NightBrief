@@ -4,10 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,6 +52,7 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
 
     Scaffold(
         modifier = Modifier.padding(contentPadding),
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
                 title = { Text("Tonight") },
@@ -77,7 +82,7 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
             ui.error?.let { Banner(it, NightColors.Poor, Modifier.padding(horizontal = 16.dp)) }
 
             val report = siteId?.let { briefing?.reportFor(it) }
-            if (report == null) {
+            if (briefing == null || report == null) {
                 Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
                     if (ui.loading) CircularProgressIndicator() else Text("Pull fresh data with the refresh button")
                 }

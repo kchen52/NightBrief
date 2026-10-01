@@ -33,8 +33,12 @@ import java.time.LocalDate
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannedNightScreen(vm: AppViewModel, siteId: String, date: LocalDate, onBack: () -> Unit) {
-    var report by remember { mutableStateOf<NightReport?>(null) }
-    LaunchedEffect(siteId, date) { report = vm.planNight(siteId, date) }
+    var report by remember(siteId, date) { mutableStateOf<NightReport?>(null) }
+    var loaded by remember(siteId, date) { mutableStateOf(false) }
+    LaunchedEffect(siteId, date) {
+        report = vm.planNight(siteId, date)
+        loaded = true
+    }
 
     Scaffold(
         topBar = {
@@ -46,10 +50,12 @@ fun PlannedNightScreen(vm: AppViewModel, siteId: String, date: LocalDate, onBack
         },
     ) { inner ->
         val r = report
-        if (r == null) {
-            Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        } else {
-            Box(Modifier.padding(inner).verticalScroll(rememberScrollState())) {
+        when {
+            !loaded -> Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            r == null -> Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("That night isn't available for this site.")
+            }
+            else -> Box(Modifier.padding(inner).verticalScroll(rememberScrollState())) {
                 NightDetail(r, alternative = null, onOpenAlternative = {})
             }
         }

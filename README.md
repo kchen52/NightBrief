@@ -14,6 +14,12 @@ The screens below are the app's Compose UI for a clear August 2024 night at a Bo
 | --- | --- |
 | ![Perseids tonight and an ISS pass](docs/screenshots/meteors.png) | ![Gear: Canon EOS R7 and a Sigma 10–18mm lens](docs/screenshots/gear.png) |
 
+The Wear OS tile shows that same primary score and verdict on a round watch. Before the phone has a site, the watch asks you to set NightBrief up.
+
+| Go | No-go | Set up |
+| --- | --- | --- |
+| ![Home scores 92, Go](docs/screenshots/wear-go.png) | ![Long Point scores 15, No-go](docs/screenshots/wear-nogo.png) | ![Set up NightBrief](docs/screenshots/wear-setup.png) |
+
 The app is Kotlin, `minSdk` 26. `:app` is the Compose UI: tonight, a week outlook, a planner for one site and date, and a site list with an OpenStreetMap picker. Saved gear drives the exposure hints on those screens. Forecasts, ephemeris, scoring, and settings live in the libraries below.
 
 ## Modules
@@ -138,11 +144,13 @@ export ANDROID_HOME=~/android-sdk
 
 JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTest`.
 
-Paparazzi golden screenshots live in `app/src/test/snapshots`. `TonightScreenshotTest` covers a scored night, the stale-forecast banner, and the Perseids and ISS cards. `ReadmeScreenshotTest` is the phone frames in `docs/screenshots` (the meteor frame there is cropped to the cards). Record and check them with:
+Paparazzi golden screenshots live in `app/src/test/snapshots` and `wear/src/test/snapshots`. `TonightScreenshotTest` covers a scored night, the stale-forecast banner, and the Perseids and ISS cards. `ReadmeScreenshotTest` is the phone frames in `docs/screenshots` (the meteor frame there is cropped to the cards). `WearScreenshotTest` is the round-watch frames (`wear-go`, `wear-nogo`, `wear-setup`). Record and check them with:
 
 ```bash
 ./gradlew :app:recordPaparazziDebug --tests 'app.nightbrief.app.ui.*ScreenshotTest'
 ./gradlew :app:verifyPaparazziDebug --tests 'app.nightbrief.app.ui.*ScreenshotTest'
+./gradlew :wear:recordPaparazziDebug --tests app.nightbrief.wear.WearScreenshotTest
+./gradlew :wear:verifyPaparazziDebug --tests app.nightbrief.wear.WearScreenshotTest
 ```
 
 Connected UI tests live in `app/src/androidTest` and run only when a device or emulator is attached. They compile without one:

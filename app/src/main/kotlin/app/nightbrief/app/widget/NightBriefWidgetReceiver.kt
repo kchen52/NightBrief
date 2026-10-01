@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.updateAll
+import app.nightbrief.app.wear.WearPublisher
 import app.nightbrief.work.WidgetRefresh
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,8 @@ class NightBriefWidgetReceiver : GlanceAppWidgetReceiver() {
                 } finally {
                     pending.finish()
                 }
+                // After the widget update, so a Wear failure cannot skip it.
+                WearPublisher.enqueue(context)
             }
             return
         }

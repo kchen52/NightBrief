@@ -2,7 +2,7 @@
 
 NightBrief is a native Android app that answers one question before you pack the car: is tonight worth imaging?
 
-It scores the night at each place you shoot from — clouds, Moon, darkness, transparency, wind, seeing, and sky brightness — and turns that into a go, maybe, or no-go. Tonight shows the score, the sky, and the Milky Way window. This week lines up the next few nights. The camera and lenses you own turn a target into an exposure. A morning notification carries the same answer, a home-screen widget shows the score, and a night at 85 or above can raise a Big Night alert. A shower worth watching, or an ISS pass in the dark window, shows up on Tonight as well.
+It scores the night at each place you shoot from — clouds, Moon, darkness, transparency, wind, seeing, and sky brightness — and turns that into a go, maybe, or no-go. Tonight shows the score, the sky, and the Milky Way window. This week lines up the next few nights. The camera and lenses you own turn a target into an exposure. A morning notification carries the same answer, a home-screen widget shows the score, a Wear OS tile shows that score and the verdict, and a night at 85 or above can raise a Big Night alert. A shower worth watching, or an ISS pass in the dark window, shows up on Tonight as well.
 
 The screens below are the app's Compose UI for a clear August 2024 night at a Bortle 4 site near Toronto, using the example Canon EOS R7 and Sigma 10–18mm kit.
 
@@ -29,9 +29,10 @@ Dependencies point inward. A module may use the ones it lists, not the other way
 | `:core-score` | JVM | astro, weather, sites, gear | Night Score, tonight's plan, meteor and ISS outlooks, digest text, site comparison |
 | `:data` | Android | score | `AppState` datastore and the process-wide `AppGraph` |
 | `:work` | Android | data | Morning alarm, digest notification, forecast prefetch |
-| `:app` | Android | work | Compose UI |
+| `:app` | Android | work | Compose UI, home-screen widget, Wear data-layer publish |
+| `:wear` | Android (watch) | data | Wear OS tile and watch screen for the primary score and verdict |
 
-`:app` therefore reaches the core libraries only through `:work` → `:data` → `:core-score`.
+`:app` therefore reaches the core libraries only through `:work` → `:data` → `:core-score`. `:wear` reaches them through `:data` → `:core-score` and does not depend on `:app`, so the phone widget does not depend on the watch.
 
 ## Night Score
 
@@ -122,7 +123,7 @@ When the alarm fires, `DigestAlarmReceiver` enqueues an expedited `DigestWorker`
 
 `DigestWorker` scores tonight for each site that is due and posts a notification on the `digest` channel. If a site's forecast was not freshly fetched, it enqueues a **network-constrained** one-time worker (15 minute delay, exponential backoff of 15 minutes) that rebuilds the same notification in place and stays quiet (`setSilent`). A separate `PrefetchWorker` runs every 3 hours, only when the network is connected, so the cache is usually warm even if the morning itself is offline. Prefetch retries only when every site failed. After a successful prefetch, if Big Night alerts are on, a site whose tonight score is 85 or higher gets one notification per local night on the `big_night` channel.
 
-The home-screen widget shows the primary site's score and Milky Way window. `DigestWorker` and `PrefetchWorker` ask it to refresh with an in-app broadcast; the widget reads the same briefing cache rather than scoring on its own.
+The home-screen widget shows the primary site's score and Milky Way window. `DigestWorker` and `PrefetchWorker` ask it to refresh with an in-app broadcast; the widget reads the same briefing cache rather than scoring on its own. After that refresh, and when the phone app starts, the same primary score and verdict are published for the Wear OS tile (`:wear`). A failure to reach the watch does not affect the widget.
 
 ## Build and test
 
@@ -130,9 +131,9 @@ JDK 21 and an Android SDK are required (`compileSdk` 35).
 
 ```bash
 export ANDROID_HOME=~/android-sdk
-./gradlew :app:assembleDebug
+./gradlew :app:assembleDebug :wear:assembleDebug
 ./gradlew :core-astro:test :core-weather:test :core-sites:test :core-gear:test :core-score:test
-./gradlew :data:testDebugUnitTest :work:testDebugUnitTest
+./gradlew :data:testDebugUnitTest :work:testDebugUnitTest :wear:testDebugUnitTest
 ```
 
 JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTest`.

@@ -25,4 +25,5 @@ include(
     ":core-score",
     ":data",
     ":work",
+    ":wear",
 )

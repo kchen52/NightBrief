@@ -53,6 +53,18 @@ data class Briefing(
     fun outlookFor(siteId: String): WeeklyOutlook? = outlooks.firstOrNull { it.site.id == siteId }
 }
 
+/** Scores nights for the UI and for background workers. Tests can supply a fake. */
+interface BriefingSource {
+    suspend fun brief(
+        sites: List<Site>,
+        kit: GearKit,
+        outlookDays: Int = 7,
+        forceRefresh: Boolean = false,
+    ): Briefing
+
+    suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport
+}
+
 class BriefingService(
     private val forecasts: ForecastSource,
     private val clock: Clock = Clock.systemUTC(),
@@ -60,12 +72,12 @@ class BriefingService(
     private val kp: KpSource? = null,
     /** ISS elements. Null or a failed fetch leaves [NightReport.issPasses] empty and does not fail the briefing. */
     private val iss: TleSource? = null,
-) {
-    suspend fun brief(
+) : BriefingSource {
+    override suspend fun brief(
         sites: List<Site>,
         kit: GearKit,
-        outlookDays: Int = 7,
-        forceRefresh: Boolean = false,
+        outlookDays: Int,
+        forceRefresh: Boolean,
     ): Briefing = coroutineScope {
         val now = clock.instant()
         val kpDeferred = async { fetchKp() }
@@ -106,7 +118,7 @@ class BriefingService(
     }
 
     /** Plans a single site for a specific date (planning mode). */
-    suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport {
+    override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport {
         val kpForecast = fetchKp()
         val issTle = fetchIss()
         val fr = runCatching { forecasts.forecast(site.latitude, site.longitude) }

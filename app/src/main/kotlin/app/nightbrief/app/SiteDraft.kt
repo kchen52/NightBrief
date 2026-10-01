@@ -2,6 +2,7 @@ package app.nightbrief.app
 
 import app.nightbrief.sites.BortleSource
 import app.nightbrief.sites.Site
+import kotlinx.serialization.Serializable
 import java.time.LocalTime
 import java.time.ZoneId
 import java.util.UUID
@@ -15,6 +16,7 @@ private fun String?.toCoordOrNull(range: ClosedRange<Double>): Double? =
  * [zoneEdited] is set when the zone field is changed by hand in this session.
  * [savedLatitude], [savedLongitude], and [savedZoneId] are copied from an existing site and stay null for a new one.
  */
+@Serializable
 data class SiteDraft(
     val id: String? = null,
     val name: String = "",

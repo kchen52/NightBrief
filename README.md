@@ -125,6 +125,13 @@ export ANDROID_HOME=~/android-sdk
 
 JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTest`.
 
+Paparazzi golden screenshots for Tonight (score, stale forecast, Perseids, and an ISS pass) live in `app/src/test/snapshots`. Record and check them with:
+
+```bash
+./gradlew :app:recordPaparazziDebug --tests app.nightbrief.app.ui.TonightScreenshotTest
+./gradlew :app:verifyPaparazziDebug --tests app.nightbrief.app.ui.TonightScreenshotTest
+```
+
 Connected UI tests live in `app/src/androidTest` and run only when a device or emulator is attached. They compile without one:
 
 ```bash
@@ -132,7 +139,7 @@ Connected UI tests live in `app/src/androidTest` and run only when a device or e
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-The orchestrator clears the app's data before each test. Animations are disabled by the test options. Grant notification and location permission if the system dialog appears before the runner does.
+The orchestrator clears the app's data before each test. Animations are disabled by the test options. Grant notification and location permission if the system dialog appears before the runner does. `ConnectedAccessibilityTest` sets the system font scale to 1.5 and restores 1.0 afterwards; it checks the planner arrows and the Daily digest and Big Night switches by their TalkBack names.
 
 ## Attribution
 

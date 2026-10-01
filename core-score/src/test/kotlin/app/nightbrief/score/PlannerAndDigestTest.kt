@@ -136,7 +136,7 @@ class PlannerAndDigestTest {
     fun briefingCoversAllSitesAndWeek() = runTest {
         val clock = Clock.fixed(Instant.parse("2024-08-10T12:00:00Z"), ZoneOffset.UTC)
         val source = FakeSource(mapOf((home.latitude to home.longitude) to forecast(home, cloud = 20)))
-        val briefing = BriefingService(source, clock).brief(listOf(home, longPoint), kit)
+        val briefing = BriefingService(source, clock).brief(listOf(home, longPoint), kit, outlookDays = 7, forceRefresh = false)
         assertEquals(2, briefing.tonight.size)
         assertNotNull(briefing.reportFor("home")!!.score)
         val lp = briefing.reportFor("lp")!!

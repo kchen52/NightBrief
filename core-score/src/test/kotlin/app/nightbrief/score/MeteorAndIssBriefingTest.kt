@@ -48,7 +48,7 @@ class MeteorAndIssBriefingTest {
         val source = FakeSource(forecast(toronto, "2024-03-14T00:00:00Z"))
         val tle = IssTle(LINE1, LINE2, clock.instant())
         val withIss = BriefingService(source, clock, iss = FixedTle(tle))
-            .brief(listOf(toronto), kit, outlookDays = 1)
+            .brief(listOf(toronto), kit, outlookDays = 1, forceRefresh = false)
         val report = withIss.reportFor("home")!!
         val passes = report.issPasses
         assertTrue("expected a dark-window pass, got ${passes.size}", passes.isNotEmpty())
@@ -63,7 +63,7 @@ class MeteorAndIssBriefingTest {
 
         val failed = BriefingService(source, clock, iss = object : TleSource {
             override suspend fun fetchIss(): IssTle = throw WeatherApiException("celestrak down")
-        }).brief(listOf(toronto), kit, outlookDays = 1)
+        }).brief(listOf(toronto), kit, outlookDays = 1, forceRefresh = false)
         assertTrue(failed.reportFor("home")!!.issPasses.isEmpty())
         assertEquals(withIss.reportFor("home")!!.scoreValue, failed.reportFor("home")!!.scoreValue)
         assertTrue(failed.reportFor("home")!!.warnings.isEmpty())
@@ -72,7 +72,7 @@ class MeteorAndIssBriefingTest {
             source,
             clock,
             iss = FixedTle(IssTle("not-a-tle", "also-not", clock.instant())),
-        ).brief(listOf(toronto), kit, outlookDays = 1)
+        ).brief(listOf(toronto), kit, outlookDays = 1, forceRefresh = false)
         assertTrue(malformed.reportFor("home")!!.issPasses.isEmpty())
         assertEquals(withIss.reportFor("home")!!.scoreValue, malformed.reportFor("home")!!.scoreValue)
     }

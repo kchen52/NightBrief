@@ -28,7 +28,7 @@ class NightBriefWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val content = load(context)
         provideContent {
-            WidgetBody(content)
+            NightBriefWidgetContent(content)
         }
     }
 
@@ -52,13 +52,13 @@ class NightBriefWidget : GlanceAppWidget() {
     }
 }
 
-private sealed interface WidgetContent {
+internal sealed interface WidgetContent {
     data object Setup : WidgetContent
     data class Night(val siteName: String, val scoreLine: String, val milkyWayLine: String) : WidgetContent
 }
 
 @Composable
-private fun WidgetBody(content: WidgetContent) {
+internal fun NightBriefWidgetContent(content: WidgetContent) {
     val context = LocalContext.current
     Column(
         modifier = GlanceModifier

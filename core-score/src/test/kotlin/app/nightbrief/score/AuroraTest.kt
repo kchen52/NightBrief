@@ -135,15 +135,15 @@ class AuroraTest {
     fun briefingAttachesKpAndAFailedFetchDoesNotChangeTheScore() = runTest {
         val clock = Clock.fixed(Instant.parse("2024-08-10T16:00:00Z"), ZoneOffset.UTC)
         val source = FakeSource(forecast(toronto))
-        val plain = BriefingService(source, clock).brief(listOf(toronto), kit, outlookDays = 1)
-        val withKp = BriefingService(source, clock, kp = FixedKp(seriesCovering(toronto))).brief(listOf(toronto), kit, outlookDays = 1)
+        val plain = BriefingService(source, clock).brief(listOf(toronto), kit, outlookDays = 1, forceRefresh = false)
+        val withKp = BriefingService(source, clock, kp = FixedKp(seriesCovering(toronto))).brief(listOf(toronto), kit, outlookDays = 1, forceRefresh = false)
         assertEquals(plain.reportFor("home")!!.scoreValue, withKp.reportFor("home")!!.scoreValue)
         assertEquals(1, withKp.kp!!.samples.size)
         assertEquals(6.0, withKp.reportFor("home")!!.aurora!!.peakKp, 0.001)
 
         val failed = BriefingService(source, clock, kp = object : KpSource {
             override suspend fun fetch(): KpForecast = throw WeatherApiException("swpc down")
-        }).brief(listOf(toronto), kit, outlookDays = 1)
+        }).brief(listOf(toronto), kit, outlookDays = 1, forceRefresh = false)
         assertNull(failed.kp)
         assertNull(failed.reportFor("home")!!.aurora)
         assertEquals(plain.reportFor("home")!!.scoreValue, failed.reportFor("home")!!.scoreValue)

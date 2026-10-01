@@ -64,7 +64,7 @@ fun OnboardingScreen(vm: AppViewModel) {
     val scroll = rememberScrollState()
 
     LaunchedEffect(s.gear) {
-        if (vm.onboardingGear.value == null) vm.onboardingGear.value = s.gear
+        if (vm.onboardingGear.value == null) vm.updateOnboardingGear(s.gear)
     }
     LaunchedEffect(step) { scroll.scrollTo(0) }
 
@@ -116,7 +116,7 @@ fun OnboardingScreen(vm: AppViewModel) {
                         )
                         SiteForm(
                             draft = draft,
-                            onChange = { vm.onboardingSite.value = it },
+                            onChange = vm::updateOnboardingSite,
                             lookupBortle = vm::lookupBortle,
                             lookupTimeZone = vm::lookupTimeZone,
                             showPrimaryToggle = false,
@@ -140,7 +140,7 @@ fun OnboardingScreen(vm: AppViewModel) {
                         if (kit == null) {
                             CircularProgressIndicator()
                         } else {
-                            GearEditor(kit, onChange = { vm.onboardingGear.value = it })
+                            GearEditor(kit, onChange = vm::updateOnboardingGear)
                         }
                     }
                     else -> {

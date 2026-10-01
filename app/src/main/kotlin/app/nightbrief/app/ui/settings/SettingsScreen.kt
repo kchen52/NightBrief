@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -121,7 +123,9 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Switch(
                         checked = s.digestEnabled,
                         onCheckedChange = vm::setDigestEnabled,
-                        modifier = Modifier.testTag("digest-enabled"),
+                        modifier = Modifier
+                            .testTag("digest-enabled")
+                            .semantics { contentDescription = "Daily digest" },
                     )
                 }
                 Spacer(Modifier.height(10.dp))
@@ -137,7 +141,9 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Switch(
                         checked = s.bigNightAlertsEnabled,
                         onCheckedChange = vm::setBigNightAlertsEnabled,
-                        modifier = Modifier.testTag("big-night-enabled"),
+                        modifier = Modifier
+                            .testTag("big-night-enabled")
+                            .semantics { contentDescription = "Big Night alerts" },
                     )
                 }
                 TextButton(onClick = { showTime = true }) { Text("Time: ${clockLabel(s.digestTime)}") }

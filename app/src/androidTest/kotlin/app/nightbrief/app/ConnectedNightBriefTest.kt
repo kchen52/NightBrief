@@ -10,6 +10,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -69,8 +71,14 @@ class ConnectedNightBriefTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithText("ISS orbits by Celestrak.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Planetary Kp by NOAA SWPC.").assertIsDisplayed()
-        compose.onNodeWithTag("digest-enabled").assertIsOn().performClick().assertIsOff()
-        compose.onNodeWithTag("big-night-enabled").assertIsOn().performClick().assertIsOff()
+        compose.onNodeWithTag("digest-enabled").assertIsOn().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasTestTag("digest-enabled") and isOff()).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("big-night-enabled").assertIsOn().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasTestTag("big-night-enabled") and isOff()).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithTag("digest-enabled").assertIsOff()

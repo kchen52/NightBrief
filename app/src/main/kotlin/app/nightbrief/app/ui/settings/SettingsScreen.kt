@@ -200,6 +200,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text("Weather by Open-Meteo.com (CC BY 4.0).", style = MaterialTheme.typography.bodyMedium)
                 Text("Seeing and transparency by 7Timer!.", style = MaterialTheme.typography.bodyMedium)
+                Text("Planetary Kp by NOAA SWPC.", style = MaterialTheme.typography.bodyMedium)
                 Text("Map data © OpenStreetMap contributors.", style = MaterialTheme.typography.bodyMedium)
                 Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)
                 Text(

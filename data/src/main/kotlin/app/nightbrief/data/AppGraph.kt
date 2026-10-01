@@ -7,6 +7,7 @@ import app.nightbrief.sites.CompositeBortleLookup
 import app.nightbrief.sites.StreamingGridBortleLookup
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
+import app.nightbrief.weather.SwpcKpClient
 import app.nightbrief.weather.TimeZoneLookup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,7 @@ class AppGraph private constructor(context: Context) {
 
     val timeZoneLookup = TimeZoneLookup()
 
-    val briefings = BriefingService(forecasts)
+    val briefings = BriefingService(forecasts, kp = SwpcKpClient())
 
     /**
      * North America grid, then the world fallback. Null only when neither asset is packaged.

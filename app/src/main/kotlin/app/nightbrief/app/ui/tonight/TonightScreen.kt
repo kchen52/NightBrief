@@ -126,6 +126,14 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
                     )
                 }
                 NightDetail(report, alternative, onOpenAlternative = vm::selectSite, units = units)
+                val darkerSky by vm.darkerSky.collectAsStateWithLifecycle()
+                DarkerSkyCard(
+                    site = report.site,
+                    state = darkerSky,
+                    onSearch = vm::searchDarkerSky,
+                    onSave = vm::saveDarkerSky,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
                 SessionHistoryCard(
                     sessions = current.sessions.filter { it.siteId == report.site.id },
                     modifier = Modifier.padding(horizontal = 16.dp),

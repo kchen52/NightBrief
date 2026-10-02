@@ -298,4 +298,15 @@
     <string name="session_history">Shooting history</string>
     <string name="session_empty">No logged sessions yet. After a night out, rate it here.</string>
     <string name="log_this_night">Log this night</string>
+    <string name="darker_sky_title">Darker sky nearby</string>
+    <string name="darker_sky_body">Darker sky within 60 km of %1$s, scored for tonight. Saving adds it to Sites.</string>
+    <string name="darker_sky_search">Find darker sky nearby</string>
+    <string name="darker_sky_searching">Searching the light-pollution map…</string>
+    <string name="darker_sky_empty">No darker sky within 60 km of %1$s.</string>
+    <string name="darker_sky_no_grid">Light-pollution map isn\'t available on this install.</string>
+    <string name="darker_sky_save">Save as site</string>
+    <string name="darker_sky_saved">Saved</string>
+    <string name="darker_sky_show_map">Show on map</string>
+    <string name="darker_sky_bortle_distance">Bortle %1$d · %2$d km %3$s</string>
+    <string name="darker_sky_delta">+%1$d tonight</string>
 </resources>

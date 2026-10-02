@@ -9,6 +9,8 @@ import app.nightbrief.data.AppState
 import app.nightbrief.data.LibraryTransfer
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.DarkSkyCandidate
+import app.nightbrief.score.DarkSkyFinder
 import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.UnitSystem
@@ -38,6 +40,14 @@ data class BriefingUiState(
     val error: String? = null,
 )
 
+data class DarkerSkyUiState(
+    val searching: Boolean = false,
+    val candidates: List<DarkSkyCandidate>? = null,
+    val error: String? = null,
+    val searchedSiteId: String? = null,
+    val savedIds: Set<String> = emptySet(),
+)
+
 class AppViewModel(
     app: Application,
     private val savedState: SavedStateHandle = SavedStateHandle(),
@@ -53,6 +63,11 @@ class AppViewModel(
 
     private val _selectedSiteId = MutableStateFlow<String?>(null)
     val selectedSiteId: StateFlow<String?> = _selectedSiteId.asStateFlow()
+
+    private val _darkerSky = MutableStateFlow(DarkerSkyUiState())
+    val darkerSky: StateFlow<DarkerSkyUiState> = _darkerSky.asStateFlow()
+
+    private var darkerSkyJob: Job? = null
 
     /**
      * Onboarding drafts. Stored in [SavedStateHandle] so they survive process death,
@@ -110,6 +125,53 @@ class AppViewModel(
     /** IANA time zone from Open-Meteo, or null when the lookup fails. */
     suspend fun lookupTimeZone(lat: Double, lon: Double): String? =
         withContext(Dispatchers.IO) { graph.timeZoneLookup.zoneFor(lat, lon) }
+
+    /**
+     * Samples the bundled Bortle grid in rings around [siteId] and scores the darkest
+     * spots for tonight. One bad grid cell or candidate forecast skips that candidate only.
+     */
+    fun searchDarkerSky(siteId: String) {
+        val s = state.value ?: return
+        val report = _briefing.value.briefing?.reportFor(siteId) ?: return
+        darkerSkyJob?.cancel()
+        darkerSkyJob = viewModelScope.launch {
+            _darkerSky.value = DarkerSkyUiState(searching = true, searchedSiteId = siteId)
+            try {
+                val lookup = graph.bortleLookup
+                if (lookup == null) {
+                    _darkerSky.value = DarkerSkyUiState(
+                        error = getApplication<Application>().getString(R.string.darker_sky_no_grid),
+                        searchedSiteId = siteId,
+                    )
+                    return@launch
+                }
+                val found = DarkSkyFinder.search(report, s.gear, lookup, graph.briefings)
+                _darkerSky.value = DarkerSkyUiState(candidates = found, searchedSiteId = siteId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _darkerSky.value = DarkerSkyUiState(
+                    error = e.message ?: getApplication<Application>().getString(R.string.error_generic),
+                    searchedSiteId = siteId,
+                )
+            }
+        }
+    }
+
+    fun clearDarkerSky() {
+        darkerSkyJob?.cancel()
+        _darkerSky.value = DarkerSkyUiState()
+    }
+
+    /** Saves a darker-sky candidate as a regular site (fresh id, not primary). */
+    fun saveDarkerSky(candidate: DarkSkyCandidate) {
+        val site = candidate.site.copy(
+            id = java.util.UUID.randomUUID().toString(),
+            name = candidate.site.name,
+        )
+        mutate { it.copy(sites = it.sites.add(site)) }
+        _darkerSky.update { it.copy(savedIds = it.savedIds + candidate.site.id) }
+    }
 
     fun updateOnboardingSite(draft: SiteDraft) {
         onboardingSite.value = draft

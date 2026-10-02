@@ -21,6 +21,7 @@ object WearData {
                 siteName = map.getString(WearGlance.KEY_SITE, ""),
                 scoreText = map.getString(WearGlance.KEY_SCORE, "—"),
                 verdictText = map.getString(WearGlance.KEY_VERDICT, WearGlance.SETUP),
+                savedText = map.getString(WearGlance.KEY_SAVED, "").ifBlank { null },
             )
         }
     }

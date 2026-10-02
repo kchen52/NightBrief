@@ -22,6 +22,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.nightbrief.app.MainActivity
 import app.nightbrief.data.AppGraph
+import app.nightbrief.score.SavedForecast
 import app.nightbrief.score.WidgetCopy
 
 class NightBriefWidget : GlanceAppWidget() {
@@ -48,13 +49,19 @@ class NightBriefWidget : GlanceAppWidget() {
             siteName = primary.name,
             scoreLine = WidgetCopy.scoreLine(report?.scoreValue),
             milkyWayLine = WidgetCopy.milkyWayLine(report?.ephemeris?.milkyWay?.window, primary.zone),
+            savedLine = SavedForecast.shortLabel(report?.forecastStatus, report?.forecastFetchedAt, primary.zone),
         )
     }
 }
 
 internal sealed interface WidgetContent {
     data object Setup : WidgetContent
-    data class Night(val siteName: String, val scoreLine: String, val milkyWayLine: String) : WidgetContent
+    data class Night(
+        val siteName: String,
+        val scoreLine: String,
+        val milkyWayLine: String,
+        val savedLine: String? = null,
+    ) : WidgetContent
 }
 
 @Composable
@@ -80,6 +87,9 @@ internal fun NightBriefWidgetContent(content: WidgetContent) {
                 Text(content.siteName, style = TextStyle(color = ColorProvider(Color(0xFFF4F6FB)), fontSize = 16.sp))
                 Text(content.scoreLine, style = TextStyle(color = ColorProvider(Color(0xFFE8EAF0)), fontSize = 14.sp))
                 Text(content.milkyWayLine, style = TextStyle(color = ColorProvider(Color(0xFFB7BDD0)), fontSize = 14.sp))
+                content.savedLine?.let {
+                    Text(it, style = TextStyle(color = ColorProvider(Color(0xFFFBBF24)), fontSize = 13.sp))
+                }
             }
         }
     }

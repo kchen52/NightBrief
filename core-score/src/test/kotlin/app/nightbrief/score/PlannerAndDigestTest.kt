@@ -66,10 +66,38 @@ class PlannerAndDigestTest {
 
     @Test
     fun forecastBeyondHorizonHasNoScoreButKeepsEphemeris() {
-        val r = NightPlanner.plan(longPoint, aug10.plusDays(30), forecast(longPoint), kit)
+        val saved = forecast(longPoint)
+        val r = NightPlanner.plan(longPoint, aug10.plusDays(30), saved, kit)
         assertEquals(ForecastCoverage.NONE, r.coverage)
         assertNull(r.score)
         assertNotNull(r.ephemeris.darkWindow)
+        assertEquals(saved.fetchedAt, r.forecastFetchedAt)
+    }
+
+    @Test
+    fun aSavedForecastPlansLaterNightsAndRecomputesEphemerisPastItsHours() {
+        val saved = forecast(longPoint, start = "2024-08-09T00:00:00Z", hours = 96)
+        val inside = LocalDate.of(2024, 8, 11)
+        val covered = NightPlanner.plan(
+            longPoint, inside, saved, kit, forecastStatus = ForecastStatus.STALE,
+        )
+        assertEquals(ForecastStatus.STALE, covered.forecastStatus)
+        assertEquals(saved.fetchedAt, covered.forecastFetchedAt)
+        assertNotNull(covered.score)
+        assertEquals(
+            SavedForecast.detail(saved.fetchedAt, longPoint.zone),
+            DigestComposer.compose(covered, emptyList()).lines.last(),
+        )
+
+        val past = LocalDate.of(2024, 8, 20)
+        val uncovered = NightPlanner.plan(
+            longPoint, past, saved, kit, forecastStatus = ForecastStatus.STALE,
+        )
+        assertEquals(ForecastCoverage.NONE, uncovered.coverage)
+        assertNull(uncovered.score)
+        assertNotNull(uncovered.ephemeris.darkWindow)
+        assertEquals(saved.fetchedAt, uncovered.forecastFetchedAt)
+        assertTrue(uncovered.ephemeris.sunset != covered.ephemeris.sunset)
     }
 
     @Test

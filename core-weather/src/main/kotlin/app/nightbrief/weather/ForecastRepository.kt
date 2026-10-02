@@ -24,7 +24,7 @@ class InMemoryForecastCache : ForecastCache {
     }
 }
 
-/** Stores one JSON file per location so the last good forecast survives process death and offline mornings. */
+/** Stores one JSON file per location so the last good forecast survives process death and offline use. */
 class FileForecastCache(private val directory: File) : ForecastCache {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -50,7 +50,7 @@ enum class ForecastStatus {
     FRESH,
     /** Served from cache because it is recent enough. */
     CACHED,
-    /** Network fetch failed; serving an older cached forecast. */
+    /** Network fetch failed; serving the last cached forecast, however old. */
     STALE,
 }
 
@@ -66,13 +66,17 @@ interface ForecastSource {
     suspend fun forecast(latitude: Double, longitude: Double, forceRefresh: Boolean = false): ForecastResult
 }
 
+/**
+ * One file per location. A file younger than [maxCacheAge] is served with no network call
+ * unless refresh is forced. After that the network is tried and a success replaces the file.
+ * A failed fetch serves the last file at any age as [ForecastStatus.STALE]. No file still throws.
+ */
 class ForecastRepository(
     private val openMeteo: OpenMeteoClient = OpenMeteoClient(),
     private val sevenTimer: SevenTimerClient = SevenTimerClient(),
     private val cache: ForecastCache = InMemoryForecastCache(),
     private val clock: Clock = Clock.systemUTC(),
     private val maxCacheAge: Duration = Duration.ofMinutes(60),
-    private val maxStaleAge: Duration = Duration.ofHours(48),
 ) : ForecastSource {
 
     override suspend fun forecast(latitude: Double, longitude: Double, forceRefresh: Boolean): ForecastResult {
@@ -87,7 +91,7 @@ class ForecastRepository(
             cache.put(key, forecast)
             ForecastResult(forecast, ForecastStatus.FRESH, warnings)
         } catch (e: WeatherApiException) {
-            if (cached != null && age != null && age < maxStaleAge) {
+            if (cached != null) {
                 ForecastResult(cached, ForecastStatus.STALE, listOf("Using cached forecast: ${e.message}"))
             } else {
                 throw e

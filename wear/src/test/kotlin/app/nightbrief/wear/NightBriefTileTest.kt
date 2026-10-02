@@ -25,6 +25,14 @@ class NightBriefTileTest {
     }
 
     @Test
+    fun aSavedForecastIsOnTheTile() {
+        val glance = WearGlance.from(onboardingComplete = true, siteName = "Home", score = 70, savedText = "Saved Thu 18:40")
+        val dump = NightBriefTile.build(context, glance).toString()
+        assertTrue(dump, dump.contains("Saved Thu 18:40"))
+        assertTrue(dump, dump.contains("Go"))
+    }
+
+    @Test
     fun setupTileDoesNotInventAScore() {
         val glance = WearGlance.from(onboardingComplete = false, siteName = "Home", score = 92)
         val dump = NightBriefTile.build(context, glance).toString()

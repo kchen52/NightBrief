@@ -90,6 +90,7 @@ import app.nightbrief.score.MeteorAdvisor
 import app.nightbrief.score.MeteorOutlook
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.NightSummary
+import app.nightbrief.score.SavedForecast
 import app.nightbrief.score.SiteAlternative
 import app.nightbrief.score.SiteComparison
 import app.nightbrief.score.TargetSuggestion
@@ -149,10 +150,25 @@ fun NightDetail(
 }
 
 @Composable
+internal fun StaleForecastBanner(report: NightReport, modifier: Modifier = Modifier) {
+    val savedAt = report.forecastFetchedAt
+    Banner(
+        if (savedAt != null) {
+            stringResource(R.string.banner_stale, SavedForecast.clock(savedAt, report.site.zone))
+        } else {
+            stringResource(R.string.banner_stale_untimed)
+        },
+        NightColors.Fair,
+        modifier,
+    )
+}
+
+@Composable
 private fun StatusBanners(report: NightReport) {
+    if (report.forecastStatus == ForecastStatus.STALE) {
+        StaleForecastBanner(report)
+    }
     when {
-        report.forecastStatus == ForecastStatus.STALE ->
-            Banner(stringResource(R.string.banner_stale), NightColors.Fair)
         report.coverage == ForecastCoverage.NONE && report.forecastStatus == null ->
             Banner(report.warnings.firstOrNull() ?: stringResource(R.string.banner_forecast_unavailable), NightColors.Poor)
         report.coverage == ForecastCoverage.NONE ->

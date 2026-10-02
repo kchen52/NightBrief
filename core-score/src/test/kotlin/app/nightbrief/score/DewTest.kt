@@ -176,7 +176,7 @@ class DewTest {
         val report = NightPlanner.plan(toronto, date, forecast(hour to hour(hour, 4.0, 3.0)), kit)
             .copy(dew = outlook, forecastStatus = ForecastStatus.STALE)
         val lines = DigestComposer.compose(report, emptyList()).lines
-        assertEquals("Offline — showing the last saved forecast", lines.last())
+        assertEquals(SavedForecast.detail(report.forecastFetchedAt!!, toronto.zone), lines.last())
         assertTrue(lines.any { it.startsWith("Dew likely from") })
 
         assertNull(Dew.assess(listOf(hour), listOf(hour), forecast = null))

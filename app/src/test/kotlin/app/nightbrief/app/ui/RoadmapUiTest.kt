@@ -20,8 +20,10 @@ import app.nightbrief.app.ui.tonight.TonightScreen
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearCatalog
+import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightSummary
+import app.nightbrief.score.SavedForecast
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.Forecast
@@ -92,9 +94,26 @@ class RoadmapUiTest {
         }
         compose.onNodeWithText("Cabin").assertIsDisplayed()
         compose.onNodeWithText(why!!).assertIsDisplayed()
-        compose.onNodeWithText("Offline — showing the last saved forecast").assertIsDisplayed()
+        compose.onNodeWithText(SavedForecast.detail(report.forecastFetchedAt!!, home.zone)).assertIsDisplayed()
         compose.onNodeWithText("/ 100").assertIsDisplayed()
         assertTrue(compose.onAllNodesWithText(score.toString()).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun aStaleNightPastTheSavedHoursKeepsTheHorizonBanner() {
+        val report = NightPlanner.plan(
+            home,
+            LocalDate.of(2024, 9, 12),
+            forecast(),
+            GearCatalog.exampleKit,
+            forecastStatus = ForecastStatus.STALE,
+        )
+        assertTrue(report.coverage == ForecastCoverage.NONE)
+        compose.setContent {
+            NightBriefTheme { NightDetail(report, alternative = null, onOpenAlternative = {}) }
+        }
+        compose.onNodeWithText(SavedForecast.detail(report.forecastFetchedAt!!, home.zone)).assertIsDisplayed()
+        compose.onNodeWithText("This night is beyond the forecast horizon — showing sky data only").assertIsDisplayed()
     }
 
     @Test

@@ -85,7 +85,7 @@ Ephemeris is planning-grade (`Bodies`, Astronomical Almanac low precision). `cor
 - `@Serializable` models store instants as epoch seconds and clock times as strings. Expose `java.time` types as computed properties (`Forecast.fetchedAt`, `Site.zone`). `java.time` types do not belong on a serialized field.
 - JSON is `Json { ignoreUnknownKeys = true; encodeDefaults = true }` for `AppState` and the onboarding drafts. Forecast files use `ignoreUnknownKeys = true`.
 - Domain checks use `require` in `init` (latitude, longitude, Bortle 1..9).
-- Forecast cache: one JSON file per ~1 km cell, written via a temp file. Younger than 60 minutes is served without a network call unless refresh is forced. The morning digest always forces a refresh. If that fetch throws and the cache is younger than 48 hours, the digest is built from it and the copy says so.
+- Forecast cache: one JSON file per ~1 km cell, written via a temp file. Younger than 60 minutes is served without a network call unless refresh is forced. The morning digest always forces a refresh. If that fetch throws, the last file is served at any age and the copy says when it was saved. Nights past the last saved hour stay beyond the forecast. Ephemeris is recomputed on device.
 - ISS elements cache for 12 hours, and up to 7 days when a later fetch fails.
 - Bortle lookup does blocking I/O and can take about a second. Call it on `Dispatchers.IO`. Do not cache the grids in memory. The site form waits about 400 ms after coordinates settle before looking up.
 - There is one digest `PendingIntent` (request code 1001). The receiver re-arms the next instant after it fires. Do not add a second alarm slot unless the task is to fix that.

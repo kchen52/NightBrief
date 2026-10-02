@@ -35,6 +35,9 @@ object NightBriefTile {
             column.addContent(line(context, glance.siteName, Typography.TYPOGRAPHY_CAPTION1, TEXT_MUTED))
             column.addContent(line(context, glance.scoreText, Typography.TYPOGRAPHY_DISPLAY1, TEXT_PRIMARY))
             column.addContent(line(context, glance.verdictText, Typography.TYPOGRAPHY_TITLE2, verdictArgb(glance.verdictText)))
+            glance.savedText?.let { saved ->
+                column.addContent(line(context, saved, Typography.TYPOGRAPHY_CAPTION2, TEXT_MUTED))
+            }
         }
         return column.build()
     }

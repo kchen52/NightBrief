@@ -63,6 +63,10 @@ class ConnectedAccessibilityTest {
         compose.onAllNodesWithTag("week-night")[0].performClick()
         compose.onNodeWithContentDescription("Previous night").assertIsDisplayed().assertIsNotEnabled()
         compose.onNodeWithContentDescription("Next night").assertIsDisplayed().assertIsEnabled()
+        compose.waitUntil(timeoutMillis = 15_000) {
+            compose.onAllNodes(hasContentDescription("Share night plan")).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Share night plan").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
         // The planner pops back to Week. Settings is on Tonight.
         compose.onNode(hasText("Tonight") and hasClickAction()).performClick()

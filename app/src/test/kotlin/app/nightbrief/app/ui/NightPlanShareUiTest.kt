@@ -3,23 +3,18 @@ package app.nightbrief.app.ui
 import android.app.Application
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
 import androidx.work.impl.utils.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
-import app.nightbrief.app.ui.settings.SettingsScreen
 import app.nightbrief.app.ui.theme.NightBriefTheme
-import app.nightbrief.app.ui.tonight.PlannedNightScreen
+import app.nightbrief.app.ui.tonight.TonightScreen
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearKit
@@ -46,7 +41,7 @@ import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
-class TalkBackLabelTest {
+class NightPlanShareUiTest {
     @get:Rule
     val compose = createComposeRule()
 
@@ -55,58 +50,6 @@ class TalkBackLabelTest {
     @Before
     fun setUp() {
         val app = ApplicationProvider.getApplicationContext<Application>()
-        initWorkManager(app)
-        val graph = AppGraph.get(app)
-        graph.replaceSourcesForTest(QuietForecasts, QuietBriefings)
-        runBlocking {
-            graph.settings.update {
-                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
-            }
-        }
-    }
-
-    @After
-    fun tearDown() {
-        AppGraph.get(ApplicationProvider.getApplicationContext()).resetSourcesForTest()
-    }
-
-    @Test
-    fun settingsSwitchesAreLabeledForTalkBack() {
-        val app = ApplicationProvider.getApplicationContext<Application>()
-        val vm = AppViewModel(app)
-        compose.setContent {
-            NightBriefTheme { SettingsScreen(vm, onBack = {}) }
-        }
-        compose.onNodeWithContentDescription("Daily digest").performScrollTo().assertIsOn().performClick()
-        compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodes(hasContentDescription("Daily digest") and isOff()).fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Big Night alerts").performScrollTo().assertIsOn().performClick()
-        compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodes(hasContentDescription("Big Night alerts") and isOff()).fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    @Test
-    fun plannerArrowsAreLabeledForTalkBack() {
-        val app = ApplicationProvider.getApplicationContext<Application>()
-        val vm = AppViewModel(app)
-        val tonight = NightPlanner.tonight(Instant.now(), home.zone)
-        compose.setContent {
-            NightBriefTheme {
-                PlannedNightScreen(vm, home.id, tonight, onBack = {}, onSelectDate = {})
-            }
-        }
-        compose.onNodeWithContentDescription("Previous night").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Next night").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Back").assertIsDisplayed()
-        compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodes(hasContentDescription("Share night plan")).fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Share night plan").assertIsDisplayed()
-    }
-
-    private fun initWorkManager(app: Application) {
         try {
             WorkManager.getInstance(app)
         } catch (_: IllegalStateException) {
@@ -120,6 +63,51 @@ class TalkBackLabelTest {
         }
     }
 
+    @After
+    fun tearDown() {
+        AppGraph.get(ApplicationProvider.getApplicationContext()).resetSourcesForTest()
+    }
+
+    @Test
+    fun tonightHidesShareUntilANightIsLoaded() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, EmptyBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { TonightScreen(vm, onOpenSettings = {}, contentPadding = PaddingValues()) }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Pull fresh data with the refresh button").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Share night plan").assertDoesNotExist()
+    }
+
+    @Test
+    fun tonightOffersShareOnceTheNightIsLoaded() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, PlannedBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { TonightScreen(vm, onOpenSettings = {}, contentPadding = PaddingValues()) }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithContentDescription("Share night plan").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Share night plan").assertIsDisplayed()
+    }
+
     private object QuietForecasts : ForecastSource {
         override suspend fun forecast(
             latitude: Double,
@@ -131,13 +119,29 @@ class TalkBackLabelTest {
         )
     }
 
-    private object QuietBriefings : BriefingSource {
+    private object EmptyBriefings : BriefingSource {
         override suspend fun brief(
             sites: List<Site>,
             kit: GearKit,
             outlookDays: Int,
             forceRefresh: Boolean,
         ): Briefing = Briefing(Instant.EPOCH, emptyList(), emptyList())
+
+        override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport =
+            NightPlanner.plan(site, date, null, kit)
+    }
+
+    private object PlannedBriefings : BriefingSource {
+        override suspend fun brief(
+            sites: List<Site>,
+            kit: GearKit,
+            outlookDays: Int,
+            forceRefresh: Boolean,
+        ): Briefing {
+            val site = sites.first()
+            val report = NightPlanner.plan(site, LocalDate.of(2024, 8, 10), null, kit)
+            return Briefing(Instant.EPOCH, listOf(report), emptyList())
+        }
 
         override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport =
             NightPlanner.plan(site, date, null, kit)

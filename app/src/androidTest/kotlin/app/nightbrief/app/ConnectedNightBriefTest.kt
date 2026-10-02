@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.hasClickAction
@@ -120,6 +121,10 @@ class ConnectedNightBriefTest {
         compose.onAllNodesWithTag("week-night")[0].performClick()
         compose.onNodeWithContentDescription("Previous night").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Next night").assertIsEnabled().performClick()
+        compose.waitUntil(timeoutMillis = 15_000) {
+            compose.onAllNodesWithContentDescription("Share night plan").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Share night plan").assertIsDisplayed()
         compose.onNodeWithContentDescription("Previous night").assertIsEnabled()
         compose.onNodeWithContentDescription("Next night").assertIsEnabled()
     }

@@ -54,6 +54,7 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
     val briefing = ui.briefing
     val siteId = selected?.takeIf { book[it] != null } ?: book.primaryId
     val units = current.resolvedUnits()
+    val report = siteId?.let { briefing?.reportFor(it) }
 
     Scaffold(
         modifier = Modifier.padding(contentPadding),
@@ -74,6 +75,7 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
                     IconButton(onClick = { vm.refresh(force = true) }) {
                         Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast))
                     }
+                    if (report != null) ShareNightPlanButton(report)
                     IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -97,7 +99,6 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
             )
             ui.error?.let { Banner(it, NightColors.Poor, Modifier.padding(horizontal = 16.dp)) }
 
-            val report = siteId?.let { briefing?.reportFor(it) }
             if (briefing == null || report == null) {
                 Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
                     if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))

@@ -41,6 +41,7 @@ import app.nightbrief.app.ui.settings.SettingsScreen
 import app.nightbrief.app.ui.sites.SiteEditorScreen
 import app.nightbrief.app.ui.sites.SitesScreen
 import app.nightbrief.app.ui.tonight.PlannedNightScreen
+import app.nightbrief.app.ui.events.EventsScreen
 import app.nightbrief.app.ui.tonight.TonightScreen
 import app.nightbrief.app.ui.week.WeekScreen
 import java.time.LocalDate
@@ -52,6 +53,7 @@ private object Routes {
     const val Sites = "sites"
     const val Gear = "gear"
     const val Settings = "settings"
+    const val Events = "events"
     const val SiteEdit = "site/edit?id={id}"
     const val Night = "night/{siteId}/{date}"
 
@@ -128,6 +130,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 WeekScreen(
                     vm,
                     onOpenNight = { siteId, date -> navController.navigate(Routes.night(siteId, date)) },
+                    onOpenEvents = { navController.navigate(Routes.Events) },
                     contentPadding = innerPadding,
                 )
             }
@@ -143,6 +146,9 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
             }
             composable(Routes.Settings) {
                 SettingsScreen(vm, onBack = { navController.popBackStack() })
+            }
+            composable(Routes.Events) {
+                EventsScreen(vm, onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.SiteEdit,

@@ -311,4 +311,14 @@
     <string name="darker_sky_delta">+%1$d tonight</string>
     <string name="section_confidence">Forecast confidence</string>
     <string name="confidence_detail">Primary model against a second opinion across %1$d dark hours.</string>
+    <string name="sky_events_button">Sky events · the year ahead</string>
+    <string name="events_title">Sky events</string>
+    <string name="event_opposition">Opposition</string>
+    <string name="event_elongation">Elongation</string>
+    <string name="event_conjunction">Conjunction</string>
+    <string name="event_appulse">Moon appulse</string>
+    <string name="event_lunar_eclipse">Lunar eclipse</string>
+    <string name="event_solar_eclipse">Solar eclipse</string>
+    <string name="event_season">Season</string>
+    <string name="event_shower">Meteor shower</string>
 </resources>

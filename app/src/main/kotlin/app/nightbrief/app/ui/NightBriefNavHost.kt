@@ -44,6 +44,7 @@ import app.nightbrief.app.ui.tonight.PlannedNightScreen
 import app.nightbrief.app.ui.tonight.TonightScreen
 import app.nightbrief.app.ui.week.WeekScreen
 import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 
 private object Routes {
     const val Tonight = "tonight"
@@ -91,7 +92,11 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
     val showBar = route == null || route in topDestinations.map { it.route }
 
     LaunchedEffect(openTonightSignal) {
-        if (openTonightSignal > 0) navController.goTop(Routes.Tonight)
+        if (openTonightSignal > 0) {
+            // NavHost installs the graph after this effect is first scheduled.
+            navController.currentBackStackEntryFlow.first()
+            navController.showTonight()
+        }
     }
 
     Scaffold(
@@ -190,5 +195,20 @@ private fun NavHostController.goTop(route: String) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+/**
+ * Opens Tonight and drops whatever was pushed on top of it.
+ *
+ * [goTop] saves that nested stack and restores it, so a digest tap while Settings
+ * is showing would put Settings straight back. `saveState` and `restoreState` stay
+ * off here so the notification lands on Tonight itself.
+ */
+private fun NavHostController.showTonight() {
+    navigate(Routes.Tonight) {
+        popUpTo(graph.findStartDestination().id) { saveState = false }
+        launchSingleTop = true
+        restoreState = false
     }
 }

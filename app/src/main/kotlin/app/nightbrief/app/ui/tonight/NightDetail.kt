@@ -89,6 +89,7 @@ import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.MeteorAdvisor
 import app.nightbrief.score.MeteorOutlook
 import app.nightbrief.score.NightReport
+import app.nightbrief.score.NightSummary
 import app.nightbrief.score.SiteAlternative
 import app.nightbrief.score.SiteComparison
 import app.nightbrief.score.TargetSuggestion
@@ -203,6 +204,16 @@ private fun HeroCard(report: NightReport) {
                 } else {
                     Text(stringResource(R.string.no_score_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+        }
+        if (score != null) {
+            NightSummary.whyGood(score, report.ephemeris)?.let { why ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    why,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

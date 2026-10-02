@@ -21,6 +21,7 @@ import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.score.NightPlanner
+import app.nightbrief.score.NightSummary
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.Forecast
@@ -55,6 +56,9 @@ class RoadmapUiTest {
         }
         compose.onNodeWithText("NightBrief").assertIsDisplayed()
         compose.onNodeWithText("Next").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Save the places you shoot from.").fetchSemanticsNodes().isEmpty()
+        }
         compose.onNodeWithText("Your first site").assertIsDisplayed()
         compose.onNodeWithText("Pick on map").performScrollTo().performClick()
         compose.onNodeWithText("Tap to place the site").assertIsDisplayed()
@@ -67,7 +71,9 @@ class RoadmapUiTest {
         val report = NightPlanner.plan(home, date, forecast(), GearCatalog.exampleKit)
             .copy(forecastStatus = ForecastStatus.STALE)
         val score = report.scoreValue
+        val why = report.score?.let { NightSummary.whyGood(it, report.ephemeris) }
         assertTrue("fixture should score", score != null)
+        assertTrue("a clear night should explain itself", why != null)
 
         compose.setContent {
             NightBriefTheme {
@@ -85,6 +91,7 @@ class RoadmapUiTest {
             }
         }
         compose.onNodeWithText("Cabin").assertIsDisplayed()
+        compose.onNodeWithText(why!!).assertIsDisplayed()
         compose.onNodeWithText("Offline — showing the last saved forecast").assertIsDisplayed()
         compose.onNodeWithText("/ 100").assertIsDisplayed()
         assertTrue(compose.onAllNodesWithText(score.toString()).fetchSemanticsNodes().isNotEmpty())

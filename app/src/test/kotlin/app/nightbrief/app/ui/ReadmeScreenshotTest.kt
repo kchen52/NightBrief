@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,6 +35,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
@@ -161,7 +163,10 @@ class ReadmeScreenshotTest {
         paparazzi.snapshot("meteors") {
             Phone("Tonight", "Tonight") { padding ->
                 Box(Modifier.padding(padding).fillMaxSize().clipToBounds()) {
-                    Column(Modifier.offset(y = (-360).dp)) {
+                    // Offset alone still measures NightDetail against the phone height, so the
+                    // ISS peak line (below that height) never lays out. Measure it unbounded,
+                    // then shift the meteor and ISS cards into the frame.
+                    Column(Modifier.revealFrom(408.dp)) {
                         NightDetail(report, alternative = null, onOpenAlternative = {})
                     }
                 }
@@ -294,6 +299,14 @@ class ReadmeScreenshotTest {
                 )
             },
         )
+    }
+
+    /** Places [this] at `-offsetY` after measuring it with an unbounded height. */
+    private fun Modifier.revealFrom(offsetY: Dp): Modifier = layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints.copy(maxHeight = Constraints.Infinity))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeable.place(0, -offsetY.roundToPx())
+        }
     }
 
     private companion object {

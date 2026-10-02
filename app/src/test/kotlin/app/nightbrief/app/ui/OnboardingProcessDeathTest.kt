@@ -52,6 +52,7 @@ class OnboardingProcessDeathTest {
         val saved = vm.exportOnboardingState()
         vm = AppViewModel(app, SavedStateHandle(saved))
         restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
 
         compose.onNodeWithText("Your gear").assertIsDisplayed()
         compose.onNodeWithText("Canon EOS R7").performScrollTo().assertIsDisplayed()

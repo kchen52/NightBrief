@@ -8,7 +8,7 @@ The screens below are the app's Compose UI for a clear August 2024 night at a Bo
 
 | Tonight | This week |
 | --- | --- |
-| ![Tonight: Home scores 91, Go, Excellent](docs/screenshots/tonight.png) | ![This week: Monday is the best night](docs/screenshots/week.png) |
+| ![Tonight: Home scores 91, Go, Excellent. Clear skies, a moon that sets early, and good transparency.](docs/screenshots/tonight.png) | ![This week: Monday is the best night](docs/screenshots/week.png) |
 
 | Perseids and an ISS pass | Gear |
 | --- | --- |
@@ -16,7 +16,7 @@ The screens below are the app's Compose UI for a clear August 2024 night at a Bo
 
 | Night vision |
 | --- |
-| ![Tonight in night vision: red on black, with the night-vision toggle on](docs/screenshots/night-vision.png) |
+| ![Tonight in night vision: red on black, with the night-vision toggle on, and why the night scores well](docs/screenshots/night-vision.png) |
 
 The Wear OS tile shows that same primary score and verdict on a round watch. Before the phone has a site, the watch asks you to set NightBrief up.
 

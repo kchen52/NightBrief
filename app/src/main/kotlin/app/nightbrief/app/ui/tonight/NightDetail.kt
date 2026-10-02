@@ -97,7 +97,7 @@ import app.nightbrief.score.SiteComparison
 import app.nightbrief.score.TargetSuggestion
 import app.nightbrief.score.TimelineHour
 import app.nightbrief.score.UnitSystem
-import app.nightbrief.score.Verdict
+import app.nightbrief.score.NightPlanCard
 import app.nightbrief.score.WidgetCopy
 import app.nightbrief.weather.ForecastStatus
 import java.time.ZoneId
@@ -203,7 +203,7 @@ private fun HeroCard(report: NightReport) {
                         colors = AssistChipDefaults.assistChipColors(labelColor = color),
                         border = AssistChipDefaults.assistChipBorder(true, borderColor = color.copy(alpha = 0.5f)),
                     )
-                    score.bestWindow?.takeIf { score.verdict != Verdict.NO_GO || score.bestWindowScore >= 50 }?.let {
+                    score.bestWindow?.takeIf { NightPlanCard.showsBestWindow(score) }?.let {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Filled.Schedule,

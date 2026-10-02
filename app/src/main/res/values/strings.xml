@@ -124,6 +124,7 @@
     <string name="planner_unavailable">That night isn\'t available for this site.</string>
     <string name="previous_night">Previous night</string>
     <string name="next_night">Next night</string>
+    <string name="share_night_plan">Share night plan</string>
 
     <string name="section_display">Display</string>
     <string name="night_vision">Night vision</string>

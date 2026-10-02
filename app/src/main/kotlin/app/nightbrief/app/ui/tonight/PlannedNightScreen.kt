@@ -47,23 +47,32 @@ fun PlannedNightScreen(
     onBack: () -> Unit,
     onSelectDate: (LocalDate) -> Unit,
 ) {
-    var report by remember(siteId, date) { mutableStateOf<NightReport?>(null) }
-    var loaded by remember(siteId, date) { mutableStateOf(false) }
-    LaunchedEffect(siteId, date) {
-        report = vm.planNight(siteId, date)
-        loaded = true
-    }
-
     val state by vm.state.collectAsStateWithLifecycle()
     val site = state?.sites?.get(siteId)
     val tonight = site?.let { NightPlanner.tonight(Instant.now(), it.zone) }
+    var report by remember(siteId, date) { mutableStateOf<NightReport?>(null) }
+    var loaded by remember(siteId, date) { mutableStateOf(false) }
+    // Settings start empty. Planning before they arrive would stick on "unavailable"
+    // and the share action would never show.
+    LaunchedEffect(siteId, date, state != null, site) {
+        if (state == null) return@LaunchedEffect
+        if (site == null) {
+            report = null
+            loaded = true
+            return@LaunchedEffect
+        }
+        report = vm.planNight(siteId, date)
+        loaded = true
+    }
+    // The app bar is a scaffold slot. Reading the night here recomposes that slot once planning finishes.
+    val night = report
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        report?.let { stringResource(R.string.planner_title, it.site.name, Format.dayName(date)) }
+                        night?.let { stringResource(R.string.planner_title, it.site.name, Format.dayName(date)) }
                             ?: Format.dayName(date),
                     )
                 },
@@ -83,6 +92,7 @@ fun PlannedNightScreen(
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_night))
                     }
+                    if (night != null) ShareNightPlanButton(night)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )

@@ -41,6 +41,7 @@ import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.theme.NightColors
+import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.SiteComparison
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +109,27 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
                 val alternative = SiteComparison.bestAlternative(
                     report, others, current.alternativeThreshold,
                 )
+                // Morning-after prompt: 06:00–12:00 local, yesterday's night, asked once.
+                val zone = report.site.zone
+                val today = java.time.LocalDate.now(zone)
+                val promptDate = SessionPrompt.morningPromptDate(java.time.LocalTime.now(zone), today)
+                if (promptDate != null && report.site.id.let { id ->
+                        SessionPrompt.shouldAsk(id, promptDate, current.sessions, current.dismissedSessionPrompts)
+                    }
+                ) {
+                    SessionPromptCard(
+                        nightDate = promptDate,
+                        score = null,
+                        onSave = { rating, note -> vm.logSession(report.site.id, promptDate, null, rating, note) },
+                        onDismiss = { vm.dismissSessionPrompt(report.site.id, promptDate) },
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
                 NightDetail(report, alternative, onOpenAlternative = vm::selectSite, units = units)
+                SessionHistoryCard(
+                    sessions = current.sessions.filter { it.siteId == report.site.id },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
             Spacer(Modifier.height(8.dp))
         }

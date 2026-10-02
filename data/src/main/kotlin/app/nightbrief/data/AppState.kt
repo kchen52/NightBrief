@@ -3,6 +3,7 @@ package app.nightbrief.data
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.SiteComparison
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.sites.SiteBook
@@ -40,6 +41,13 @@ data class AppState(
     val notificationSlots: Map<String, Int> = emptyMap(),
     /** Next slot to assign. Stays ahead of every slot ever handed out, including deleted sites. */
     val notificationSlotNext: Int = 1,
+    /**
+     * Local shooting history. Oldest first is not guaranteed; UI sorts by night date.
+     * Empty for older settings files.
+     */
+    val sessions: List<SessionEntry> = emptyList(),
+    /** "siteId/yyyy-MM-dd" prompts the user dismissed. Never reused as a session key. */
+    val dismissedSessionPrompts: Set<String> = emptySet(),
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 

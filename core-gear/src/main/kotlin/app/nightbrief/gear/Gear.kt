@@ -85,15 +85,58 @@ data class Lens(
         else "f/${maxAperture.fmt()}"
 }
 
+/** Optional star tracker. Lets subs run past the 30 s untracked cap. */
+@Serializable
+data class StarTracker(
+    val id: String,
+    val name: String,
+) {
+    init {
+        require(id.isNotBlank()) { "tracker id required" }
+        require(name.isNotBlank()) { "tracker name required" }
+    }
+}
+
+/** Filter family. Only dual-band changes which targets are offered; the rest only annotate the exposure. */
+@Serializable
+enum class FilterKind(val label: String) {
+    DUAL_BAND("Dual-band"),
+    LIGHT_POLLUTION("Light pollution"),
+    DIFFUSION("Diffusion"),
+}
+
+/** Screw-in or clip-in filter in the kit. */
+@Serializable
+data class GearFilter(
+    val id: String,
+    val name: String,
+    val kind: FilterKind,
+) {
+    init {
+        require(id.isNotBlank()) { "filter id required" }
+        require(name.isNotBlank()) { "filter name required" }
+    }
+}
+
 /** The user's kit: any number of bodies and lenses, with one body used for suggestions. */
 @Serializable
 data class GearKit(
     val bodies: List<CameraBody> = emptyList(),
     val lenses: List<Lens> = emptyList(),
     val primaryBodyId: String? = null,
+    /** Optional star tracker. Null means every exposure is untracked and capped at 30 s. */
+    val tracker: StarTracker? = null,
+    /** Optional screw-in / clip-in filters. Empty means no filter. */
+    val filters: List<GearFilter> = emptyList(),
 ) {
     val primaryBody: CameraBody? get() = bodies.firstOrNull { it.id == primaryBodyId } ?: bodies.firstOrNull()
     val isEmpty: Boolean get() = bodies.isEmpty() || lenses.isEmpty()
+    /** True when a tracker is in the kit, so subs can run past the untracked 30 s cap. */
+    val isTracked: Boolean get() = tracker != null
+    /** True when the kit holds a dual-band filter, which helps emission nebulae under Moon and city glow. */
+    val hasDualBandFilter: Boolean get() = filters.any { it.kind == FilterKind.DUAL_BAND }
+    /** True when the kit holds a broad light-pollution filter. */
+    val hasLightPollutionFilter: Boolean get() = filters.any { it.kind == FilterKind.LIGHT_POLLUTION }
 
     fun addBody(body: CameraBody) = copy(
         bodies = bodies.filterNot { it.id == body.id } + body,
@@ -110,6 +153,10 @@ data class GearKit(
 
     fun addLens(lens: Lens) = copy(lenses = lenses.filterNot { it.id == lens.id } + lens)
     fun removeLens(id: String) = copy(lenses = lenses.filterNot { it.id == id })
+
+    fun withTracker(tracker: StarTracker?) = copy(tracker = tracker)
+    fun addFilter(filter: GearFilter) = copy(filters = filters.filterNot { it.id == filter.id } + filter)
+    fun removeFilter(id: String) = copy(filters = filters.filterNot { it.id == id })
 }
 
 internal fun Double.fmt(): String =

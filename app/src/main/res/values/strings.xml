@@ -65,6 +65,9 @@
     <string name="bortle_assumed">%1$d (assumed)</string>
     <string name="moon_free_darkness">Moon-free darkness: %1$s · Bortle %2$s</string>
     <string name="section_aurora">Aurora</string>
+    <string name="section_dew">Dew</string>
+    <string name="section_frost">Frost</string>
+    <string name="section_overnight">Overnight</string>
     <string name="section_meteors">Meteors</string>
     <string name="meteor_radiant">Radiant %1$s at %2$s</string>
     <string name="section_iss">ISS</string>

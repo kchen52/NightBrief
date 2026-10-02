@@ -21,6 +21,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +63,10 @@ class DigestWorkerTest {
 
     @Test(timeout = 180_000)
     fun onboardedSitePostsTonightDigest() {
+        assumeTrue(
+            "Skipped when NIGHTBRIEF_SKIP_LIVE_TESTS=1 so CI does not call Open-Meteo, 7Timer, or SWPC.",
+            System.getenv("NIGHTBRIEF_SKIP_LIVE_TESTS") != "1",
+        )
         val context = context()
         val app = context.applicationContext as Application
         val shadowApp: ShadowApplication = shadowOf(app)

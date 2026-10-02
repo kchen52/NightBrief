@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,7 +64,7 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
-                title = { Text("This week") },
+                title = { Text(stringResource(R.string.week_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -87,7 +89,7 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
                     SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "Strip scores show each site's best night. Nights 4–7 estimate seeing and transparency from humidity and jet-stream wind.",
+                            stringResource(R.string.week_footnote),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -133,13 +135,21 @@ internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, 
                     drawStopIndicator = {},
                 )
                 Spacer(Modifier.height(6.dp))
-                val moon = "${moonEmoji(night.moonIllumination)} ${Format.percent(night.moonIllumination)} moon"
+                val moon = stringResource(
+                    R.string.week_moon,
+                    moonEmoji(night.moonIllumination),
+                    Format.percent(night.moonIllumination),
+                )
                 val label = when {
-                    night.darkness == Darkness.NONE -> "No darkness"
-                    night.coverage == ForecastCoverage.NONE -> "Beyond forecast"
+                    night.darkness == Darkness.NONE -> stringResource(R.string.week_no_darkness)
+                    night.coverage == ForecastCoverage.NONE -> stringResource(R.string.week_beyond_forecast)
                     else -> night.band?.label ?: ""
                 }
-                Text("$label · $moon", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.week_night_summary, label, moon),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Spacer(Modifier.width(12.dp))
             ScorePill(night.score)

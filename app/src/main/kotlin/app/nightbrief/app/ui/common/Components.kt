@@ -40,8 +40,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import app.nightbrief.app.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nightbrief.app.ui.theme.NightColors
@@ -99,7 +101,7 @@ fun ScoreGauge(score: Int?, modifier: Modifier = Modifier, size: Dp = 148.dp) {
                 fontWeight = FontWeight.Bold,
                 color = color,
             )
-            Text("/ 100", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.score_out_of), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -145,7 +147,7 @@ fun SiteStrip(
                 Column(Modifier.padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (chip.isPrimary) {
-                            Icon(Icons.Filled.Star, contentDescription = "Primary site", tint = NightColors.Amber, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.Star, contentDescription = stringResource(R.string.primary_site), tint = NightColors.Amber, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                         }
                         Text(chip.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
@@ -191,8 +193,8 @@ fun TimePickerDialog(initial: LocalTime, onDismiss: () -> Unit, onConfirm: (Loca
     val state = rememberTimePickerState(initial.hour, initial.minute)
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("OK") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ok)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         text = { TimePicker(state = state) },
     )
 }

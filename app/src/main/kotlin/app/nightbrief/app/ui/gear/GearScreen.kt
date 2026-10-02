@@ -48,7 +48,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import app.nightbrief.app.R
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -75,7 +77,7 @@ fun GearScreen(vm: AppViewModel, contentPadding: PaddingValues) {
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
-                title = { Text("Gear") },
+                title = { Text(stringResource(R.string.nav_gear)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -100,16 +102,16 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
     val primaryId = kit.primaryBodyId ?: kit.bodies.firstOrNull()?.id
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SectionCard("Camera bodies") {
+        SectionCard(stringResource(R.string.camera_bodies)) {
             if (kit.bodies.isEmpty()) {
                 Text(
-                    "No camera bodies yet.",
+                    stringResource(R.string.no_bodies),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Text(
-                    "Suggestions use the selected body.",
+                    stringResource(R.string.suggestions_use_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -130,21 +132,21 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
             OutlinedButton(onClick = { addBody = true }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Add body")
+                Text(stringResource(R.string.add_body))
             }
         }
 
-        SectionCard("Lenses") {
+        SectionCard(stringResource(R.string.lenses)) {
             val body = kit.primaryBody
             if (kit.lenses.isEmpty()) {
                 Text(
-                    "No lenses yet.",
+                    stringResource(R.string.no_lenses),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else if (body == null) {
                 Text(
-                    "Add a camera body to calculate exposure limits.",
+                    stringResource(R.string.need_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -159,7 +161,7 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
             OutlinedButton(onClick = { addLens = true }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Add lens")
+                Text(stringResource(R.string.add_lens))
             }
         }
     }
@@ -204,7 +206,7 @@ private fun BodyRow(body: CameraBody, selected: Boolean, onSelect: () -> Unit, o
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Remove ${body.name}") }
+        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
     }
 }
 
@@ -221,13 +223,13 @@ private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit) {
                 val npf = ExposureCalculator.npf(lens.minFocalMm, lens.maxAperture, body.pixelPitchUm)
                 val rule = ExposureCalculator.rule500(lens.minFocalMm, body.cropFactor)
                 Text(
-                    "NPF at widest: ${ExposureCalculator.shutterLabel(npf)} · 500 rule: ${ExposureCalculator.shutterLabel(rule)}",
+                    stringResource(R.string.npf_line, ExposureCalculator.shutterLabel(npf), ExposureCalculator.shutterLabel(rule)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Remove ${lens.name}") }
+        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
     }
 }
 
@@ -242,10 +244,10 @@ private fun AddBodyDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
     var query by remember { mutableStateOf("") }
     var custom by remember { mutableStateOf(false) }
     CatalogDialog(
-        title = if (custom) "Custom camera" else "Add body",
+        title = stringResource(if (custom) R.string.custom_camera else R.string.add_body),
         query = query,
         onQuery = { query = it },
-        searchLabel = "Search cameras",
+        searchLabel = stringResource(R.string.search_cameras),
         custom = custom,
         onCustom = { custom = true },
         onBackToList = { custom = false },
@@ -253,7 +255,7 @@ private fun AddBodyDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         list = {
             val matches = GearCatalog.bodies.filter { it.name.contains(query.trim(), ignoreCase = true) }
             if (matches.isEmpty()) {
-                item { Text("No matches", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             items(matches, key = { it.id }) { body ->
                 val owned = body.id in ownedIds
@@ -274,10 +276,10 @@ private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
     var query by remember { mutableStateOf("") }
     var custom by remember { mutableStateOf(false) }
     CatalogDialog(
-        title = if (custom) "Custom lens" else "Add lens",
+        title = stringResource(if (custom) R.string.custom_lens else R.string.add_lens),
         query = query,
         onQuery = { query = it },
-        searchLabel = "Search lenses",
+        searchLabel = stringResource(R.string.search_lenses),
         custom = custom,
         onCustom = { custom = true },
         onBackToList = { custom = false },
@@ -285,7 +287,7 @@ private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         list = {
             val matches = GearCatalog.lenses.filter { it.name.contains(query.trim(), ignoreCase = true) }
             if (matches.isEmpty()) {
-                item { Text("No matches", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             items(matches, key = { it.id }) { lens ->
                 val owned = lens.id in ownedIds
@@ -336,13 +338,13 @@ private fun CatalogDialog(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) { list() }
-                    TextButton(onClick = onCustom, modifier = Modifier.align(Alignment.End)) { Text("Custom…") }
-                    TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Close") }
+                    TextButton(onClick = onCustom, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.custom_ellipsis)) }
+                    TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.close)) }
                 } else {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { customForm() }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = onBackToList) { Text("Back") }
-                        TextButton(onClick = onDismiss) { Text("Close") }
+                        TextButton(onClick = onBackToList) { Text(stringResource(R.string.back)) }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
                     }
                 }
             }
@@ -364,7 +366,7 @@ private fun CatalogRow(title: String, detail: String, owned: Boolean, onClick: (
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (owned) {
-            Text("Added", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.added), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -382,16 +384,16 @@ private fun CustomBodyForm(onAdd: (CameraBody) -> Unit) {
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Name") },
+            label = { Text(stringResource(R.string.name)) },
             isError = submitted && name.isBlank(),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        NumberField("Sensor width (mm)", width, { width = it }, submitted && width.positiveOrNull() == null)
-        NumberField("Sensor height (mm)", height, { height = it }, submitted && height.positiveOrNull() == null)
-        NumberField("Megapixels", megapixels, { megapixels = it }, submitted && megapixels.positiveOrNull() == null)
+        NumberField(stringResource(R.string.sensor_width), width, { width = it }, submitted && width.positiveOrNull() == null)
+        NumberField(stringResource(R.string.sensor_height), height, { height = it }, submitted && height.positiveOrNull() == null)
+        NumberField(stringResource(R.string.megapixels), megapixels, { megapixels = it }, submitted && megapixels.positiveOrNull() == null)
         if (submitted && error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
         Button(
             onClick = {
@@ -409,7 +411,7 @@ private fun CustomBodyForm(onAdd: (CameraBody) -> Unit) {
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Add body") }
+        ) { Text(stringResource(R.string.add_body)) }
     }
 }
 
@@ -428,15 +430,15 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Name") },
+            label = { Text(stringResource(R.string.name)) },
             isError = submitted && name.isBlank(),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        NumberField("Minimum focal length (mm)", minFocal, { minFocal = it }, submitted && minFocal.positiveOrNull() == null)
-        NumberField("Maximum focal length (mm)", maxFocal, { maxFocal = it }, submitted && maxFocal.positiveOrNull() == null)
+        NumberField(stringResource(R.string.min_focal), minFocal, { minFocal = it }, submitted && minFocal.positiveOrNull() == null)
+        NumberField(stringResource(R.string.max_focal), maxFocal, { maxFocal = it }, submitted && maxFocal.positiveOrNull() == null)
         NumberField(
-            label = "Max aperture (f-number)",
+            label = stringResource(R.string.max_aperture),
             value = aperture,
             onValue = {
                 aperture = it
@@ -445,7 +447,7 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
             error = submitted && aperture.positiveOrNull() == null,
         )
         NumberField(
-            label = "Aperture at long end",
+            label = stringResource(R.string.aperture_long),
             value = longEnd,
             onValue = {
                 longEndTouched = true
@@ -454,12 +456,12 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
             error = submitted && longEnd.positiveOrNull() == null,
         )
         Text(
-            "Enter f/2.8 as 2.8. For a prime, both apertures match. For a variable zoom, the long end is the same or slower.",
+            stringResource(R.string.aperture_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (submitted && error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
         Button(
             onClick = {
@@ -477,7 +479,7 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Add lens") }
+        ) { Text(stringResource(R.string.add_lens)) }
     }
 }
 
@@ -494,27 +496,27 @@ private fun NumberField(label: String, value: String, onValue: (String) -> Unit,
     )
 }
 
-private fun bodyError(name: String, width: String, height: String, megapixels: String): String? = when {
-    name.isBlank() -> "Give the camera a name"
-    width.positiveOrNull() == null -> "Sensor width must be a positive number of millimetres"
-    height.positiveOrNull() == null -> "Sensor height must be a positive number of millimetres"
-    megapixels.positiveOrNull() == null -> "Megapixels must be a positive number"
+private fun bodyError(name: String, width: String, height: String, megapixels: String): Int? = when {
+    name.isBlank() -> R.string.gear_error_body_name
+    width.positiveOrNull() == null -> R.string.gear_error_width
+    height.positiveOrNull() == null -> R.string.gear_error_height
+    megapixels.positiveOrNull() == null -> R.string.gear_error_mp
     else -> null
 }
 
-private fun lensError(name: String, minFocal: String, maxFocal: String, aperture: String, longEnd: String): String? {
+private fun lensError(name: String, minFocal: String, maxFocal: String, aperture: String, longEnd: String): Int? {
     val minF = minFocal.positiveOrNull()
     val maxF = maxFocal.positiveOrNull()
     val wide = aperture.positiveOrNull()
     val tele = longEnd.positiveOrNull()
     return when {
-        name.isBlank() -> "Give the lens a name"
-        minF == null -> "Minimum focal length must be positive"
-        maxF == null -> "Maximum focal length must be positive"
-        maxF < minF -> "Maximum focal length can't be shorter than the minimum"
-        wide == null -> "Maximum aperture must be a positive f-number"
-        tele == null -> "Aperture at the long end must be a positive f-number"
-        tele < wide -> "The long end can't be faster than the wide end"
+        name.isBlank() -> R.string.gear_error_lens_name
+        minF == null -> R.string.gear_error_min_focal
+        maxF == null -> R.string.gear_error_max_focal
+        maxF < minF -> R.string.gear_error_focal_order
+        wide == null -> R.string.gear_error_aperture
+        tele == null -> R.string.gear_error_tele
+        tele < wide -> R.string.gear_error_tele_faster
         else -> null
     }
 }

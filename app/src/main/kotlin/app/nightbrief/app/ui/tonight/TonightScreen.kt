@@ -31,7 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Banner
@@ -55,10 +57,12 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
-                title = { Text("Tonight") },
+                title = { Text(stringResource(R.string.nav_tonight)) },
                 actions = {
-                    IconButton(onClick = { vm.refresh(force = true) }) { Icon(Icons.Filled.Refresh, "Refresh forecast") }
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, "Settings") }
+                    IconButton(onClick = { vm.refresh(force = true) }) {
+                        Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast))
+                    }
+                    IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -84,7 +88,7 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
             val report = siteId?.let { briefing?.reportFor(it) }
             if (briefing == null || report == null) {
                 Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-                    if (ui.loading) CircularProgressIndicator() else Text("Pull fresh data with the refresh button")
+                    if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))
                 }
             } else {
                 val others = briefing.tonight.filter { it.site.id != report.site.id }

@@ -44,12 +44,12 @@ class BigNightAlertTest {
         notifications(context).cancelAll()
 
         val siteId = "home"
-        DigestNotifier(context).postBigNight(siteId, "Home", 92, "Wednesday 2026-08-12")
+        DigestNotifier(context).postBigNight(siteId, "Home", 92, "Wednesday 2026-08-12", slot = 1)
 
         val posted = notifications(context).activeNotifications
         assertEquals(1, posted.size)
         val status = posted.single()
-        assertEquals(2000 + (siteId.hashCode() and 0x0FFF), status.id)
+        assertEquals(DigestNotifier.bigNightNotificationId(1), status.id)
         val notification = status.notification
         assertEquals(DigestNotifier.CHANNEL_BIG_NIGHT, notification.channelId)
         val title = notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()

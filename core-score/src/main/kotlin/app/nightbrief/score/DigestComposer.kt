@@ -49,10 +49,6 @@ object DigestComposer {
             lines += listOfNotNull("${score.verdict.label}: ${score.band.label.lowercase()}", window, cloud)
                 .joinToString(" · ")
         }
-        report.dew?.let { dew ->
-            DewCopy.warning(dew, ::fmt)?.let { lines += it }
-            DewCopy.dress(dew)?.let { lines += it }
-        }
         lines += moonLine(report.ephemeris, ::fmt)
         if (report.ephemeris.darkness != Darkness.ASTRONOMICAL) {
             lines += report.ephemeris.darkness.label
@@ -73,6 +69,10 @@ object DigestComposer {
         report.aurora?.let { aurora ->
             val line = AuroraCopy.digestLine(aurora)
             if (aurora.prominent) lines.add(0, line) else lines += line
+        }
+        report.dew?.let { dew ->
+            DewCopy.riskLine(dew, ::fmt)?.let { lines += it }
+            lines += DewCopy.lowLine(dew)
         }
         if (report.forecastStatus == ForecastStatus.STALE) {
             lines += "Offline — showing the last saved forecast"

@@ -33,6 +33,7 @@ import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
+import app.nightbrief.score.UnitSystem
 import java.time.Instant
 import java.time.LocalDate
 
@@ -94,7 +95,12 @@ fun PlannedNightScreen(
                 Text(stringResource(R.string.planner_unavailable))
             }
             else -> Box(Modifier.padding(inner).verticalScroll(rememberScrollState())) {
-                NightDetail(r, alternative = null, onOpenAlternative = {})
+                NightDetail(
+                    r,
+                    alternative = null,
+                    onOpenAlternative = {},
+                    units = state?.resolvedUnits() ?: UnitSystem.METRIC,
+                )
             }
         }
     }

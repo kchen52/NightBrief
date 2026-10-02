@@ -52,7 +52,13 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val needsRetry = mutableListOf<String>()
         for (site in due) {
             val report = briefing.reportFor(site.id) ?: continue
-            val digest = DigestComposer.compose(report, briefing.tonight, timeFormat, ready.alternativeThreshold)
+            val digest = DigestComposer.compose(
+                report,
+                briefing.tonight,
+                timeFormat,
+                ready.alternativeThreshold,
+                ready.resolvedUnits(),
+            )
             notifier.post(digest, ready.notificationSlots.getValue(site.id), silent = refresh)
             if (report.forecastStatus != ForecastStatus.FRESH) needsRetry += site.id
         }

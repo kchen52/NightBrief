@@ -101,6 +101,21 @@ class DewTest {
     }
 
     @Test
+    fun imperialDressLineUsesFahrenheitAndLeavesTheScoreAlone() {
+        val hour = Instant.parse("2024-08-11T03:00:00Z")
+        val outlook = assess(hour, temperature = -4.0, dewPoint = -5.0)
+        assertEquals("Dress for 25 °F", DewCopy.lowLine(outlook, UnitSystem.IMPERIAL))
+        assertTrue(DewCopy.detail(outlook, UnitSystem.IMPERIAL).contains("within 4 °F"))
+        assertEquals("Dress for −4 °C", DewCopy.lowLine(outlook))
+
+        val report = NightPlanner.plan(toronto, date, null, kit).copy(dew = outlook)
+        val metric = DigestComposer.compose(report, emptyList())
+        val imperial = DigestComposer.compose(report, emptyList(), units = UnitSystem.IMPERIAL)
+        assertEquals(metric.score, imperial.score)
+        assertEquals("Dress for 25 °F", imperial.lines.last())
+    }
+
+    @Test
     fun plannerUsesDarkHoursForDewAndSunsetToSunriseForTheLow() {
         val eph = NightEphemeris.compute(date, toronto.zone, toronto.latitude, toronto.longitude)
         val dark = eph.darkWindow!!

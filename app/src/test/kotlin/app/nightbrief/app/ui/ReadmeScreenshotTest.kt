@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,6 +87,45 @@ class ReadmeScreenshotTest {
                 IconButton(onClick = {}) { Icon(Icons.Filled.Refresh, "Refresh forecast") }
                 IconButton(onClick = {}) { Icon(Icons.Filled.Settings, "Settings") }
             }) { padding ->
+                Column(
+                    Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    SiteStrip(
+                        sites = listOf(
+                            SiteChip(home.id, home.name, report.scoreValue, true),
+                            SiteChip(point.id, point.name, pointScore, false),
+                        ),
+                        selectedId = home.id,
+                        onSelect = {},
+                    )
+                    NightDetail(report, alternative = null, onOpenAlternative = {})
+                }
+            }
+        }
+    }
+
+    @Test
+    fun nightVision() {
+        val report = night(home, tonight).copy(meteor = null, issPasses = emptyList())
+        val pointScore = night(point, tonight).scoreValue
+        paparazzi.snapshot("night-vision") {
+            Phone(
+                title = "Tonight",
+                tab = "Tonight",
+                nightVision = true,
+                actions = {
+                    IconButton(onClick = {}) {
+                        Icon(
+                            Icons.Filled.Visibility,
+                            stringResource(R.string.night_vision_on),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    IconButton(onClick = {}) { Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast)) }
+                    IconButton(onClick = {}) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                },
+            ) { padding ->
                 Column(
                     Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -195,10 +235,11 @@ class ReadmeScreenshotTest {
     private fun Phone(
         title: String,
         tab: String,
+        nightVision: Boolean = false,
         actions: @Composable RowScope.() -> Unit = {},
         content: @Composable (PaddingValues) -> Unit,
     ) {
-        NightBriefTheme {
+        NightBriefTheme(nightVision = nightVision) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
                 topBar = {

@@ -10,6 +10,7 @@ import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
@@ -76,11 +77,11 @@ class TalkBackLabelTest {
         compose.setContent {
             NightBriefTheme { SettingsScreen(vm, onBack = {}) }
         }
-        compose.onNodeWithContentDescription("Daily digest").assertIsOn().performClick()
+        compose.onNodeWithContentDescription("Daily digest").performScrollTo().assertIsOn().performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodes(hasContentDescription("Daily digest") and isOff()).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithContentDescription("Big Night alerts").assertIsOn().performClick()
+        compose.onNodeWithContentDescription("Big Night alerts").performScrollTo().assertIsOn().performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodes(hasContentDescription("Big Night alerts") and isOff()).fetchSemanticsNodes().isNotEmpty()
         }

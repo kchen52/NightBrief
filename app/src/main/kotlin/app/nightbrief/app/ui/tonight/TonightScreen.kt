@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,9 +49,11 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
     val state by vm.state.collectAsStateWithLifecycle()
     val ui by vm.briefing.collectAsStateWithLifecycle()
     val selected by vm.selectedSiteId.collectAsStateWithLifecycle()
-    val book = state?.sites ?: return
+    val current = state ?: return
+    val book = current.sites
     val briefing = ui.briefing
     val siteId = selected?.takeIf { book[it] != null } ?: book.primaryId
+    val units = current.resolvedUnits()
 
     Scaffold(
         modifier = Modifier.padding(contentPadding),
@@ -59,6 +62,15 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
             TopAppBar(
                 title = { Text(stringResource(R.string.nav_tonight)) },
                 actions = {
+                    IconButton(onClick = { vm.setNightVision(!current.nightVision) }) {
+                        Icon(
+                            Icons.Filled.Visibility,
+                            contentDescription = stringResource(
+                                if (current.nightVision) R.string.night_vision_on else R.string.night_vision_off,
+                            ),
+                            tint = if (current.nightVision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                     IconButton(onClick = { vm.refresh(force = true) }) {
                         Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast))
                     }
@@ -93,9 +105,9 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
             } else {
                 val others = briefing.tonight.filter { it.site.id != report.site.id }
                 val alternative = SiteComparison.bestAlternative(
-                    report, others, state?.alternativeThreshold ?: SiteComparison.DEFAULT_THRESHOLD,
+                    report, others, current.alternativeThreshold,
                 )
-                NightDetail(report, alternative, onOpenAlternative = vm::selectSite)
+                NightDetail(report, alternative, onOpenAlternative = vm::selectSite, units = units)
             }
             Spacer(Modifier.height(8.dp))
         }

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.UnitSystem
 import app.nightbrief.data.LightPollutionAttribution
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.work.DigestNotifier
@@ -104,6 +106,8 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
         .coerceIn(BigNightAlerts.MIN_THRESHOLD, BigNightAlerts.MAX_THRESHOLD)
     val digestLabel = stringResource(R.string.daily_digest)
     val bigNightLabel = stringResource(R.string.big_night_alerts)
+    val nightVisionLabel = stringResource(R.string.night_vision)
+    val resolvedUnits = s.resolvedUnits()
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         canNotify = DigestNotifier(context).canNotify()
@@ -142,6 +146,53 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            SectionCard(stringResource(R.string.section_display)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(nightVisionLabel, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.night_vision_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = s.nightVision,
+                        onCheckedChange = vm::setNightVision,
+                        modifier = Modifier
+                            .testTag("night-vision")
+                            .semantics { contentDescription = nightVisionLabel },
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.units_title), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(
+                        if (s.units == null) R.string.units_following_locale else R.string.units_chosen,
+                        stringResource(
+                            if (resolvedUnits == UnitSystem.METRIC) R.string.units_metric else R.string.units_imperial,
+                        ),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = resolvedUnits == UnitSystem.METRIC,
+                        onClick = { vm.setUnits(UnitSystem.METRIC) },
+                        label = { Text(stringResource(R.string.units_metric)) },
+                        modifier = Modifier.testTag("units-metric"),
+                    )
+                    FilterChip(
+                        selected = resolvedUnits == UnitSystem.IMPERIAL,
+                        onClick = { vm.setUnits(UnitSystem.IMPERIAL) },
+                        label = { Text(stringResource(R.string.units_imperial)) },
+                        modifier = Modifier.testTag("units-imperial"),
+                    )
+                }
+            }
+
             SectionCard(stringResource(R.string.section_morning_digest)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

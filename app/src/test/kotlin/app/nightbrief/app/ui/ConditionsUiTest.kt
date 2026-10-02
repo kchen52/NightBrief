@@ -103,7 +103,7 @@ class ConditionsUiTest {
         compose.setContent {
             NightBriefTheme { SettingsScreen(vm, onBack = {}) }
         }
-        compose.onNodeWithText("Notify when a site reaches 72 tonight").assertIsDisplayed()
+        compose.onNodeWithText("Notify when a site reaches 72 tonight").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Big Night at 72 or above").performScrollTo().assertIsDisplayed()
     }
 

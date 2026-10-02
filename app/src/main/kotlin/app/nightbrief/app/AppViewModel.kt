@@ -9,6 +9,7 @@ import app.nightbrief.data.AppState
 import app.nightbrief.data.LibraryTransfer
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
 import app.nightbrief.work.DigestScheduler
@@ -168,6 +169,8 @@ class AppViewModel(
     fun setBigNightAlertsEnabled(enabled: Boolean) = mutate { it.copy(bigNightAlertsEnabled = enabled) }
     fun setBigNightThreshold(points: Int) = mutate { it.copy(bigNightThreshold = BigNightAlerts.clamp(points)) }
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
+    fun setNightVision(enabled: Boolean) = mutate { it.copy(nightVision = enabled) }
+    fun setUnits(units: UnitSystem) = mutate { it.copy(units = units) }
 
     fun exportLibrary(): String? = state.value?.let(LibraryTransfer::encode)
 

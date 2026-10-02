@@ -1,6 +1,7 @@
 package app.nightbrief.data
 
 import app.nightbrief.gear.GearCatalog
+import app.nightbrief.score.UnitSystem
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import kotlinx.coroutines.test.runTest
@@ -20,6 +21,8 @@ class AppStateSerializerTest {
             bigNightAlertsEnabled = false,
             bigNightThreshold = 72,
             lastBigNightAlerts = mapOf("home" to "2026-08-12"),
+            nightVision = true,
+            units = UnitSystem.IMPERIAL,
         )
         val out = ByteArrayOutputStream()
         AppStateSerializer.writeTo(state, out)
@@ -45,5 +48,7 @@ class AppStateSerializerTest {
         assertEquals(true, state.bigNightAlertsEnabled)
         assertEquals(85, state.bigNightThreshold)
         assertEquals(emptyMap<String, String>(), state.lastBigNightAlerts)
+        assertEquals(false, state.nightVision)
+        assertEquals(null, state.units)
     }
 }

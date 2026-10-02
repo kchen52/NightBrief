@@ -31,6 +31,12 @@ data class NightPlanCard(
     val target: String?,
     /** Set when the score comes from a saved forecast, so the picture is not read as fresh. */
     val saved: String?,
+    /**
+     * True when any night-score factor used a proxy or neutral default.
+     * Mirrors [NightScoreEngine] per-factor `estimated`: the picture must not
+     * present an estimated score as an exact measurement.
+     */
+    val estimated: Boolean = false,
 ) {
     /** Text that rides along with the image for apps that share a caption. */
     val caption: String
@@ -44,6 +50,7 @@ data class NightPlanCard(
                 milkyWay,
                 target?.let { "Try: $it" },
                 saved,
+                if (estimated) "Estimated" else null,
                 "NightBrief",
             ).joinToString(" · ")
         }
@@ -88,6 +95,7 @@ data class NightPlanCard(
                 milkyWay = milkyWay,
                 target = report.suggestions.firstOrNull()?.target?.name,
                 saved = SavedForecast.shortLabel(report.forecastStatus, report.forecastFetchedAt, zone),
+                estimated = score?.factors?.any { it.estimated } == true,
             )
         }
 

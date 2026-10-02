@@ -119,6 +119,36 @@ class NightPlanShareTest {
         assertTrue(card.caption, card.caption.contains("Try: ${card.target}"))
     }
 
+    @Test
+    fun aProxyFallbackMarksTheCardEstimated() {
+        val start = java.time.Instant.parse("2024-08-09T00:00:00Z").epochSecond
+        val proxy = Forecast(
+            home.latitude,
+            home.longitude,
+            "gem_seamless",
+            start,
+            (0 until 240).map {
+                HourlyWeather(
+                    epochSecond = start + it * 3600L,
+                    cloudCover = 0,
+                    humidity = 60,
+                    windKmh = 6.0,
+                    gustKmh = 10.0,
+                    jetStreamKmh = 80.0,
+                    seeing = null,
+                    transparency = null,
+                )
+            },
+        )
+        val estimated = NightPlanCard.from(NightPlanner.plan(home, aug10, proxy, kit))
+        assertTrue(estimated.estimated)
+        assertTrue(estimated.caption, estimated.caption.contains("Estimated"))
+
+        val measured = NightPlanCard.from(NightPlanner.plan(home, aug10, forecast(home), kit))
+        assertFalse(measured.estimated)
+        assertFalse(measured.caption, measured.caption.contains("Estimated"))
+    }
+
     private fun forecast(site: Site, cloud: Int = 0): Forecast {
         val start = java.time.Instant.parse("2024-08-09T00:00:00Z").epochSecond
         return Forecast(

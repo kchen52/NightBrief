@@ -13,6 +13,9 @@ import app.nightbrief.score.BigNightCandidate
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.weather.ForecastStatus
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -99,9 +102,20 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val sites = state.sites.sites
         if (!state.onboardingComplete || sites.isEmpty()) return Result.success()
 
-        var failures = 0
-        for (site in sites) {
-            runCatching { graph.forecasts.forecast(site.latitude, site.longitude) }.onFailure { failures++ }
+        // Fetch every site concurrently; a sequential loop waits out each timeout in turn.
+        val failures = coroutineScope {
+            sites.map { site ->
+                async {
+                    try {
+                        graph.forecasts.forecast(site.latitude, site.longitude)
+                        null
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        site.id
+                    }
+                }
+            }.awaitAll().count { it != null }
         }
         if (failures > 0 && failures == sites.size) return Result.retry()
 

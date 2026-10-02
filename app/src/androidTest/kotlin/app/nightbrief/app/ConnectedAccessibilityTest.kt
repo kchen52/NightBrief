@@ -9,7 +9,9 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -62,7 +64,8 @@ class ConnectedAccessibilityTest {
         compose.onNodeWithContentDescription("Previous night").assertIsDisplayed().assertIsNotEnabled()
         compose.onNodeWithContentDescription("Next night").assertIsDisplayed().assertIsEnabled()
         compose.onNodeWithContentDescription("Back").performClick()
-
+        // The planner pops back to Week. Settings is on Tonight.
+        compose.onNode(hasText("Tonight") and hasClickAction()).performClick()
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithContentDescription("Daily digest").performScrollTo().assertIsOn()
         compose.onNodeWithContentDescription("Big Night alerts").assertIsDisplayed().assertIsOn()

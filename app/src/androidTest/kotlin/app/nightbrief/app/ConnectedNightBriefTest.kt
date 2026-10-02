@@ -1,6 +1,7 @@
 package app.nightbrief.app
 
 import android.Manifest
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -9,9 +10,11 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isOff
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -56,13 +59,14 @@ class ConnectedNightBriefTest {
     @Test
     fun finishingOnboardingReachesTonightAndTheOtherTabs() {
         finishOnboarding()
-        compose.onNodeWithText("Tonight").assertIsDisplayed()
-        compose.onNodeWithText("Week").performClick()
+        // The selected tab and the screen title share a label, so "Tonight" is two nodes.
+        compose.onAllNodesWithText("Tonight").assertCountEquals(2)
+        compose.onNode(hasText("Week") and hasClickAction()).performClick()
         compose.onNodeWithText("This week").assertIsDisplayed()
-        compose.onNodeWithText("Sites").performClick()
-        compose.onNodeWithText("Sites").assertIsDisplayed()
-        compose.onNodeWithText("Gear").performClick()
-        compose.onNodeWithText("Gear").assertIsDisplayed()
+        compose.onNode(hasText("Sites") and hasClickAction()).performClick()
+        compose.onAllNodesWithText("Sites").assertCountEquals(2)
+        compose.onNode(hasText("Gear") and hasClickAction()).performClick()
+        compose.onAllNodesWithText("Gear").assertCountEquals(2)
     }
 
     @Test
@@ -71,11 +75,12 @@ class ConnectedNightBriefTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithText("ISS orbits by Celestrak.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Planetary Kp by NOAA SWPC.").assertIsDisplayed()
-        compose.onNodeWithTag("digest-enabled").assertIsOn().performClick()
+        // The credits sit at the bottom, so scroll the switches back into view before tapping.
+        compose.onNodeWithTag("digest-enabled").performScrollTo().assertIsOn().performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodes(hasTestTag("digest-enabled") and isOff()).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("big-night-enabled").assertIsOn().performClick()
+        compose.onNodeWithTag("big-night-enabled").performScrollTo().assertIsOn().performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodes(hasTestTag("big-night-enabled") and isOff()).fetchSemanticsNodes().isNotEmpty()
         }

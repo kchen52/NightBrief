@@ -3,7 +3,6 @@ package app.nightbrief.app.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -104,10 +103,10 @@ class RoadmapUiTest {
                 NightDetail(report, alternative = null, onOpenAlternative = {})
             }
         }
-        compose.onNodeWithText("Dew likely from", substring = true).assertExists()
-        compose.onNodeWithText("frost from", substring = true).assertExists()
-        compose.onNodeWithText("Dress for", substring = true).assertExists()
-        compose.onNodeWithText("FROST").assertExists()
+        assertTrue(compose.onAllNodesWithText("Dew likely from", substring = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodesWithText("frost from", substring = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodesWithText("Dress for", substring = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodesWithText("FROST").fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test

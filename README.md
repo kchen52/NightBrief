@@ -20,7 +20,7 @@ The Wear OS tile shows that same primary score and verdict on a round watch. Bef
 | --- | --- | --- |
 | ![Home scores 92, Go](docs/screenshots/wear-go.png) | ![Long Point scores 15, No-go](docs/screenshots/wear-nogo.png) | ![Set up NightBrief](docs/screenshots/wear-setup.png) |
 
-The app is Kotlin, `minSdk` 26. `:app` is the Compose UI: tonight, a week outlook, a planner for one site and date, and a site list with an OpenStreetMap picker. Saved gear drives the exposure hints on those screens. Forecasts, ephemeris, scoring, and settings live in the libraries below.
+The app is Kotlin, `minSdk` 26. `:app` is the Compose UI: tonight, a week outlook, a planner for one site and date, and a site list with an OpenStreetMap picker. Saved gear drives the exposure hints on those screens. Forecasts, ephemeris, scoring, and settings live in the libraries below. Agents changing this repo should follow `AGENTS.md`.
 
 ## Modules
 

@@ -43,4 +43,12 @@ class WearGlanceTest {
         val glance = WearGlance.from(true, "Long Point", 91)
         assertEquals(listOf("Long Point", "91", "Go"), glance.lines())
     }
+
+    @Test
+    fun aSavedForecastIsALineAfterTheVerdict() {
+        val glance = WearGlance.from(true, "Home", 91, savedText = "Saved Thu 18:40")
+        assertEquals(listOf("Home", "91", "Go", "Saved Thu 18:40"), glance.lines())
+        val noScore = WearGlance.from(true, "Home", null, savedText = "Saved Thu 18:40")
+        assertEquals(listOf("Home", "—", WearGlance.NO_SCORE, "Saved Thu 18:40"), noScore.lines())
+    }
 }

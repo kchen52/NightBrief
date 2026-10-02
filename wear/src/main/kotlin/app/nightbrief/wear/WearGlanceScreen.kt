@@ -54,6 +54,9 @@ fun WearGlanceScreen(glance: WearGlance, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
             )
+            glance.savedText?.let { saved ->
+                Text(saved, color = TextMuted, fontSize = 12.sp, textAlign = TextAlign.Center)
+            }
         }
     }
 }

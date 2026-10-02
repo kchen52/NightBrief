@@ -115,6 +115,28 @@ class ForecastRepositoryTest {
     }
 
     @Test
+    fun servesAForecastOlderThan48HoursWhenTheFetchFails() = runTest {
+        val r = repo()
+        val saved = r.forecast(43.65, -79.38).forecast
+        clock.now = clock.now.plus(Duration.ofHours(72))
+        openMeteoCode = 500
+        val result = r.forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.STALE, result.status)
+        assertEquals(saved.fetchedAt, result.forecast.fetchedAt)
+        assertEquals(24, result.forecast.hours.size)
+    }
+
+    @Test
+    fun aWorkingNetworkReplacesAnOldForecast() = runTest {
+        val r = repo()
+        r.forecast(43.65, -79.38)
+        clock.now = clock.now.plus(Duration.ofDays(5))
+        val result = r.forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.FRESH, result.status)
+        assertEquals(clock.now, result.forecast.fetchedAt)
+    }
+
+    @Test
     fun fileCacheRoundTrips() = runTest {
         val dir = kotlin.io.path.createTempDirectory("fc").toFile()
         repo(FileForecastCache(dir)).forecast(43.65, -79.38)

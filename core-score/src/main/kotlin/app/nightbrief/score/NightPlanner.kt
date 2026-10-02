@@ -54,6 +54,8 @@ data class NightReport(
     val dew: DewOutlook? = null,
     /** Layer reading for the dark hours. Not a score input; total cloud cover still drives the score. */
     val cloudReason: CloudReason? = null,
+    /** When [forecast] was fetched. Set whenever a forecast was available, including a stale file. */
+    val forecastFetchedAt: Instant? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -165,6 +167,7 @@ object NightPlanner {
                 forecast = forecast,
             ),
             cloudReason = CloudLayers.reason(darkInputs.mapNotNull { forecast?.at(it.time) }),
+            forecastFetchedAt = forecast?.fetchedAt,
         )
     }
 

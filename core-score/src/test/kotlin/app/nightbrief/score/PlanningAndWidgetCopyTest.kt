@@ -1,11 +1,14 @@
 package app.nightbrief.score
 
 import app.nightbrief.astro.NightEphemeris
+import app.nightbrief.weather.ForecastStatus
 import app.nightbrief.weather.OpenMeteoClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -45,5 +48,16 @@ class PlanningAndWidgetCopyTest {
         assertTrue(line.startsWith("Milky Way "))
         assertTrue(line.contains("–"))
         assertFalse(line.contains("not up"))
+    }
+
+    @Test
+    fun aRecentForecastIsUnlabeledAndAStaleOneNamesWhenItWasSaved() {
+        val zone = ZoneId.of("America/Toronto")
+        val savedAt = Instant.parse("2026-10-01T22:40:00Z")
+        assertNull(SavedForecast.shortLabel(ForecastStatus.FRESH, savedAt, zone))
+        assertNull(SavedForecast.shortLabel(ForecastStatus.CACHED, savedAt, zone))
+        assertEquals("Saved Thu 18:40", SavedForecast.shortLabel(ForecastStatus.STALE, savedAt, zone))
+        assertEquals("Saved forecast", SavedForecast.shortLabel(ForecastStatus.STALE, null, zone))
+        assertEquals("Offline — forecast saved Thu 18:40", SavedForecast.detail(savedAt, zone))
     }
 }

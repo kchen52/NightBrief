@@ -12,16 +12,16 @@ This was a source-only review. No builds or tests were run, no live providers we
 
 **Area:** `core-weather` / forecast parsing and cache fallback
 
-**Affected code:** `core-weather/src/main/kotlin/app/nightbrief/weather/OpenMeteoClient.kt:69`; `core-weather/src/main/kotlin/app/nightbrief/weather/ForecastRepository.kt:85`
+**Affected code:** `core-weather/src/main/kotlin/app/nightbrief/weather/OpenMeteoClient.kt:69`; `core-weather/src/main/kotlin/app/nightbrief/weather/ForecastRepository.kt:89`
 
 **Summary:** A structurally malformed but valid JSON response can throw a general parsing exception. The repository's stale-cache fallback handles only `WeatherApiException`, so it can skip a usable cached forecast for that site.
 
-**Preconditions:** A response contains a non-primitive value in `hourly.time`, and a cached forecast for that location is less than 48 hours old.
+**Preconditions:** A response contains a non-primitive value in `hourly.time`, and a cached forecast for that location exists.
 
-**Evidence:** Root JSON parsing is wrapped at `OpenMeteoClient.kt:43-47`, but each `hourly.time` element is accessed with `t.jsonPrimitive` at line 70 outside that catch. `ForecastRepository.forecast` catches only `WeatherApiException` at lines 89-94. The README documents use of an eligible cache when a forced fetch fails.
+**Evidence:** Root JSON parsing is wrapped at `OpenMeteoClient.kt:43-47`, but each `hourly.time` element is accessed with `t.jsonPrimitive` at line 70 outside that catch. `ForecastRepository.forecast` catches only `WeatherApiException` at lines 93-98. The README documents use of the last saved file when a fetch fails.
 
 **Reproduction:**
-1. Seed a cache entry for synthetic coordinates with a forecast less than 48 hours old.
+1. Seed a cache entry for synthetic coordinates with a forecast of any age.
 2. Supply valid JSON with an object inside `hourly.time`, such as `[{}]`.
 3. Call `ForecastRepository.forecast` for those coordinates.
 4. The parsing exception escapes instead of returning the cached forecast as stale. This was reasoned from source and was not run.
@@ -30,11 +30,11 @@ This was a source-only review. No builds or tests were run, no live providers we
 
 **Actual:** This response shape can throw outside the handled exception type, so the site may be briefed without forecast data.
 
-**Impact:** A malformed response can remove forecast-based scoring for one site despite a recent fallback being available.
+**Impact:** A malformed response can remove forecast-based scoring for one site despite a cached forecast being available.
 
 **Fix direction:** Ensure malformed response shapes enter the stale-cache failure path.
 
-**Regression check:** With a recent cached forecast, supply a non-primitive `hourly.time` element and verify that the repository returns the cached forecast as `STALE`.
+**Regression check:** With a cached forecast, supply a non-primitive `hourly.time` element and verify that the repository returns the cached forecast as `STALE`.
 
 ### [LOW] Prefetch can swallow cancellation during forecast fetching
 

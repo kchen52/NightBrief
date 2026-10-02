@@ -2,6 +2,7 @@ package app.nightbrief.wear
 
 import android.content.Context
 import app.nightbrief.data.AppGraph
+import app.nightbrief.score.SavedForecast
 import app.nightbrief.score.WearGlance
 import kotlinx.coroutines.runBlocking
 
@@ -22,15 +23,20 @@ object WearGlanceLoader {
         if (!state.onboardingComplete || primary == null) {
             WearGlance.from(onboardingComplete = false, siteName = null, score = null)
         } else {
-            val score = runBlocking {
+            val report = runBlocking {
                 graph.briefings.brief(
                     sites = listOf(primary),
                     kit = state.gear,
                     outlookDays = 1,
                     forceRefresh = false,
                 )
-            }.reportFor(primary.id)?.scoreValue
-            WearGlance.from(onboardingComplete = true, siteName = primary.name, score = score)
+            }.reportFor(primary.id)
+            WearGlance.from(
+                onboardingComplete = true,
+                siteName = primary.name,
+                score = report?.scoreValue,
+                savedText = SavedForecast.shortLabel(report?.forecastStatus, report?.forecastFetchedAt, primary.zone),
+            )
         }
     }.getOrElse { WearGlance.from(onboardingComplete = false, siteName = null, score = null) }
 }

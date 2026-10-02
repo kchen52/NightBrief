@@ -44,6 +44,15 @@ class WearGlanceScreenTest {
     }
 
     @Test
+    fun aSavedForecastShowsWhenItWasSaved() {
+        val glance = WearGlance.from(onboardingComplete = true, siteName = "Home", score = 70, savedText = "Saved Thu 18:40")
+        compose.setContent { WearGlanceScreen(glance) }
+        compose.onNodeWithText("70").assertIsDisplayed()
+        compose.onNodeWithText("Go").assertIsDisplayed()
+        compose.onNodeWithText("Saved Thu 18:40").assertIsDisplayed()
+    }
+
+    @Test
     fun setupHidesTheScore() {
         val glance = WearGlance.from(onboardingComplete = false, siteName = null, score = null)
         compose.setContent { WearGlanceScreen(glance) }

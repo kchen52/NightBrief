@@ -2,6 +2,7 @@ package app.nightbrief.app.wear
 
 import android.content.Context
 import app.nightbrief.data.AppGraph
+import app.nightbrief.score.SavedForecast
 import app.nightbrief.score.WearGlance
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -33,6 +34,7 @@ object WearPublisher {
                     dataMap.putString(WearGlance.KEY_SITE, glance.siteName)
                     dataMap.putString(WearGlance.KEY_SCORE, glance.scoreText)
                     dataMap.putString(WearGlance.KEY_VERDICT, glance.verdictText)
+                    dataMap.putString(WearGlance.KEY_SAVED, glance.savedText.orEmpty())
                     dataMap.putLong(WearGlance.KEY_UPDATED, System.currentTimeMillis())
                 }
                 Tasks.await(
@@ -50,12 +52,17 @@ object WearPublisher {
         if (!state.onboardingComplete || primary == null) {
             return WearGlance.from(onboardingComplete = false, siteName = null, score = null)
         }
-        val score = AppGraph.get(context).briefings.brief(
+        val report = AppGraph.get(context).briefings.brief(
             sites = listOf(primary),
             kit = state.gear,
             outlookDays = 1,
             forceRefresh = false,
-        ).reportFor(primary.id)?.scoreValue
-        return WearGlance.from(onboardingComplete = true, siteName = primary.name, score = score)
+        ).reportFor(primary.id)
+        return WearGlance.from(
+            onboardingComplete = true,
+            siteName = primary.name,
+            score = report?.scoreValue,
+            savedText = SavedForecast.shortLabel(report?.forecastStatus, report?.forecastFetchedAt, primary.zone),
+        )
     }
 }

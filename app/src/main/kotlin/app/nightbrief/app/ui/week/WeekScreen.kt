@@ -40,12 +40,14 @@ import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.ScorePill
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.tonight.StaleForecastBanner
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.OutlookNight
+import app.nightbrief.weather.ForecastStatus
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,6 +60,7 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
     val siteId = selected?.takeIf { book[it] != null } ?: book.primaryId ?: return
     val briefing = ui.briefing
     val outlook = briefing?.outlookFor(siteId)
+    val report = briefing?.reportFor(siteId)
 
     Scaffold(
         modifier = Modifier.padding(contentPadding),
@@ -83,6 +86,12 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
                     selectedId = siteId,
                     onSelect = vm::selectSite,
                 )
+            }
+            val tonight = report
+            if (tonight != null && tonight.forecastStatus == ForecastStatus.STALE) {
+                item {
+                    StaleForecastBanner(tonight, Modifier.padding(horizontal = 16.dp))
+                }
             }
             if (outlook != null) {
                 item {

@@ -52,7 +52,8 @@
 
     <string name="alternative_banner">%1$d at %2$s (+%3$d)</string>
     <string name="alternative_banner_why">%1$d at %2$s (+%3$d) — %4$s</string>
-    <string name="banner_stale">Offline — showing the last saved forecast</string>
+    <string name="banner_stale">Offline — forecast saved %1$s</string>
+    <string name="banner_stale_untimed">Offline — showing the last saved forecast</string>
     <string name="banner_forecast_unavailable">Forecast unavailable</string>
     <string name="banner_beyond_horizon">This night is beyond the forecast horizon — showing sky data only</string>
     <string name="banner_partial">Forecast covers only part of this night</string>

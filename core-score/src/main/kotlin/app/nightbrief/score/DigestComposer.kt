@@ -76,7 +76,8 @@ object DigestComposer {
             lines += DewCopy.lowLine(dew, units)
         }
         if (report.forecastStatus == ForecastStatus.STALE) {
-            lines += "Offline — showing the last saved forecast"
+            lines += report.forecastFetchedAt?.let { SavedForecast.detail(it, zone) }
+                ?: "Offline — showing the last saved forecast"
         }
 
         return Digest(

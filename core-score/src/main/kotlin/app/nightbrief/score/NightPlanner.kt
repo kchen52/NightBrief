@@ -19,6 +19,9 @@ data class TimelineHour(
     val isDark: Boolean,
     val sunAltitudeDeg: Double,
     val cloudCover: Int?,
+    val cloudLow: Int? = null,
+    val cloudMid: Int? = null,
+    val cloudHigh: Int? = null,
     val moonAltitudeDeg: Double,
     val moonIllumination: Double,
     val galacticCenterAltitudeDeg: Double,
@@ -49,6 +52,8 @@ data class NightReport(
     val issPasses: List<IssPass> = emptyList(),
     /** Dew, frost, and the overnight low. Null when the forecast has no temperature. Not a score input. */
     val dew: DewOutlook? = null,
+    /** Layer reading for the dark hours. Not a score input; total cloud cover still drives the score. */
+    val cloudReason: CloudReason? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -130,6 +135,9 @@ object NightPlanner {
                 isDark = dark != null && input.time in dark,
                 sunAltitudeDeg = input.sunAltitudeDeg,
                 cloudCover = w?.cloudCover,
+                cloudLow = w?.cloudLow,
+                cloudMid = w?.cloudMid,
+                cloudHigh = w?.cloudHigh,
                 moonAltitudeDeg = input.moonAltitudeDeg,
                 moonIllumination = input.moonIllumination,
                 galacticCenterAltitudeDeg = a.galacticCenterAltitudeDeg,
@@ -156,6 +164,7 @@ object NightPlanner {
                 overnightHours = eph.hourly.map { it.time },
                 forecast = forecast,
             ),
+            cloudReason = CloudLayers.reason(darkInputs.mapNotNull { forecast?.at(it.time) }),
         )
     }
 

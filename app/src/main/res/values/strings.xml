@@ -91,6 +91,10 @@
     <string name="section_timeline">Hour by hour</string>
     <string name="timeline_score">Score</string>
     <string name="timeline_cloud">Cloud</string>
+    <string name="timeline_cloud_low">Low</string>
+    <string name="timeline_cloud_mid">Mid</string>
+    <string name="timeline_cloud_high">High</string>
+    <string name="cloud_high_thin">high thin cloud</string>
     <string name="timeline_moon">Moon</string>
     <string name="timeline_mw">MW core</string>
     <string name="timeline_seeing">Seeing</string>

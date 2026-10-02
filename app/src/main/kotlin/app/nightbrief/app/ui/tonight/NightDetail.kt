@@ -40,6 +40,7 @@ import app.nightbrief.astro.IssPass
 import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.AuroraCopy
 import app.nightbrief.score.AuroraOutlook
+import app.nightbrief.score.CloudReason
 import app.nightbrief.score.DewCopy
 import app.nightbrief.score.DewOutlook
 import app.nightbrief.score.DigestComposer
@@ -373,9 +374,14 @@ private data class TimelineRow(
 @Composable
 private fun TimelineCard(report: NightReport) {
     val zone = report.site.zone
+    fun layer(percent: Int?): String = percent?.let { "$it%" } ?: "–"
+    fun layerColor(percent: Int?): Color? = percent?.let { NightColors.forScore(100 - it) }
     val rows = listOf(
         TimelineRow(stringResource(R.string.timeline_score), { it.score.toString() }, { NightColors.forScore(it.score) }, emphasize = true),
-        TimelineRow(stringResource(R.string.timeline_cloud), { h -> h.cloudCover?.let { "$it%" } ?: "–" }, { h -> h.cloudCover?.let { NightColors.forScore(100 - it) } }),
+        TimelineRow(stringResource(R.string.timeline_cloud), { h -> layer(h.cloudCover) }, { h -> layerColor(h.cloudCover) }),
+        TimelineRow(stringResource(R.string.timeline_cloud_low), { h -> layer(h.cloudLow) }, { h -> layerColor(h.cloudLow) }),
+        TimelineRow(stringResource(R.string.timeline_cloud_mid), { h -> layer(h.cloudMid) }, { h -> layerColor(h.cloudMid) }),
+        TimelineRow(stringResource(R.string.timeline_cloud_high), { h -> layer(h.cloudHigh) }, { h -> layerColor(h.cloudHigh) }),
         TimelineRow(stringResource(R.string.timeline_moon), { h -> if (h.moonAltitudeDeg > 0) Format.degrees(h.moonAltitudeDeg) else "↓" }, { h ->
             if (h.moonAltitudeDeg > 0 && h.moonIllumination > 0.05) NightColors.Fair else null
         }),
@@ -422,6 +428,14 @@ private fun TimelineCard(report: NightReport) {
                     }
                 }
             }
+        }
+        if (report.cloudReason == CloudReason.HIGH_THIN) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.cloud_high_thin),
+                style = MaterialTheme.typography.bodyMedium,
+                color = NightColors.Fair,
+            )
         }
         Spacer(Modifier.height(8.dp))
         Text(

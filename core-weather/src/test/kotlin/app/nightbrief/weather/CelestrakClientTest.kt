@@ -151,6 +151,74 @@ class CelestrakClientTest {
         assertTrue(error is WeatherApiException)
     }
 
+    @Test
+    fun concurrentFetchesShareOneOriginCall() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-shared").resolve("iss.tle").toFile()
+        val origin = FakeTle(Result.success(IssTle(LINE1, LINE2, FETCHED)))
+        val source = CachingTleSource(origin = origin, cacheFile = cacheFile, clock = clock)
+        kotlinx.coroutines.coroutineScope {
+            repeat(5) { kotlinx.coroutines.launch { source.fetchIss() } }
+        }
+        assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
+    }
+
+    @Test
+    fun originTimeoutServesStaleWithoutWaiting() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-timeout").resolve("iss.tle").toFile()
+        CachingTleSource(
+            origin = FakeTle(Result.success(IssTle(LINE1, LINE2, FETCHED))),
+            cacheFile = cacheFile,
+            clock = clock,
+        ).fetchIss()
+
+        clock.instant = FETCHED.plus(Duration.ofHours(2))
+        val hanging = CachingTleSource(
+            origin = object : TleSource {
+                override suspend fun fetchIss(): IssTle {
+                    kotlinx.coroutines.delay(Duration.ofMinutes(5).toMillis())
+                    return IssTle(LINE1, LINE2, clock.instant)
+                }
+            },
+            cacheFile = cacheFile,
+            maxAge = Duration.ofHours(1),
+            originTimeout = Duration.ofSeconds(5),
+            clock = clock,
+        )
+        val stale = hanging.fetchIss()
+        assertEquals("a hanging origin should fall back to the stale element, got ${stale.line1}", LINE1, stale.line1)
+        assertEquals(FETCHED, stale.fetchedAt)
+    }
+
+    @Test
+    fun failureCooldownSkipsTheNetworkUntilItPasses() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-cooldown").resolve("iss.tle").toFile()
+        val origin = FakeTle(Result.failure(WeatherApiException("celestrak down")))
+        val source = CachingTleSource(
+            origin = origin,
+            cacheFile = cacheFile,
+            failureCooldown = Duration.ofMinutes(10),
+            clock = clock,
+        )
+        assertTrue(runCatching { source.fetchIss() }.exceptionOrNull() is WeatherApiException)
+        assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
+        assertTrue(runCatching { source.fetchIss() }.exceptionOrNull() is WeatherApiException)
+        assertEquals("expected no origin call inside the cooldown, got ${origin.calls}", 1, origin.calls)
+        clock.instant = FETCHED.plus(Duration.ofMinutes(11))
+        assertTrue(runCatching { source.fetchIss() }.exceptionOrNull() is WeatherApiException)
+        assertEquals("expected a retry after the cooldown, got ${origin.calls}", 2, origin.calls)
+    }
+
+    private class FakeTle(var result: Result<IssTle>) : TleSource {
+        var calls = 0
+        override suspend fun fetchIss(): IssTle {
+            calls++
+            return result.getOrThrow()
+        }
+    }
+
     private class SettableClock(var instant: Instant) : Clock() {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId): Clock = this

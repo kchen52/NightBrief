@@ -6,6 +6,11 @@ import java.io.IOException
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 
 /** ISS two-line elements and the moment they were obtained. */
 data class IssTle(
@@ -60,10 +65,12 @@ class CelestrakClient(
  *
  * A cache whose age is at most [maxAge] is returned without calling [origin].
  * Otherwise [origin] is called and, on success, the file is replaced (parent
- * directories are created). If [origin] throws [WeatherApiException] and the
- * cache is at most [staleMaxAge] old, that cached element is returned. A missing
- * cache, an unreadable cache, or a cache older than [staleMaxAge] rethrows the
- * failure.
+ * directories are created). One origin call is bounded by [originTimeout]: a timeout
+ * or any other [WeatherApiException] serves the cache when it is at most [staleMaxAge]
+ * old, and rethrows otherwise. Concurrent callers share that one call, and after a
+ * failure later calls fail fast for [failureCooldown] — serving the stale file when one
+ * exists — instead of waiting out another doomed fetch. A missing cache, an unreadable
+ * cache, or a cache older than [staleMaxAge] rethrows the failure.
  */
 class CachingTleSource(
     private val origin: TleSource,
@@ -71,18 +78,43 @@ class CachingTleSource(
     private val maxAge: Duration = Duration.ofHours(12),
     private val staleMaxAge: Duration = Duration.ofDays(7),
     private val clock: Clock = Clock.systemUTC(),
+    private val originTimeout: Duration = Duration.ofSeconds(10),
+    private val failureCooldown: Duration = Duration.ofMinutes(30),
 ) : TleSource {
-    override suspend fun fetchIss(): IssTle {
+    private val mutex = Mutex()
+    private var lastFailure: Instant? = null
+
+    override suspend fun fetchIss(): IssTle = mutex.withLock {
         val now = clock.instant()
         val cached = readCache()
         if (cached != null && ageOf(cached, now) <= maxAge) return cached
-        return try {
-            val fresh = origin.fetchIss()
-            writeCache(fresh)
-            fresh
-        } catch (failure: WeatherApiException) {
-            if (cached != null && ageOf(cached, now) <= staleMaxAge) cached else throw failure
+        val fallback: IssTle? = if (cached != null && ageOf(cached, now) <= staleMaxAge) cached else null
+        if (failedRecently(now)) {
+            // The last attempt just failed; a retry now would burn the timeout again.
+            if (fallback != null) return fallback
+            throw WeatherApiException("Celestrak TLE unavailable: the last fetch failed recently; retrying later")
         }
+        try {
+            val fresh = withTimeout(originTimeout.toMillis()) { origin.fetchIss() }
+            writeCache(fresh)
+            lastFailure = null
+            fresh
+        } catch (e: TimeoutCancellationException) {
+            lastFailure = clock.instant()
+            if (fallback != null) fallback else throw WeatherApiException("Celestrak TLE fetch timed out", e)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (failure: WeatherApiException) {
+            lastFailure = clock.instant()
+            if (fallback != null) fallback else throw failure
+        }
+    }
+
+    /** True when the last origin failure is recent. A clock that moved backwards never counts. */
+    private fun failedRecently(now: Instant): Boolean {
+        val failedAt = lastFailure ?: return false
+        val since = Duration.between(failedAt, now)
+        return !since.isNegative && since < failureCooldown
     }
 
     private fun ageOf(tle: IssTle, now: Instant): Duration = Duration.between(tle.fetchedAt, now)

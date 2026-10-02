@@ -16,6 +16,11 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 
 /** Whether a Kp sample was measured or is still a forecast. */
 enum class KpStatus { OBSERVED, ESTIMATED, PREDICTED }
@@ -58,31 +63,53 @@ interface KpSource {
  *
  * Kp is not site-specific, so every briefing, planner open, widget refresh, and Wear publish in
  * the same window would otherwise hit SWPC again. A result younger than [maxAge] is returned
- * without a network call. A failed fetch throws and leaves any cached value untouched, so the
- * briefing still falls back to omitting the aurora row.
+ * without a network call. One origin call is bounded by [originTimeout] (a timeout throws and
+ * leaves any cached value untouched, so the briefing still falls back to omitting the aurora
+ * row), concurrent callers share that one call, and after a failure later calls fail fast for
+ * [failureCooldown] instead of waiting out another doomed fetch.
  */
 class CachingKpSource(
     private val origin: KpSource,
     private val maxAge: Duration = Duration.ofMinutes(60),
     private val clock: Clock = Clock.systemUTC(),
+    private val originTimeout: Duration = Duration.ofSeconds(10),
+    private val failureCooldown: Duration = Duration.ofMinutes(30),
 ) : KpSource {
-    private val lock = Any()
+    private val mutex = Mutex()
     private var cached: KpForecast? = null
     private var fetchedAt: Instant? = null
+    private var lastFailure: Instant? = null
 
-    override suspend fun fetch(): KpForecast {
+    override suspend fun fetch(): KpForecast = mutex.withLock {
         val now = clock.instant()
-        synchronized(lock) {
-            val result = cached
-            val at = fetchedAt
-            if (result != null && at != null && Duration.between(at, now) < maxAge) return result
+        val result = cached
+        val at = fetchedAt
+        if (result != null && at != null && Duration.between(at, now) < maxAge) return result
+        if (failedRecently(now)) {
+            throw WeatherApiException("SWPC Kp unavailable: the last fetch failed recently; retrying later")
         }
-        val fresh = origin.fetch()
-        synchronized(lock) {
+        try {
+            val fresh = withTimeout(originTimeout.toMillis()) { origin.fetch() }
             cached = fresh
             fetchedAt = clock.instant()
+            lastFailure = null
+            fresh
+        } catch (e: TimeoutCancellationException) {
+            lastFailure = clock.instant()
+            throw WeatherApiException("SWPC Kp fetch timed out", e)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: WeatherApiException) {
+            lastFailure = clock.instant()
+            throw e
         }
-        return fresh
+    }
+
+    /** True when the last origin failure is recent. A clock that moved backwards never counts. */
+    private fun failedRecently(now: Instant): Boolean {
+        val failedAt = lastFailure ?: return false
+        val since = Duration.between(failedAt, now)
+        return !since.isNegative && since < failureCooldown
     }
 }
 

@@ -91,6 +91,26 @@ class ConnectedNightBriefTest {
     }
 
     @Test
+    fun allowNotificationsIsGreyedOutOncePermissionIsGranted() {
+        compose.onNodeWithText("Next").performClick()
+        compose.onNodeWithText("Latitude").performTextInput("43.65")
+        compose.onNodeWithText("Longitude").performTextInput("-79.38")
+        compose.onNodeWithText("Next").performClick()
+        compose.onNodeWithText("Your gear").assertIsDisplayed()
+        compose.onNodeWithText("Next").performClick()
+        compose.onNodeWithTag("allow-notifications").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun gearPickerFindsTheSigma16to300ByHyphenatedName() {
+        finishOnboarding()
+        compose.onNode(hasText("Gear") and hasClickAction()).performClick()
+        compose.onNodeWithText("Add lens").performScrollTo().performClick()
+        compose.onNodeWithText("Search lenses").performTextInput("16-300")
+        compose.onNodeWithText("Sigma 16–300mm f/3.5–6.7 DC OS Contemporary").assertIsDisplayed()
+    }
+
+    @Test
     fun weekOpensThePlannerAndStepsToTheNextNight() {
         finishOnboarding()
         compose.onNodeWithText("Week").performClick()

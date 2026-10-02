@@ -1,9 +1,18 @@
 package app.nightbrief.app.ui.onboarding
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,8 +45,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
@@ -63,18 +79,35 @@ fun OnboardingScreen(vm: AppViewModel) {
     var digestTime by rememberSaveable { mutableStateOf(s.digestTime.ifBlank { "08:00" }) }
     var showTime by remember { mutableStateOf(false) }
     var askedNotification by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    var notificationsGranted by remember { mutableStateOf(notificationsAllowed(context)) }
     val scroll = rememberScrollState()
+    LaunchedEffect(step) { scroll.scrollTo(0) }
 
     LaunchedEffect(s.gear) {
         if (vm.onboardingGear.value == null) vm.updateOnboardingGear(s.gear)
     }
-    LaunchedEffect(step) { scroll.scrollTo(0) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsGranted = notificationsAllowed(context)
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsGranted = notificationsAllowed(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(step) {
         if (step == STEP_NOTIFICATIONS && !askedNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            askedNotification = true
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            notificationsGranted = notificationsAllowed(context)
+            if (!notificationsGranted) {
+                askedNotification = true
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 
@@ -105,9 +138,28 @@ fun OnboardingScreen(vm: AppViewModel) {
                     .verticalScroll(scroll)
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                when (step) {
+            AnimatedContent(
+                targetState = step,
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopStart,
+                transitionSpec = {
+                    val forward = targetState > initialState
+                    val enter = slideInHorizontally(tween(280)) { width ->
+                        if (forward) width / 4 else -width / 4
+                    } + fadeIn(tween(280))
+                    val exit = slideOutHorizontally(tween(200)) { width ->
+                        if (forward) -width / 4 else width / 4
+                    } + fadeOut(tween(180))
+                    enter.togetherWith(exit)
+                },
+                label = "onboarding-step",
+            ) { current ->
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                when (current) {
                     STEP_WELCOME -> WelcomeStep()
                     STEP_SITE -> {
                         Text(stringResource(R.string.onboarding_site_title), style = MaterialTheme.typography.headlineMedium)
@@ -163,11 +215,14 @@ fun OnboardingScreen(vm: AppViewModel) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             Button(
                                 onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
-                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !notificationsGranted,
+                                modifier = Modifier.fillMaxWidth().testTag("allow-notifications"),
                             ) { Text(stringResource(R.string.allow_notifications)) }
                         }
                     }
                 }
+                }
+            }
             }
         }
     }
@@ -181,6 +236,12 @@ fun OnboardingScreen(vm: AppViewModel) {
             digestTime = "%02d:%02d".format(Locale.ROOT, time.hour, time.minute)
         }
     }
+}
+
+private fun notificationsAllowed(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
 }
 
 @Composable

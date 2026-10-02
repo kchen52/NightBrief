@@ -161,7 +161,7 @@ class ReadmeScreenshotTest {
         paparazzi.snapshot("meteors") {
             Phone("Tonight", "Tonight") { padding ->
                 Box(Modifier.padding(padding).fillMaxSize().clipToBounds()) {
-                    Column(Modifier.offset(y = (-360).dp)) {
+                    Column(Modifier.offset(y = (-408).dp)) {
                         NightDetail(report, alternative = null, onOpenAlternative = {})
                     }
                 }

@@ -28,6 +28,7 @@ import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastStatus
 import app.nightbrief.weather.HourlyWeather
+import app.nightbrief.weather.WeatherApiException
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -118,6 +119,22 @@ class PrefetchBigNightTest {
     }
 
     @Test
+    fun partialForecastFailureStillSucceeds() = runBlocking {
+        val context = context()
+        val away = Site("away", "Away", 44.0, -80.0, "America/Toronto", bortle = 4)
+        val graph = AppGraph.get(context)
+        graph.settings.update {
+            AppState(
+                onboardingComplete = true,
+                sites = SiteBook().add(site, makePrimary = true).add(away),
+            )
+        }
+        graph.replaceSourcesForTest(FlakyForecasts, FixedBriefings(report(BigNightAlerts.threshold)))
+        val result = TestListenableWorkerBuilder<PrefetchWorker>(context).build().doWork()
+        assertEquals(ListenableWorker.Result.success(), result)
+    }
+
+    @Test
     fun scoringFailureDoesNotRetryASavedPrefetch() = runBlocking {
         val context = context()
         val graph = AppGraph.get(context)
@@ -180,6 +197,17 @@ class PrefetchBigNightTest {
                     .setTaskExecutor(SynchronousExecutor())
                     .build(),
             )
+        }
+    }
+
+    private object FlakyForecasts : ForecastSource {
+        override suspend fun forecast(
+            latitude: Double,
+            longitude: Double,
+            forceRefresh: Boolean,
+        ): ForecastResult {
+            if (latitude != 43.65) throw WeatherApiException("offline at this site")
+            return OkForecasts.forecast(latitude, longitude, forceRefresh)
         }
     }
 

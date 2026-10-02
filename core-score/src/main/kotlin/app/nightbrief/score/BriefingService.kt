@@ -6,6 +6,7 @@ import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
+import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.IssTle
 import app.nightbrief.weather.KpForecast
 import app.nightbrief.weather.KpSource
@@ -84,9 +85,17 @@ class BriefingService(
         val now = clock.instant()
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
+        // Sites in the same ~1 km cache cell share one fetch; ephemeris and scoring still run per site.
+        val keys = sites.map { ForecastRepository.cacheKey(it.latitude, it.longitude) }
+        val fetchedByKey = keys.distinct().map { key ->
+            async {
+                val site = sites[keys.indexOf(key)]
+                key to runCatching { forecasts.forecast(site.latitude, site.longitude, forceRefresh) }
+            }
+        }.awaitAll().toMap()
         val fetched = sites.map { site ->
-            async { site to runCatching { forecasts.forecast(site.latitude, site.longitude, forceRefresh) } }
-        }.awaitAll()
+            site to fetchedByKey.getValue(ForecastRepository.cacheKey(site.latitude, site.longitude))
+        }
         val kpForecast = kpDeferred.await()
         val issTle = issDeferred.await()
 
@@ -129,11 +138,14 @@ class BriefingService(
     }
 
     /** Plans a single site for a specific date (planning mode). */
-    override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport {
-        val kpForecast = fetchKp()
-        val issTle = fetchIss()
-        val fr = runCatching { forecasts.forecast(site.latitude, site.longitude) }
-        return NightPlanner.plan(
+    override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport = coroutineScope {
+        val kpDeferred = async { fetchKp() }
+        val issDeferred = async { fetchIss() }
+        val forecastDeferred = async { runCatching { forecasts.forecast(site.latitude, site.longitude) } }
+        val kpForecast = kpDeferred.await()
+        val issTle = issDeferred.await()
+        val fr = forecastDeferred.await()
+        NightPlanner.plan(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(fr.exceptionOrNull()?.message),
         ).withAurora(kpForecast).withIss(issTle)

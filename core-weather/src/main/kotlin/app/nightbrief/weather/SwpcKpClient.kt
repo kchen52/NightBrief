@@ -9,6 +9,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
+import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -49,6 +51,39 @@ data class KpForecast(val samples: List<KpSample>) {
 interface KpSource {
     /** Throws [WeatherApiException] when the forecast cannot be fetched or parsed. */
     suspend fun fetch(): KpForecast
+}
+
+/**
+ * In-memory cache in front of a [KpSource].
+ *
+ * Kp is not site-specific, so every briefing, planner open, widget refresh, and Wear publish in
+ * the same window would otherwise hit SWPC again. A result younger than [maxAge] is returned
+ * without a network call. A failed fetch throws and leaves any cached value untouched, so the
+ * briefing still falls back to omitting the aurora row.
+ */
+class CachingKpSource(
+    private val origin: KpSource,
+    private val maxAge: Duration = Duration.ofMinutes(60),
+    private val clock: Clock = Clock.systemUTC(),
+) : KpSource {
+    private val lock = Any()
+    private var cached: KpForecast? = null
+    private var fetchedAt: Instant? = null
+
+    override suspend fun fetch(): KpForecast {
+        val now = clock.instant()
+        synchronized(lock) {
+            val result = cached
+            val at = fetchedAt
+            if (result != null && at != null && Duration.between(at, now) < maxAge) return result
+        }
+        val fresh = origin.fetch()
+        synchronized(lock) {
+            cached = fresh
+            fetchedAt = clock.instant()
+        }
+        return fresh
+    }
 }
 
 /**

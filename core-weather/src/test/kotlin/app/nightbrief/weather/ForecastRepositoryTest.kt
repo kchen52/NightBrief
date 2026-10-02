@@ -149,6 +149,47 @@ class ForecastRepositoryTest {
     }
 
     @Test
+    fun sevenTimerBoundaryAttachesAt90MinutesAndExcludesBeyond() {
+        val base = 1_790_866_800L
+        val forecast = Forecast(
+            43.65, -79.38, "gem_seamless", base,
+            listOf(HourlyWeather(epochSecond = base, cloudCover = 10)),
+        )
+        val merged = forecast.withSevenTimer(
+            listOf(
+                SevenTimerPoint(epochSecond = base - 5400, seeing = 1, transparency = 1, cloudIndex = 1),
+                SevenTimerPoint(epochSecond = base + 5401, seeing = 8, transparency = 8, cloudIndex = 9),
+            ),
+        )
+        assertEquals(1, merged.hours.single().seeing)
+        assertEquals(1, merged.hours.single().transparency)
+    }
+
+    @Test
+    fun sevenTimerMergePicksNearestAndEarlierOnTies() {
+        val base = 1_790_866_800L
+        val forecast = Forecast(
+            43.65, -79.38, "gem_seamless", base,
+            listOf(
+                HourlyWeather(epochSecond = base, cloudCover = 10),
+                HourlyWeather(epochSecond = base + 3600, cloudCover = 10),
+            ),
+        )
+        val merged = forecast.withSevenTimer(
+            listOf(
+                SevenTimerPoint(epochSecond = base + 2400, seeing = 4, transparency = 4, cloudIndex = 3),
+                SevenTimerPoint(epochSecond = base + 4800, seeing = 6, transparency = 6, cloudIndex = 5),
+            ),
+        )
+        assertEquals("expected nearest point seeing 4, got ${merged.hours[0].seeing}", 4, merged.hours[0].seeing)
+        assertEquals(
+            "expected tied points to resolve to the earlier seeing 4, got ${merged.hours[1].seeing}",
+            4,
+            merged.hours[1].seeing,
+        )
+    }
+
+    @Test
     fun modelSelection() {
         assertEquals(WeatherModel.GEM_SEAMLESS, WeatherModel.forLocation(43.65, -79.38)) // Toronto
         assertEquals(WeatherModel.GEM_SEAMLESS, WeatherModel.forLocation(53.55, -113.49)) // Edmonton

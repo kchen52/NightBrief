@@ -6,13 +6,17 @@ import app.nightbrief.score.BriefingSource
 import app.nightbrief.sites.BortleLookup
 import app.nightbrief.sites.CompositeBortleLookup
 import app.nightbrief.sites.StreamingGridBortleLookup
+import app.nightbrief.weather.CachingKpSource
 import app.nightbrief.weather.CachingTleSource
 import app.nightbrief.weather.CelestrakClient
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.ForecastSource
+import app.nightbrief.weather.OpenMeteoClient
+import app.nightbrief.weather.SevenTimerClient
 import app.nightbrief.weather.SwpcKpClient
 import app.nightbrief.weather.TimeZoneLookup
+import app.nightbrief.weather.defaultHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,17 +32,27 @@ class AppGraph private constructor(context: Context) {
     val settings: SettingsRepository =
         SettingsRepository.create(File(context.filesDir, "datastore/app_state.json"), appScope)
 
-    private val realForecasts: ForecastSource =
-        ForecastRepository(cache = FileForecastCache(File(context.filesDir, "forecasts")))
+    /**
+     * One client for every weather API. Sharing the dispatcher and connection pool avoids
+     * opening a pool per host per client and lets consecutive briefings reuse connections.
+     */
+    private val http = defaultHttpClient()
+
+    private val realForecasts: ForecastSource = ForecastRepository(
+            openMeteo = OpenMeteoClient(http = http),
+            sevenTimer = SevenTimerClient(http = http),
+            cache = FileForecastCache(File(context.filesDir, "forecasts")),
+        )
 
     var forecasts: ForecastSource = realForecasts
         private set
 
-    val timeZoneLookup = TimeZoneLookup()
+    val timeZoneLookup = TimeZoneLookup(http = http)
 
-    val issTles = CachingTleSource(CelestrakClient(), File(context.filesDir, "tle/iss.txt"))
+    val issTles = CachingTleSource(CelestrakClient(http = http), File(context.filesDir, "tle/iss.txt"))
 
-    private val realBriefings: BriefingSource = BriefingService(realForecasts, kp = SwpcKpClient(), iss = issTles)
+    private val realBriefings: BriefingSource =
+        BriefingService(realForecasts, kp = CachingKpSource(SwpcKpClient(http = http)), iss = issTles)
 
     var briefings: BriefingSource = realBriefings
         private set

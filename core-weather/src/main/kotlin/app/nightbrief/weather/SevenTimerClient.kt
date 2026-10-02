@@ -65,14 +65,42 @@ class SevenTimerClient(
 fun Forecast.withSevenTimer(points: List<SevenTimerPoint>): Forecast {
     if (points.isEmpty()) return this
     val sorted = points.sortedBy { it.epochSecond }
+    val epochs = sorted.map { it.epochSecond }
     return copy(
         hours = hours.map { h ->
-            val nearest = sorted.minBy { kotlin.math.abs(it.epochSecond - h.epochSecond) }
-            if (kotlin.math.abs(nearest.epochSecond - h.epochSecond) <= 90 * 60) {
+            val nearest = nearestWithin(sorted, epochs, h.epochSecond, TOLERANCE_SECONDS)
+            if (nearest != null) {
                 h.copy(seeing = nearest.seeing, transparency = nearest.transparency)
             } else {
                 h
             }
         },
     )
+}
+
+private const val TOLERANCE_SECONDS = 90 * 60L
+
+/**
+ * Nearest point to [epochSecond] within [toleranceSeconds]. Ties go to the earlier point,
+ * matching the previous linear scan. Binary search keeps the merge linearithmic in the
+ * 7Timer series instead of quadratic in the forecast hours.
+ */
+private fun nearestWithin(
+    sorted: List<SevenTimerPoint>,
+    epochs: List<Long>,
+    epochSecond: Long,
+    toleranceSeconds: Long,
+): SevenTimerPoint? {
+    val hit = epochs.binarySearch(epochSecond)
+    if (hit >= 0) return sorted[hit]
+    val upper = -hit - 1
+    val lower = sorted.getOrNull(upper - 1)
+    val above = sorted.getOrNull(upper)
+    val nearest = when {
+        lower == null -> above
+        above == null -> lower
+        epochSecond - lower.epochSecond <= above.epochSecond - epochSecond -> lower
+        else -> above
+    }
+    return nearest?.takeIf { kotlin.math.abs(it.epochSecond - epochSecond) <= toleranceSeconds }
 }

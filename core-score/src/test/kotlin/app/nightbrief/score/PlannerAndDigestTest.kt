@@ -8,6 +8,8 @@ import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastStatus
 import app.nightbrief.weather.HourlyWeather
+import app.nightbrief.weather.KpForecast
+import app.nightbrief.weather.KpSource
 import app.nightbrief.weather.WeatherApiException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -158,6 +160,47 @@ class PlannerAndDigestTest {
             val f = forecasts[latitude to longitude] ?: throw WeatherApiException("offline")
             return ForecastResult(f, ForecastStatus.FRESH)
         }
+    }
+
+    private class CountingSource(val forecasts: Map<Pair<Double, Double>, Forecast>) : ForecastSource {
+        var calls = 0
+        override suspend fun forecast(latitude: Double, longitude: Double, forceRefresh: Boolean): ForecastResult {
+            calls++
+            val f = forecasts[latitude to longitude] ?: throw WeatherApiException("offline")
+            return ForecastResult(f, ForecastStatus.FRESH)
+        }
+    }
+
+    @Test
+    fun sitesInTheSameCacheCellShareOneFetch() = runTest {
+        val clock = Clock.fixed(Instant.parse("2024-08-10T12:00:00Z"), ZoneOffset.UTC)
+        // ~50 m from home, inside the same ~1 km forecast cell.
+        val nextDoor = Site("near", "Next door", 43.6535, -79.3835, "America/Toronto", bortle = 8)
+        val source = CountingSource(mapOf((home.latitude to home.longitude) to forecast(home, cloud = 20)))
+        val briefing = BriefingService(source, clock).brief(listOf(home, nextDoor), kit, outlookDays = 1)
+        assertEquals("expected 1 fetch for 2 co-located sites, got ${source.calls}", 1, source.calls)
+        assertNotNull(briefing.reportFor("home")!!.score)
+        assertNotNull(briefing.reportFor("near")!!.score)
+    }
+
+    @Test
+    fun planSurvivesKpAndForecastFailures() = runTest {
+        val clock = Clock.fixed(Instant.parse("2024-08-10T12:00:00Z"), ZoneOffset.UTC)
+        val failingKp = object : KpSource {
+            override suspend fun fetch(): KpForecast = throw WeatherApiException("swpc down")
+        }
+        val offline = object : ForecastSource {
+            override suspend fun forecast(
+                latitude: Double,
+                longitude: Double,
+                forceRefresh: Boolean,
+            ): ForecastResult = throw WeatherApiException("offline")
+        }
+        val report = BriefingService(offline, clock, kp = failingKp).plan(home, aug10, kit)
+        assertNull(report.aurora)
+        assertNull("expected no score without a forecast, got ${report.scoreValue}", report.score)
+        assertEquals(ForecastCoverage.NONE, report.coverage)
+        assertTrue(report.warnings.isNotEmpty())
     }
 
     @Test

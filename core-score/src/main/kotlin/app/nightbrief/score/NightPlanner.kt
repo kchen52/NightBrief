@@ -7,6 +7,7 @@ import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.ForecastStatus
+import app.nightbrief.weather.HourlyWeather
 import app.nightbrief.weather.OpenMeteoClient
 import java.time.Instant
 import java.time.LocalDate
@@ -98,8 +99,15 @@ object NightPlanner {
         val dark = eph.darkWindow
         val bortle = site.effectiveBortle
 
+        // Index the forecast once; the hourly scan below used to walk the whole list per hour.
+        val byHour = forecast?.hours?.associateBy { it.epochSecond }
+        fun at(time: Instant): HourlyWeather? {
+            val key = time.epochSecond - Math.floorMod(time.epochSecond, 3600L)
+            return byHour?.get(key)
+        }
+
         val inputs = eph.hourly.map { a ->
-            val w = forecast?.at(a.time)
+            val w = at(a.time)
             HourInput(
                 time = a.time,
                 cloudCover = w?.cloudCover,
@@ -117,7 +125,7 @@ object NightPlanner {
         }
 
         val darkInputs = darkHours(eph, inputs.map { it.first })
-        val covered = darkInputs.count { forecast?.at(it.time)?.cloudCover != null }
+        val covered = darkInputs.count { at(it.time)?.cloudCover != null }
         val coverage = when {
             darkInputs.isEmpty() -> if (forecast != null) ForecastCoverage.FULL else ForecastCoverage.NONE
             covered == darkInputs.size -> ForecastCoverage.FULL
@@ -130,8 +138,9 @@ object NightPlanner {
             else -> NightScoreEngine.scoreNight(darkInputs)
         }
 
+        val astroByTime = eph.hourly.associateBy { it.time }
         val timeline = inputs.map { (input, w) ->
-            val a = eph.hourly.first { it.time == input.time }
+            val a = astroByTime.getValue(input.time)
             TimelineHour(
                 time = input.time,
                 isDark = dark != null && input.time in dark,
@@ -166,7 +175,7 @@ object NightPlanner {
                 overnightHours = eph.hourly.map { it.time },
                 forecast = forecast,
             ),
-            cloudReason = CloudLayers.reason(darkInputs.mapNotNull { forecast?.at(it.time) }),
+            cloudReason = CloudLayers.reason(darkInputs.mapNotNull { at(it.time) }),
             forecastFetchedAt = forecast?.fetchedAt,
         )
     }

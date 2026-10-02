@@ -144,6 +144,17 @@ class PlannerAndDigestTest {
         assertTrue(lp.warnings.single().contains("offline"))
         val outlook = briefing.outlookFor("home")!!
         assertEquals(7, outlook.nights.size)
+        assertTrue(outlook.nights.none { it.estimated })
         assertTrue(outlook.headline(java.util.Locale.ENGLISH).startsWith("Best night this week: "))
+    }
+
+    @Test
+    fun outlookMarksNightsWhoseSeeingWasEstimated() = runTest {
+        val clock = Clock.fixed(Instant.parse("2024-08-10T12:00:00Z"), ZoneOffset.UTC)
+        val source = FakeSource(
+            mapOf((home.latitude to home.longitude) to forecast(home, seeing = null, transparency = null)),
+        )
+        val outlook = BriefingService(source, clock).brief(listOf(home), kit, outlookDays = 7).outlookFor("home")!!
+        assertTrue(outlook.nights.all { it.estimated && it.score != null })
     }
 }

@@ -3,7 +3,7 @@
     <string name="channel_digest_name">Daily digest</string>
     <string name="channel_digest_description">Morning go/no-go summary for tonight</string>
     <string name="channel_big_night_name">Big Night alerts</string>
-    <string name="channel_big_night_description">Posted when tonight scores 85 or above</string>
+    <string name="channel_big_night_description">Posted when tonight reaches your Big Night score</string>
     <string name="channel_progress_name">Background updates</string>
     <string name="channel_progress_description">Shown briefly while forecasts are fetched</string>
     <string name="big_night_title">Big Night at %1$s</string>

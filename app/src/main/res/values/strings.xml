@@ -43,7 +43,8 @@
 
     <string name="tonight_empty">Pull fresh data with the refresh button</string>
     <string name="week_title">This week</string>
-    <string name="week_footnote">Strip scores show each site\'s best night. Nights 4–7 estimate seeing and transparency from humidity and jet-stream wind.</string>
+    <string name="week_footnote">Strip scores show each site\'s best night. Nights marked est. estimate seeing and transparency from humidity and jet-stream wind.</string>
+    <string name="week_estimated">est.</string>
     <string name="week_no_darkness">No darkness</string>
     <string name="week_beyond_forecast">Beyond forecast</string>
     <string name="week_moon">%1$s %2$s moon</string>
@@ -115,7 +116,9 @@
     <string name="daily_digest">Daily digest</string>
     <string name="daily_digest_summary">Go/no-go summary for your primary site</string>
     <string name="big_night_alerts">Big Night alerts</string>
-    <string name="big_night_summary">Notify when a site reaches 85 tonight</string>
+    <string name="big_night_summary">Notify when a site reaches %1$d tonight</string>
+    <string name="big_night_threshold">Big Night at %1$d or above</string>
+    <string name="big_night_threshold_hint">Between 70 and 95. A bright home site may never reach 85.</string>
     <string name="digest_time_button">Time: %1$s</string>
     <string name="alternative_threshold">Mention another site when it\'s at least %1$d points better</string>
     <string name="alternative_threshold_hint">Between 5 and 30. A higher bar means fewer site suggestions in the digest.</string>

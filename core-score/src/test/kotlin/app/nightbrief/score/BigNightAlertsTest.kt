@@ -57,6 +57,40 @@ class BigNightAlertsTest {
     }
 
     @Test
+    fun aLowerThresholdIncludesAGoodNightAndStillSkipsBelowIt() {
+        val good = home.copy(score = 70)
+        val fair = cabin.copy(score = 69)
+        val alerts = BigNightAlerts.select(
+            listOf(good, fair),
+            alreadyAlerted = emptyMap(),
+            enabled = true,
+            threshold = 70,
+        )
+        assertEquals(listOf("home"), alerts.map { it.siteId })
+    }
+
+    @Test
+    fun thresholdsOutsideTheSliderAreClamped() {
+        assertEquals(70, BigNightAlerts.clamp(50))
+        assertEquals(95, BigNightAlerts.clamp(100))
+        val alerts = BigNightAlerts.select(
+            listOf(home.copy(score = 70)),
+            alreadyAlerted = emptyMap(),
+            enabled = true,
+            threshold = 40,
+        )
+        assertEquals(listOf(70), alerts.map { it.score })
+        assertTrue(
+            BigNightAlerts.select(
+                listOf(home.copy(score = 94)),
+                emptyMap(),
+                enabled = true,
+                threshold = 200,
+            ).isEmpty(),
+        )
+    }
+
+    @Test
     fun dateLabelUsesTheLocaleWeekdayAndIsoDate() {
         val label = BigNightAlert("home", "Home", 90, tonight).dateLabel(Locale.US)
         assertEquals("Wednesday 2026-08-12", label)

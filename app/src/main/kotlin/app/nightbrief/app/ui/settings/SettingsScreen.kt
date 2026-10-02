@@ -58,6 +58,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.data.LightPollutionAttribution
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.work.DigestNotifier
@@ -97,7 +98,10 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
     var askedNotification by rememberSaveable { mutableStateOf(false) }
     var dragThreshold by remember { mutableStateOf<Int?>(null) }
+    var dragBigNight by remember { mutableStateOf<Int?>(null) }
     val shownThreshold = dragThreshold ?: s.alternativeThreshold
+    val shownBigNight = (dragBigNight ?: s.bigNightThreshold)
+        .coerceIn(BigNightAlerts.MIN_THRESHOLD, BigNightAlerts.MAX_THRESHOLD)
     val digestLabel = stringResource(R.string.daily_digest)
     val bigNightLabel = stringResource(R.string.big_night_alerts)
 
@@ -106,6 +110,9 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
     LaunchedEffect(s.alternativeThreshold) {
         if (dragThreshold == s.alternativeThreshold) dragThreshold = null
+    }
+    LaunchedEffect(s.bigNightThreshold) {
+        if (dragBigNight == s.bigNightThreshold) dragBigNight = null
     }
 
     LifecycleResumeEffect(Unit) {
@@ -158,7 +165,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Column(Modifier.weight(1f)) {
                         Text(bigNightLabel, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            stringResource(R.string.big_night_summary),
+                            stringResource(R.string.big_night_summary, shownBigNight),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -192,6 +199,28 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 )
                 Text(
                     stringResource(R.string.alternative_threshold_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.big_night_threshold, shownBigNight),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = shownBigNight.toFloat(),
+                    onValueChange = { dragBigNight = it.roundToInt() },
+                    onValueChangeFinished = {
+                        val chosen = dragBigNight
+                        if (chosen == null || chosen == s.bigNightThreshold) dragBigNight = null
+                        else vm.setBigNightThreshold(chosen)
+                    },
+                    valueRange = BigNightAlerts.MIN_THRESHOLD.toFloat()..BigNightAlerts.MAX_THRESHOLD.toFloat(),
+                    steps = BigNightAlerts.MAX_THRESHOLD - BigNightAlerts.MIN_THRESHOLD - 1,
+                    modifier = Modifier.testTag("big-night-threshold"),
+                )
+                Text(
+                    stringResource(R.string.big_night_threshold_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

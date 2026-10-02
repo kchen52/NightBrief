@@ -145,8 +145,13 @@ internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, 
                     night.coverage == ForecastCoverage.NONE -> stringResource(R.string.week_beyond_forecast)
                     else -> night.band?.label ?: ""
                 }
+                val shownLabel = if (night.estimated) {
+                    "$label · ${stringResource(R.string.week_estimated)}"
+                } else {
+                    label
+                }
                 Text(
-                    stringResource(R.string.week_night_summary, label, moon),
+                    stringResource(R.string.week_night_summary, shownLabel, moon),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

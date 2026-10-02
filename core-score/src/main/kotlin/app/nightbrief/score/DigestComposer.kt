@@ -49,6 +49,10 @@ object DigestComposer {
             lines += listOfNotNull("${score.verdict.label}: ${score.band.label.lowercase()}", window, cloud)
                 .joinToString(" · ")
         }
+        report.dew?.let { dew ->
+            DewCopy.warning(dew, ::fmt)?.let { lines += it }
+            DewCopy.dress(dew)?.let { lines += it }
+        }
         lines += moonLine(report.ephemeris, ::fmt)
         if (report.ephemeris.darkness != Darkness.ASTRONOMICAL) {
             lines += report.ephemeris.darkness.label

@@ -3,10 +3,12 @@ package app.nightbrief.score
 import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.IssPass
 import app.nightbrief.astro.NightEphemeris
+import app.nightbrief.astro.TimeWindow
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.ForecastStatus
+import app.nightbrief.weather.HourlyWeather
 import app.nightbrief.weather.OpenMeteoClient
 import java.time.Instant
 import java.time.LocalDate
@@ -47,6 +49,8 @@ data class NightReport(
     val meteor: MeteorOutlook? = null,
     /** ISS passes whose peak falls in the dark window. Empty when no TLE was available. */
     val issPasses: List<IssPass> = emptyList(),
+    /** Dew, frost, and the overnight low during [ephemeris]'s dark window. Not a score input. */
+    val dew: DewOutlook? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -149,7 +153,23 @@ object NightPlanner {
             forecastStatus = forecastStatus,
             warnings = warnings,
             meteor = MeteorAdvisor.forNight(eph),
+            dew = dewOutlook(dark, inputs),
         )
+    }
+
+    /**
+     * Temperature and dew point for whole hours inside the dark window.
+     * Hours outside that window, including a cold twilight, do not count.
+     */
+    private fun dewOutlook(
+        dark: TimeWindow?,
+        inputs: List<Pair<HourInput, HourlyWeather?>>,
+    ): DewOutlook? {
+        if (dark == null) return null
+        val hours = inputs.mapNotNull { (input, weather) ->
+            if (input.time in dark) weather else null
+        }
+        return DewRisk.fromDarkHours(hours)
     }
 
     /** Whole hours inside the dark window; for very short nights, the hour nearest its middle. */

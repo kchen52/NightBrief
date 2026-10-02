@@ -38,6 +38,9 @@ import app.nightbrief.astro.IssPass
 import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.AuroraCopy
 import app.nightbrief.score.AuroraOutlook
+import app.nightbrief.score.Condensation
+import app.nightbrief.score.DewCopy
+import app.nightbrief.score.DewOutlook
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.MeteorAdvisor
@@ -73,6 +76,7 @@ fun NightDetail(
         }
         HeroCard(report)
         SkyCard(report)
+        report.dew?.let { DewCard(it, report.site.zone) }
         report.aurora?.let { AuroraCard(it) }
         report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
         if (report.issPasses.isNotEmpty()) IssCard(report)
@@ -163,6 +167,32 @@ private fun SkyCard(report: NightReport) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun DewCard(dew: DewOutlook, zone: ZoneId) {
+    val warning = DewCopy.warning(dew) { DigestComposer.DEFAULT_TIME_FORMAT.withZone(zone).format(it) }
+    val dress = DewCopy.dress(dew)
+    val title = when (dew.onset?.kind) {
+        Condensation.FROST -> "Frost"
+        Condensation.DEW -> "Dew"
+        null -> "Overnight"
+    }
+    val alert = dew.onset?.kind == Condensation.FROST
+    SectionCard(title) {
+        warning?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (alert) NightColors.Poor else NightColors.Amber,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (dress != null) Spacer(Modifier.height(6.dp))
+        }
+        dress?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 

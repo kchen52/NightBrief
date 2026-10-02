@@ -40,8 +40,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import app.nightbrief.app.R
 import androidx.compose.ui.unit.dp
@@ -53,6 +59,7 @@ import java.time.LocalTime
 fun SectionCard(
     title: String? = null,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -64,6 +71,15 @@ fun SectionCard(
         Column(Modifier.padding(16.dp)) {
             if (title != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (icon != null) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Text(
                         title.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
@@ -168,9 +184,47 @@ fun SiteStrip(
 fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier, valueColor: Color = Color.Unspecified) {
     Column(modifier) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyLarge, color = valueColor)
+        Text(emphasize(value), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = valueColor)
     }
 }
+
+/**
+ * Bolds clock times, bare numbers, and numbers with a unit (°, °C, °F, %, h, m, mm, s).
+ * Digits that are part of a word stay plain, so a name like "7Timer" is not split.
+ * The characters are unchanged.
+ */
+fun emphasize(text: String): AnnotatedString {
+    if (text.isEmpty()) return AnnotatedString("")
+    return buildAnnotatedString {
+        var cursor = 0
+        for (match in EMPHASIS.findAll(text)) {
+            append(text.substring(cursor, match.range.first))
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(match.value) }
+            cursor = match.range.last + 1
+        }
+        if (cursor < text.length) append(text.substring(cursor))
+    }
+}
+
+@Composable
+fun EmphasizedText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.bodyMedium,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+) {
+    Text(emphasize(text), modifier = modifier, style = style, color = color, fontWeight = fontWeight)
+}
+
+private val EMPHASIS = Regex(
+    """(?<![A-Za-z\d])(?:""" +
+        """\d{1,2}:\d{2}(?:\s?[APap][Mm])?""" +
+        """|[−-]?\d+(?:[.,]\d+)?\s?°[CFcf]?""" +
+        """|[−-]?\d+(?:[.,]\d+)?\s?(?:%|mm|h|m|s)""" +
+        """|[−-]?\d+(?:[.,]\d+)?""" +
+        """)(?![A-Za-z])""",
+)
 
 @Composable
 fun Banner(text: String, color: Color, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {

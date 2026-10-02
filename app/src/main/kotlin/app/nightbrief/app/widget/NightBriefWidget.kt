@@ -73,7 +73,7 @@ internal fun NightBriefWidgetContent(content: WidgetContent) {
     ) {
         when (content) {
             WidgetContent.Setup -> Text(
-                "Set up NightBrief",
+                context.getString(app.nightbrief.app.R.string.widget_setup),
                 style = TextStyle(color = ColorProvider(Color(0xFFE8EAF0)), fontSize = 16.sp),
             )
             is WidgetContent.Night -> {

@@ -35,7 +35,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.TimePickerDialog
@@ -86,11 +88,11 @@ fun OnboardingScreen(vm: AppViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { step -= 1 }, enabled = step > STEP_WELCOME) { Text("Back") }
+                TextButton(onClick = { step -= 1 }, enabled = step > STEP_WELCOME) { Text(stringResource(R.string.back)) }
                 if (step < STEP_NOTIFICATIONS) {
-                    Button(onClick = { step += 1 }, enabled = canAdvance) { Text("Next") }
+                    Button(onClick = { step += 1 }, enabled = canAdvance) { Text(stringResource(R.string.next)) }
                 } else {
-                    Button(onClick = { vm.completeOnboarding(digestTime) }) { Text("Finish") }
+                    Button(onClick = { vm.completeOnboarding(digestTime) }) { Text(stringResource(R.string.finish)) }
                 }
             }
         },
@@ -108,9 +110,9 @@ fun OnboardingScreen(vm: AppViewModel) {
                 when (step) {
                     STEP_WELCOME -> WelcomeStep()
                     STEP_SITE -> {
-                        Text("Your first site", style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(R.string.onboarding_site_title), style = MaterialTheme.typography.headlineMedium)
                         Text(
-                            "Where you shoot from. Darkness, moon, and the forecast are all scored for this place.",
+                            stringResource(R.string.onboarding_site_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -125,14 +127,14 @@ fun OnboardingScreen(vm: AppViewModel) {
                         )
                         if (!draft.isValid) {
                             draft.errors.firstOrNull()?.let {
-                                Text(it, color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                     STEP_GEAR -> {
-                        Text("Your gear", style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(R.string.onboarding_gear_title), style = MaterialTheme.typography.headlineMedium)
                         Text(
-                            "Exposure hints use your primary camera and lenses. A Canon R7 and Sigma 10–18mm f/2.8 are filled in so you can start tonight — change anything.",
+                            stringResource(R.string.onboarding_gear_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -144,15 +146,17 @@ fun OnboardingScreen(vm: AppViewModel) {
                         }
                     }
                     else -> {
-                        Text("Morning digest", style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(R.string.onboarding_digest_title), style = MaterialTheme.typography.headlineMedium)
                         Text(
-                            "NightBrief sends a go/no-go summary at the time you pick. You can change it later in Settings.",
+                            stringResource(R.string.onboarding_digest_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        TextButton(onClick = { showTime = true }) { Text("Digest time: $digestTime") }
+                        TextButton(onClick = { showTime = true }) {
+                            Text(stringResource(R.string.onboarding_digest_time, digestTime))
+                        }
                         Text(
-                            "Allow notifications so the digest can reach you. On Android 13 and later the system asks first.",
+                            stringResource(R.string.onboarding_notify_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -160,7 +164,7 @@ fun OnboardingScreen(vm: AppViewModel) {
                             Button(
                                 onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
                                 modifier = Modifier.fillMaxWidth(),
-                            ) { Text("Allow notifications") }
+                            ) { Text(stringResource(R.string.allow_notifications)) }
                         }
                     }
                 }
@@ -181,14 +185,14 @@ fun OnboardingScreen(vm: AppViewModel) {
 
 @Composable
 private fun WelcomeStep() {
-    Text("NightBrief", style = MaterialTheme.typography.displaySmall)
+    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall)
     Text(
-        "A morning go/no-go for astrophotography. NightBrief scores tonight's sky at your site — clouds, moon, darkness, and seeing — and tells you whether to head out.",
+        stringResource(R.string.onboarding_welcome_body),
         style = MaterialTheme.typography.bodyLarge,
     )
-    Bullet("Save the places you shoot from.")
-    Bullet("Add your camera and lenses for exposure hints.")
-    Bullet("Get a digest before the day gets busy.")
+    Bullet(stringResource(R.string.onboarding_bullet_sites))
+    Bullet(stringResource(R.string.onboarding_bullet_gear))
+    Bullet(stringResource(R.string.onboarding_bullet_digest))
 }
 
 @Composable
@@ -200,7 +204,7 @@ private fun Bullet(text: String) {
 private fun StepIndicator(step: Int, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(
-            "Step ${step + 1} of $STEP_COUNT",
+            stringResource(R.string.step_of, step + 1, STEP_COUNT),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

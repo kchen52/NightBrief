@@ -29,6 +29,25 @@ data class TargetSuggestion(
 object TargetAdvisor {
     private val STEP: Duration = Duration.ofMinutes(10)
 
+    /** Dual-band lets emission nebulae punch through ~2 Bortle classes and ~0.4 more Moon; LP filter adds ~1 class. */
+    const val DUAL_BAND_BORTLE_BONUS = 2
+    const val LIGHT_POLLUTION_BORTLE_BONUS = 1
+    const val DUAL_BAND_MOON_BONUS = 0.4
+
+    fun effectiveMaxBortle(target: Target, kit: GearKit): Int {
+        if (target.kind != TargetKind.EMISSION_NEBULA) return target.maxBortle
+        var bonus = 0
+        if (kit.hasDualBandFilter) bonus += DUAL_BAND_BORTLE_BONUS
+        // A broad LP filter helps emission nebulae a little, but never stacks past the dual-band headroom.
+        else if (kit.hasLightPollutionFilter) bonus += LIGHT_POLLUTION_BORTLE_BONUS
+        return (target.maxBortle + bonus).coerceAtMost(9)
+    }
+
+    fun effectiveMaxMoon(target: Target, kit: GearKit): Double {
+        if (target.kind != TargetKind.EMISSION_NEBULA || !kit.hasDualBandFilter) return target.maxMoonIllumination
+        return (target.maxMoonIllumination + DUAL_BAND_MOON_BONUS).coerceAtMost(1.0)
+    }
+
     fun suggest(
         eph: NightEphemeris,
         bortle: Int,
@@ -39,7 +58,7 @@ object TargetAdvisor {
     ): List<TargetSuggestion> {
         val dark = eph.darkWindow ?: return emptyList()
         return catalog
-            .filter { bortle <= it.maxBortle }
+            .filter { bortle <= effectiveMaxBortle(it, kit) }
             .filter { !it.requiresBrightMoon || eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION }
             .mapNotNull { evaluate(it, eph, dark, bortle, kit, horizonObstructionDeg) }
             .sortedByDescending { rank(it) }
@@ -74,7 +93,7 @@ object TargetAdvisor {
                 skyAlt = pos.altitudeDeg
                 skyAz = pos.azimuthDeg
             }
-            val moonOk = target.tracksMoon || moon.altitudeDeg <= 0 || moon.illumination <= target.maxMoonIllumination
+            val moonOk = target.tracksMoon || moon.altitudeDeg <= 0 || moon.illumination <= effectiveMaxMoon(target, kit)
             val floor = maxOf(target.minAltitudeDeg, horizonObstructionDeg(skyAz))
             if (skyAlt >= floor && moonOk) {
                 usable += t
@@ -112,7 +131,7 @@ object TargetAdvisor {
             peakAzimuthDeg = bestAz,
             moonUpDuringWindow = moonUp,
             exposure = exposure,
-            reason = reason(target, eph, bortle, moonUp, terminator),
+            reason = reason(target, eph, bortle, moonUp, terminator, kit),
         )
     }
 
@@ -122,9 +141,18 @@ object TargetAdvisor {
         bortle: Int,
         moonUp: Boolean,
         terminatorDeg: Int?,
+        kit: GearKit,
     ): String {
         val moonPct = (eph.moonIllumination * 100).toInt()
         val phase = eph.moonPhaseName.label
+        // Name the filter only when it changed the outcome: an emission target kept despite Bortle or Moon.
+        val filterHelped = target.kind == TargetKind.EMISSION_NEBULA &&
+            (kit.hasDualBandFilter || kit.hasLightPollutionFilter) &&
+            (bortle > target.maxBortle || eph.moonIllumination > target.maxMoonIllumination)
+        if (filterHelped) {
+            val filterName = if (kit.hasDualBandFilter) "Dual-band filter" else "LP filter"
+            return "$filterName helps under Bortle $bortle skies"
+        }
         return when {
             target.kind == TargetKind.MOON && terminatorDeg != null ->
                 "$phase ($moonPct%), terminator at $terminatorDeg°"

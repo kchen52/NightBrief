@@ -62,8 +62,10 @@ import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.gear.CameraBody
 import app.nightbrief.gear.ExposureCalculator
 import app.nightbrief.gear.GearCatalog
+import app.nightbrief.gear.GearFilter
 import app.nightbrief.gear.GearKit
 import app.nightbrief.gear.Lens
+import app.nightbrief.gear.StarTracker
 import java.util.Locale
 import java.util.UUID
 
@@ -99,6 +101,8 @@ fun GearScreen(vm: AppViewModel, contentPadding: PaddingValues) {
 fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = Modifier) {
     var addBody by remember { mutableStateOf(false) }
     var addLens by remember { mutableStateOf(false) }
+    var addTracker by remember { mutableStateOf(false) }
+    var addFilter by remember { mutableStateOf(false) }
     val primaryId = kit.primaryBodyId ?: kit.bodies.firstOrNull()?.id
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -164,6 +168,66 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
                 Text(stringResource(R.string.add_lens))
             }
         }
+
+        SectionCard(stringResource(R.string.tracker_title)) {
+            val tracker = kit.tracker
+            if (tracker == null) {
+                Text(
+                    stringResource(R.string.no_tracker),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        Text(tracker.name, style = MaterialTheme.typography.titleMedium)
+                    }
+                    IconButton(onClick = { onChange(kit.withTracker(null)) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_tracker))
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = { addTracker = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.add_tracker))
+            }
+        }
+
+        SectionCard(stringResource(R.string.filters_title)) {
+            if (kit.filters.isEmpty()) {
+                Text(
+                    stringResource(R.string.no_filters),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            kit.filters.forEachIndexed { index, filter ->
+                if (index > 0) {
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                        Text(filter.name, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            filter.kind.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { onChange(kit.removeFilter(filter.id)) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, filter.name))
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = { addFilter = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.add_filter))
+            }
+        }
     }
 
     if (addBody) {
@@ -183,6 +247,26 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
             onPick = { lens ->
                 onChange(kit.addLens(lens))
                 addLens = false
+            },
+        )
+    }
+    if (addTracker) {
+        AddTrackerDialog(
+            currentId = kit.tracker?.id,
+            onDismiss = { addTracker = false },
+            onPick = { tracker ->
+                onChange(kit.withTracker(tracker))
+                addTracker = false
+            },
+        )
+    }
+    if (addFilter) {
+        AddFilterDialog(
+            ownedIds = kit.filters.map { it.id }.toSet(),
+            onDismiss = { addFilter = false },
+            onPick = { filter ->
+                onChange(kit.addFilter(filter))
+                addFilter = false
             },
         )
     }
@@ -301,6 +385,87 @@ private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         },
         customForm = { CustomLensForm(onAdd = onPick) },
     )
+}
+
+@Composable
+private fun AddTrackerDialog(currentId: String?, onDismiss: () -> Unit, onPick: (StarTracker) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.6f),
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Text(stringResource(R.string.add_tracker), style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.search_trackers)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val matches = GearCatalog.trackers.filter { it.name.matchesCatalogQuery(query) }
+                    if (matches.isEmpty()) {
+                        item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    items(matches, key = { it.id }) { tracker ->
+                        CatalogRow(
+                            title = tracker.name,
+                            detail = "",
+                            owned = tracker.id == currentId,
+                            onClick = { onPick(tracker) },
+                        )
+                    }
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.close)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddFilterDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: (GearFilter) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.6f),
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Text(stringResource(R.string.add_filter), style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.search_filters)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val matches = GearCatalog.filters.filter { it.name.matchesCatalogQuery(query) }
+                    if (matches.isEmpty()) {
+                        item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                    items(matches, key = { it.id }) { filter ->
+                        val owned = filter.id in ownedIds
+                        CatalogRow(
+                            title = filter.name,
+                            detail = filter.kind.label,
+                            owned = owned,
+                            onClick = { if (!owned) onPick(filter) },
+                        )
+                    }
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.close)) }
+            }
+        }
+    }
 }
 
 @Composable

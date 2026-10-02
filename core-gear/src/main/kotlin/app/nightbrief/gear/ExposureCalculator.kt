@@ -10,19 +10,31 @@ data class ExposureSuggestion(
     /** Actual focal length set on the lens. */
     val focalMm: Double,
     val aperture: Double,
-    /** Recommended shutter (NPF, rounded down to a standard camera value). */
+    /** Recommended sub-exposure (NPF, or NPF×4 on a tracker, rounded down to a camera value). */
     val shutterSeconds: Double,
     val npfSeconds: Double,
     val rule500Seconds: Double,
     val iso: Int,
     /** False when the lens can't reach the target's minimum useful focal length. */
     val reachesTarget: Boolean,
+    /** True when a tracker was in the kit, so [shutterSeconds] may exceed the 30 s untracked cap. */
+    val tracked: Boolean = false,
+    /** Suggested stack count for a tracked exposure. Null when untracked. */
+    val stackCount: Int? = null,
+    /** Suggested total integration in minutes. Null when untracked. */
+    val integrationMinutes: Int? = null,
 ) {
     val fullFrameEquivalentMm: Double get() = focalMm * body.cropFactor
 
     val summary: String
-        get() = "${focalMm.fmt()}mm · f/${aperture.fmt()} · " +
-            "${ExposureCalculator.shutterLabel(shutterSeconds)} · ISO $iso"
+        get() = buildString {
+            append("${focalMm.fmt()}mm · f/${aperture.fmt()} · ")
+            append(ExposureCalculator.shutterLabel(shutterSeconds))
+            append(" · ISO $iso")
+            if (tracked && stackCount != null && integrationMinutes != null) {
+                append(" · ${stackCount}×${ExposureCalculator.shutterLabel(shutterSeconds)} ($integrationMinutes min)")
+            }
+        }
 }
 
 object ExposureCalculator {
@@ -30,6 +42,12 @@ object ExposureCalculator {
     private val STANDARD_SHUTTERS = listOf(
         1.0, 1.3, 1.6, 2.0, 2.5, 3.2, 4.0, 5.0, 6.0, 8.0, 10.0, 13.0, 15.0, 20.0, 25.0, 30.0,
     )
+    private val TRACKED_SHUTTERS = STANDARD_SHUTTERS + listOf(40.0, 50.0, 60.0, 90.0, 120.0, 180.0)
+    /** Untracked subs stop at 30 s; a tracker lifts the cap to 120 s (polar alignment + skyfog, not NPF). */
+    const val UNTRACKED_CAP_SECONDS = 30.0
+    const val TRACKED_CAP_SECONDS = 120.0
+    /** Tracked subs run this multiple of the NPF limit, so a 10 s untracked sub becomes ~40 s tracked. */
+    const val TRACKED_NPF_FACTOR = 4.0
     private val STANDARD_ISOS = listOf(
         400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400,
     )
@@ -50,6 +68,9 @@ object ExposureCalculator {
 
     fun roundDownToStandardShutter(seconds: Double): Double =
         STANDARD_SHUTTERS.lastOrNull { it <= seconds + 1e-9 } ?: STANDARD_SHUTTERS.first()
+
+    fun roundDownToTrackedShutter(seconds: Double): Double =
+        TRACKED_SHUTTERS.lastOrNull { it <= seconds + 1e-9 } ?: TRACKED_SHUTTERS.first()
 
     /**
      * Heuristic ISO for an untracked exposure, anchored at ISO 3200 for 20 s at f/2.8 under a
@@ -75,28 +96,50 @@ object ExposureCalculator {
         brightMoon: Boolean,
         declinationDeg: Double = 0.0,
         targetMinFocalFullFrameMm: Double? = null,
+        tracked: Boolean = false,
     ): ExposureSuggestion {
         val f = Math.round(focalMm).toDouble().coerceIn(lens.minFocalMm, lens.maxFocalMm)
         val n = lens.maxApertureAt(f)
         val npf = npf(f, n, body.pixelPitchUm, declinationDeg)
-        val shutter = roundDownToStandardShutter(npf.coerceAtMost(30.0))
+        if (!tracked) {
+            val shutter = roundDownToStandardShutter(npf.coerceAtMost(UNTRACKED_CAP_SECONDS))
+            return ExposureSuggestion(
+                body = body,
+                lens = lens,
+                focalMm = f,
+                aperture = n,
+                shutterSeconds = shutter,
+                npfSeconds = npf,
+                rule500Seconds = rule500(f, body.cropFactor),
+                iso = suggestIso(shutter, n, bortle, brightMoon),
+                reachesTarget = targetMinFocalFullFrameMm == null ||
+                    lens.maxFocalMm * body.cropFactor >= targetMinFocalFullFrameMm - 1e-6,
+            )
+        }
+        val sub = roundDownToTrackedShutter((npf * TRACKED_NPF_FACTOR).coerceIn(UNTRACKED_CAP_SECONDS, TRACKED_CAP_SECONDS))
+        val integrationMinutes = if ((targetMinFocalFullFrameMm ?: 0.0) >= 100.0) 60 else 30
+        val stackCount = ((integrationMinutes * 60.0) / sub).toInt().coerceAtLeast(1)
         return ExposureSuggestion(
             body = body,
             lens = lens,
             focalMm = f,
             aperture = n,
-            shutterSeconds = shutter,
+            shutterSeconds = sub,
             npfSeconds = npf,
             rule500Seconds = rule500(f, body.cropFactor),
-            iso = suggestIso(shutter, n, bortle, brightMoon),
+            iso = suggestIso(sub, n, bortle, brightMoon),
             reachesTarget = targetMinFocalFullFrameMm == null ||
                 lens.maxFocalMm * body.cropFactor >= targetMinFocalFullFrameMm - 1e-6,
+            tracked = true,
+            stackCount = stackCount,
+            integrationMinutes = integrationMinutes,
         )
     }
 
     /**
      * Picks the best lens in [kit] for a target whose ideal framing is [idealFocalFullFrameMm]
      * (full-frame equivalent), preferring lenses that cover that focal length, then faster apertures.
+     * A tracker in [kit] lifts the sub-exposure cap and adds a stack plan; pass [tracked] to override.
      */
     fun bestFor(
         kit: GearKit,
@@ -105,6 +148,7 @@ object ExposureCalculator {
         bortle: Int,
         brightMoon: Boolean,
         declinationDeg: Double = 0.0,
+        tracked: Boolean? = null,
     ): ExposureSuggestion? {
         val body = kit.primaryBody ?: return null
         if (kit.lenses.isEmpty()) return null
@@ -117,6 +161,7 @@ object ExposureCalculator {
         )
         return suggest(
             body, lens, idealActual, bortle, brightMoon, declinationDeg, minFocalFullFrameMm,
+            tracked = tracked ?: kit.isTracked,
         )
     }
 

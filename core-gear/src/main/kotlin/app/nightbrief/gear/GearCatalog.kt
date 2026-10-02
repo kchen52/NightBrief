@@ -123,6 +123,22 @@ object GearCatalog {
         Lens("samyang-85-f14", "Samyang / Rokinon AF 85mm f/1.4", 85.0, maxAperture = 1.4),
     )
 
+    /** Star trackers offered in the gear picker. Any tracker lifts the 30 s untracked cap. */
+    val trackers: List<StarTracker> = listOf(
+        StarTracker("sw-star-adventurer-2i", "Sky-Watcher Star Adventurer 2i"),
+        StarTracker("ioptron-skyguider-pro", "iOptron SkyGuider Pro"),
+        StarTracker("msm-nomad", "Move Shoot Move Nomad"),
+        StarTracker("benro-polaris", "Benro Polaris"),
+    )
+
+    /** Filters offered in the gear picker. Dual-band also relaxes emission-nebula gating in TargetAdvisor. */
+    val filters: List<GearFilter> = listOf(
+        GearFilter("optolong-l-enhance", "Optolong L-eNhance (dual-band)", FilterKind.DUAL_BAND),
+        GearFilter("optolong-l-extreme", "Optolong L-eXtreme (dual-band)", FilterKind.DUAL_BAND),
+        GearFilter("astronomik-cls", "Astronomik CLS (light pollution)", FilterKind.LIGHT_POLLUTION),
+        GearFilter("stc-astro-multispectra", "STC Astro Multispectra (light pollution)", FilterKind.LIGHT_POLLUTION),
+    )
+
     /** Example profile pre-seeded on first launch. */
     val exampleKit: GearKit = GearKit(
         bodies = listOf(canonR7),

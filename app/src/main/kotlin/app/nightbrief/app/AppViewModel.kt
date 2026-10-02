@@ -9,6 +9,8 @@ import app.nightbrief.data.AppState
 import app.nightbrief.data.LibraryTransfer
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.SessionEntry
+import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
@@ -171,6 +173,26 @@ class AppViewModel(
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
     fun setNightVision(enabled: Boolean) = mutate { it.copy(nightVision = enabled) }
     fun setUnits(units: UnitSystem) = mutate { it.copy(units = units) }
+
+    fun logSession(siteId: String, date: LocalDate, score: Int?, rating: Int, note: String) {
+        val entry = SessionEntry(
+            siteId = siteId,
+            nightDate = date.toString(),
+            score = score,
+            rating = rating,
+            note = note.trim(),
+            createdAtEpochSec = java.time.Instant.now().epochSecond,
+        )
+        mutate {
+            if ("${entry.siteId}/${entry.nightDate}" in SessionPrompt.loggedKeys(it.sessions)) it
+            else it.copy(sessions = it.sessions + entry)
+        }
+    }
+
+    fun dismissSessionPrompt(siteId: String, date: LocalDate) {
+        val key = SessionPrompt.key(siteId, date)
+        mutate { if (key in it.dismissedSessionPrompts) it else it.copy(dismissedSessionPrompts = it.dismissedSessionPrompts + key) }
+    }
 
     fun exportLibrary(): String? = state.value?.let(LibraryTransfer::encode)
 

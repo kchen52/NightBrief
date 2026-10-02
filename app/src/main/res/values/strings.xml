@@ -278,4 +278,24 @@
     <string name="gear_error_aperture">Maximum aperture must be a positive f-number</string>
     <string name="gear_error_tele">Aperture at the long end must be a positive f-number</string>
     <string name="gear_error_tele_faster">The long end can\'t be faster than the wide end</string>
+    <string name="tracker_title">Star tracker</string>
+    <string name="no_tracker">No tracker — untracked, capped at 30 s.</string>
+    <string name="add_tracker">Add tracker</string>
+    <string name="search_trackers">Search trackers</string>
+    <string name="remove_tracker">Remove tracker</string>
+    <string name="filters_title">Filters</string>
+    <string name="no_filters">No filters.</string>
+    <string name="add_filter">Add filter</string>
+    <string name="search_filters">Search filters</string>
+    <string name="tracked_sub">Tracked %1$s × %2$d (%3$d min)</string>
+    <string name="session_prompt_title">Did you shoot last night?</string>
+    <string name="session_prompt_body">How was %1$s? Your rating builds a history and helps tune the score.</string>
+    <string name="session_rate">Rate %1$d of 5</string>
+    <string name="session_note">Note (optional)</string>
+    <string name="session_save">Save session</string>
+    <string name="session_dismiss">Dismiss</string>
+    <string name="session_logged">Session saved.</string>
+    <string name="session_history">Shooting history</string>
+    <string name="session_empty">No logged sessions yet. After a night out, rate it here.</string>
+    <string name="log_this_night">Log this night</string>
 </resources>

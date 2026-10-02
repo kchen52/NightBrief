@@ -50,6 +50,12 @@ tasks.matching { it.name == "testReleaseUnitTest" }.configureEach {
     enabled = false
 }
 
+// Paparazzi keeps layoutlib in the test process. After a Compose test has shown the site form,
+// a later Compose test in that same process never goes idle.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    forkEvery = 1
+}
+
 dependencies {
     implementation(project(":work"))
     implementation(libs.androidx.core.ktx)

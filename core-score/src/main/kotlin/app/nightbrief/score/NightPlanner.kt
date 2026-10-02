@@ -94,7 +94,10 @@ object NightPlanner {
         warnings: List<String> = emptyList(),
         includeSuggestions: Boolean = true,
     ): NightReport {
-        val eph = NightEphemeris.compute(date, site.zone, site.latitude, site.longitude)
+        val horizon = { azimuthDeg: Double -> site.horizon.obstructionDeg(azimuthDeg) }
+        val eph = NightEphemeris.compute(
+            date, site.zone, site.latitude, site.longitude, horizonObstructionDeg = horizon,
+        )
         val dark = eph.darkWindow
         val bortle = site.effectiveBortle
 
@@ -156,7 +159,11 @@ object NightPlanner {
             ephemeris = eph,
             score = score,
             timeline = timeline,
-            suggestions = if (includeSuggestions) TargetAdvisor.suggest(eph, bortle, kit) else emptyList(),
+            suggestions = if (includeSuggestions) {
+                TargetAdvisor.suggest(eph, bortle, kit, horizonObstructionDeg = horizon)
+            } else {
+                emptyList()
+            },
             coverage = coverage,
             forecastStatus = forecastStatus,
             warnings = warnings,

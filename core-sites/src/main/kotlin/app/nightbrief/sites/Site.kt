@@ -23,6 +23,8 @@ data class Site(
      * and other sites send no digest of their own.
      */
     val digestTimeOverride: String? = null,
+    /** Trees, ridges, and buildings. Unset sectors leave the flat horizon in place. */
+    val horizon: LocalHorizon = LocalHorizon(),
 ) {
     init {
         require(latitude in -90.0..90.0) { "latitude out of range: $latitude" }

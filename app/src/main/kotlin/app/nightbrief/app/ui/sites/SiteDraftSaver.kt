@@ -3,6 +3,7 @@ package app.nightbrief.app.ui.sites
 import androidx.compose.runtime.saveable.Saver
 import app.nightbrief.app.SiteDraft
 import app.nightbrief.sites.BortleSource
+import app.nightbrief.sites.LocalHorizon
 
 /** Saves a [SiteDraft] across process death / rotation as a flat list of primitives. */
 val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
@@ -11,6 +12,7 @@ val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
             it.id, it.name, it.latitude, it.longitude, it.bortle, it.bortleSource.name,
             it.zoneId, it.zoneEdited, it.savedLatitude, it.savedLongitude, it.savedZoneId,
             it.digestTimeOverride, it.makePrimary,
+            *it.horizon.altitudes().toTypedArray(),
         )
     },
     restore = { saved ->
@@ -29,6 +31,20 @@ val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
             savedZoneId = v[10] as String?,
             digestTimeOverride = v[11] as String?,
             makePrimary = v[12] as Boolean,
+            horizon = if (v.size >= 21) {
+                LocalHorizon(
+                    north = v[13] as Double?,
+                    northEast = v[14] as Double?,
+                    east = v[15] as Double?,
+                    southEast = v[16] as Double?,
+                    south = v[17] as Double?,
+                    southWest = v[18] as Double?,
+                    west = v[19] as Double?,
+                    northWest = v[20] as Double?,
+                )
+            } else {
+                LocalHorizon()
+            },
         )
     },
 )

@@ -57,7 +57,9 @@ object DigestComposer {
         report.ephemeris.milkyWay?.let { mw ->
             lines += "Milky Way core ${fmt(mw.window.start)}–${fmt(mw.window.end)}, " +
                 "peak ${mw.peakAltitudeDeg.roundToInt()}° ${compass(mw.peakAzimuthDeg)}"
+            mw.clearsHorizonAt?.let { lines += WidgetCopy.clearsTreeline(it, zone) }
         }
+        if (report.ephemeris.milkyWayBlockedByHorizon) lines += WidgetCopy.BEHIND_TREELINE
         report.suggestions.firstOrNull()?.let { s ->
             lines += "Try: ${s.target.name}" + (s.exposure?.let { " · ${it.summary}" } ?: "")
         }

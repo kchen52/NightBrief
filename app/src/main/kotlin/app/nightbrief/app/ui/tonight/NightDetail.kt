@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FilterCenterFocus
 import androidx.compose.material.icons.filled.FilterDrama
+import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.NightsStay
@@ -97,6 +98,7 @@ import app.nightbrief.score.TargetSuggestion
 import app.nightbrief.score.TimelineHour
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Verdict
+import app.nightbrief.score.WidgetCopy
 import app.nightbrief.weather.ForecastStatus
 import java.time.ZoneId
 import kotlin.math.roundToInt
@@ -526,7 +528,11 @@ private fun MilkyWayCard(report: NightReport) {
     SectionCard(stringResource(R.string.section_milky_way), icon = Icons.Filled.NightsStay) {
         if (mw == null) {
             Text(
-                stringResource(R.string.milky_way_down),
+                if (report.ephemeris.milkyWayBlockedByHorizon) {
+                    WidgetCopy.BEHIND_TREELINE
+                } else {
+                    stringResource(R.string.milky_way_down)
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -539,6 +545,14 @@ private fun MilkyWayCard(report: NightReport) {
                     Modifier.weight(1.3f),
                 )
                 LabeledValue(stringResource(R.string.direction), DigestComposer.compass(mw.peakAzimuthDeg), Modifier.weight(0.7f))
+            }
+            mw.clearsHorizonAt?.let { clears ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    WidgetCopy.clearsTreeline(clears, zone),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
             Spacer(Modifier.height(8.dp))
             val free = mw.moonFreeDuration
@@ -792,4 +806,6 @@ private fun kindIcon(kind: TargetKind): ImageVector = when (kind) {
     TargetKind.REFLECTION_NEBULA -> Icons.Filled.FilterDrama
     TargetKind.STAR_CLUSTER -> Icons.Filled.Stars
     TargetKind.CONSTELLATION -> Icons.Filled.AutoAwesome
+    TargetKind.MOON -> Icons.Filled.Nightlight
+    TargetKind.MOONLIT -> Icons.Filled.Landscape
 }

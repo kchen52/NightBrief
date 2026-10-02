@@ -7,6 +7,8 @@ enum class TargetKind(val label: String) {
     REFLECTION_NEBULA("Reflection nebula"),
     STAR_CLUSTER("Star cluster"),
     CONSTELLATION("Constellation / asterism"),
+    MOON("Moon"),
+    MOONLIT("Moonlit landscape"),
 }
 
 /**
@@ -26,9 +28,16 @@ data class Target(
     val idealFocalMm: Int,
     val minAltitudeDeg: Double = 20.0,
     val tip: String,
+    /** When true, [position] is ignored and the Moon's coordinates are used. */
+    val tracksMoon: Boolean = false,
+    /** Offered only while the Moon is more than half illuminated. */
+    val requiresBrightMoon: Boolean = false,
 )
 
 object TargetCatalog {
+    /** Lunar subjects are offered only above this illuminated fraction. */
+    const val BRIGHT_MOON_ILLUMINATION = 0.5
+
     val milkyWayCore = Target(
         id = "mw-core",
         name = "Milky Way core",
@@ -109,6 +118,34 @@ object TargetCatalog {
             RaDec(37.95, 89.264), maxBortle = 9, maxMoonIllumination = 1.0,
             minFocalMm = 10, idealFocalMm = 24, minAltitudeDeg = 10.0,
             tip = "Stack 100+ frames for circular trails; moonlight lights the foreground nicely.",
+        ),
+        Target(
+            id = "moon-closeup",
+            name = "Moon close-up",
+            kind = TargetKind.MOON,
+            position = RaDec(0.0, 0.0),
+            maxBortle = 9,
+            maxMoonIllumination = 1.0,
+            minFocalMm = 200,
+            idealFocalMm = 400,
+            minAltitudeDeg = 15.0,
+            tip = "Frame the terminator. Craters there throw the longest shadows, and a few days off full shows more relief than the full disk.",
+            tracksMoon = true,
+            requiresBrightMoon = true,
+        ),
+        Target(
+            id = "moonlit-landscape",
+            name = "Moonlit landscape",
+            kind = TargetKind.MOONLIT,
+            position = RaDec(0.0, 0.0),
+            maxBortle = 9,
+            maxMoonIllumination = 1.0,
+            minFocalMm = 14,
+            idealFocalMm = 24,
+            minAltitudeDeg = 10.0,
+            tip = "Face away from the Moon so it lights the foreground, and keep the ground from blowing out.",
+            tracksMoon = true,
+            requiresBrightMoon = true,
         ),
     )
 }

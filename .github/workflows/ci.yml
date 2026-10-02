@@ -20,10 +20,30 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
-      - name: Install SDK 35
+      # ubuntu-latest already has ANDROID_HOME, platform 35, and build-tools 35.
+      # android-actions/setup-android@v3 still runs `sdkmanager tools`, and Google
+      # removed that package, so the job died before Gradle started.
+      - name: Confirm Android SDK 35
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          set -euo pipefail
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ANDROID_HOME is not set on this runner" >&2
+            exit 1
+          fi
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ -d "$ANDROID_HOME/platforms/android-35" ] && compgen -G "$ANDROID_HOME/build-tools/35.*" >/dev/null; then
+            echo "Platform 35 and build-tools 35 are already installed"
+            exit 0
+          fi
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          fi
+          if [ -z "$sdkmanager" ] || [ ! -x "$sdkmanager" ]; then
+            echo "sdkmanager not found under $ANDROID_HOME/cmdline-tools" >&2
+            exit 1
+          fi
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
       - name: JVM, Robolectric, lint, and Paparazzi
         run: ./gradlew assembleDebug lintDebug test verifyPaparazziDebug --stacktrace

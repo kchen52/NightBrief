@@ -24,11 +24,12 @@ class OpenMeteoClient(
         longitude: Double,
         days: Int = DEFAULT_FORECAST_DAYS,
         model: WeatherModel = WeatherModel.forLocation(latitude, longitude),
+        hourly: List<String> = HOURLY_FIELDS,
     ): Forecast {
         val url = baseUrl.toHttpUrl().newBuilder()
             .addQueryParameter("latitude", "%.4f".format(java.util.Locale.ROOT, latitude))
             .addQueryParameter("longitude", "%.4f".format(java.util.Locale.ROOT, longitude))
-            .addQueryParameter("hourly", HOURLY_FIELDS.joinToString(","))
+            .addQueryParameter("hourly", hourly.joinToString(","))
             .addQueryParameter("timeformat", "unixtime")
             .addQueryParameter("timezone", "GMT")
             .addQueryParameter("wind_speed_unit", "kmh")
@@ -94,5 +95,11 @@ class OpenMeteoClient(
             "relative_humidity_2m", "temperature_2m", "dew_point_2m",
             "wind_speed_10m", "wind_gusts_10m", "wind_speed_250hPa",
         )
+
+        /**
+         * The second opinion only feeds [app.nightbrief.weather.HourlyWeather.cloudCoverSecondary],
+         * so it asks for total cloud alone instead of the full ten-field series.
+         */
+        val SECONDARY_HOURLY_FIELDS = listOf("cloud_cover")
     }
 }

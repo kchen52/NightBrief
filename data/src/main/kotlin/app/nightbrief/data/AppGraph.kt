@@ -1,6 +1,7 @@
 package app.nightbrief.data
 
 import android.content.Context
+import android.util.Log
 import app.nightbrief.score.BriefingService
 import app.nightbrief.score.BriefingSource
 import app.nightbrief.sites.BortleLookup
@@ -12,11 +13,13 @@ import app.nightbrief.weather.CelestrakClient
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.ForecastSource
+import app.nightbrief.weather.NetworkTimingListener
 import app.nightbrief.weather.OpenMeteoClient
 import app.nightbrief.weather.SevenTimerClient
 import app.nightbrief.weather.SwpcKpClient
 import app.nightbrief.weather.TimeZoneLookup
 import app.nightbrief.weather.defaultHttpClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,8 +38,12 @@ class AppGraph private constructor(context: Context) {
     /**
      * One client for every weather API. Sharing the dispatcher and connection pool avoids
      * opening a pool per host per client and lets consecutive briefings reuse connections.
+     * The timing listener logs one line per HTTP round trip (host, coarse location, duration);
+     * filter logcat on [NET_LOG_TAG] to see which product dominates a slow refresh.
      */
-    private val http = defaultHttpClient()
+    private val http = defaultHttpClient(timing = NetworkTimingListener { url, durationMs, code ->
+        Log.d(NET_LOG_TAG, "${sanitizeUrl(url)} took=${durationMs}ms code=${code ?: "threw"}")
+    })
 
     private val realForecasts: ForecastSource = ForecastRepository(
             openMeteo = OpenMeteoClient(http = http),
@@ -86,6 +93,29 @@ class AppGraph private constructor(context: Context) {
         }
 
     companion object {
+        /** Logcat tag for per-request network timings. Capture with `adb logcat -s NightBriefNet`. */
+        const val NET_LOG_TAG = "NightBriefNet"
+
+        /**
+         * One log-safe line per request: host, path, model, and coordinates rounded to 0.1°
+         * (about 11 km, the same rounding the share image uses), so a shared log never
+         * carries an exact pin.
+         */
+        internal fun sanitizeUrl(raw: String): String {
+            val url = raw.toHttpUrlOrNull() ?: return "unparseable-url"
+            val lat = url.queryParameter("latitude") ?: url.queryParameter("lat")
+            val lon = url.queryParameter("longitude") ?: url.queryParameter("lon")
+            val models = url.queryParameter("models")?.let { " models=$it" }.orEmpty()
+            val where = if (lat != null && lon != null) {
+                val rLat = runCatching { "%.1f".format(java.util.Locale.ROOT, lat.toDouble()) }.getOrDefault("?")
+                val rLon = runCatching { "%.1f".format(java.util.Locale.ROOT, lon.toDouble()) }.getOrDefault("?")
+                " ~$rLat,$rLon"
+            } else {
+                ""
+            }
+            return "${url.host}${url.encodedPath}$models$where"
+        }
+
         /** North America grid, gzip bytes. The `.gzip` suffix keeps the asset merger from unpacking it. */
         const val BORTLE_NA_ASSET = "bortle_na.nblp.gzip"
         /** World grid, gzip bytes. The `.gzip` suffix keeps the asset merger from unpacking it. */

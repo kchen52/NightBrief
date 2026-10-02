@@ -253,7 +253,7 @@ private fun AddBodyDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         onBackToList = { custom = false },
         onDismiss = onDismiss,
         list = {
-            val matches = GearCatalog.bodies.filter { it.name.contains(query.trim(), ignoreCase = true) }
+            val matches = GearCatalog.bodies.filter { it.name.matchesCatalogQuery(query) }
             if (matches.isEmpty()) {
                 item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
@@ -285,7 +285,7 @@ private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         onBackToList = { custom = false },
         onDismiss = onDismiss,
         list = {
-            val matches = GearCatalog.lenses.filter { it.name.contains(query.trim(), ignoreCase = true) }
+            val matches = GearCatalog.lenses.filter { it.name.matchesCatalogQuery(query) }
             if (matches.isEmpty()) {
                 item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
@@ -520,6 +520,17 @@ private fun lensError(name: String, minFocal: String, maxFocal: String, aperture
         else -> null
     }
 }
+
+/** Hyphen and dash are the same search, so "16-300" finds "16–300". */
+private fun String.matchesCatalogQuery(query: String): Boolean {
+    val needle = query.trim().foldDashes()
+    if (needle.isEmpty()) return true
+    return foldDashes().contains(needle, ignoreCase = true)
+}
+
+private fun String.foldDashes(): String = map { ch ->
+    if (ch == '\u2013' || ch == '\u2014') '-' else ch
+}.joinToString("")
 
 private fun String.positiveOrNull(): Double? =
     trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 && it.isFinite() }

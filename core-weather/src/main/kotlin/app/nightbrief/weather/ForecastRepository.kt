@@ -101,11 +101,19 @@ class ForecastRepository(
 
     private suspend fun fetch(latitude: Double, longitude: Double): Pair<Forecast, List<String>> = coroutineScope {
         val astro = async { runCatching { sevenTimer.fetch(latitude, longitude) } }
+        val primary = WeatherModel.forLocation(latitude, longitude)
+        val second = async {
+            runCatching {
+                openMeteo.fetch(latitude, longitude, model = WeatherModel.secondaryFor(primary))
+            }
+        }
         val weather = openMeteo.fetch(latitude, longitude)
         val points = astro.await()
         val warnings = points.exceptionOrNull()?.let { listOf("Seeing/transparency unavailable (7Timer): ${it.message}") }
             .orEmpty()
-        weather.withSevenTimer(points.getOrDefault(emptyList())) to warnings
+        // A failed second model leaves cloudCoverSecondary null; the briefing still succeeds.
+        val merged = second.await().getOrNull()?.let { weather.withSecondary(it) } ?: weather
+        merged.withSevenTimer(points.getOrDefault(emptyList())) to warnings
     }
 
     companion object {

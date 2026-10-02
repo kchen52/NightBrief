@@ -30,6 +30,8 @@ data class TimelineHour(
     val transparencyIndex: Int?,
     val windKmh: Double?,
     val score: Int,
+    /** Second-model total cloud cover, %. Null when that fetch failed. Not a score input. */
+    val cloudSecondary: Int? = null,
 )
 
 enum class ForecastCoverage { FULL, PARTIAL, NONE }
@@ -159,6 +161,7 @@ object NightPlanner {
                 transparencyIndex = w?.transparency,
                 windKmh = w?.windKmh,
                 score = NightScoreEngine.scoreHour(input).score,
+                cloudSecondary = w?.cloudCoverSecondary,
             )
         }
 

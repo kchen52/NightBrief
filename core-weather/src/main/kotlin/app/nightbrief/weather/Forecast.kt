@@ -9,6 +9,8 @@ data class HourlyWeather(
     val epochSecond: Long,
     /** Total cloud cover, %. */
     val cloudCover: Int? = null,
+    /** Total cloud cover from the secondary model, %. Null when that fetch failed or is stale. */
+    val cloudCoverSecondary: Int? = null,
     val cloudLow: Int? = null,
     val cloudMid: Int? = null,
     val cloudHigh: Int? = null,
@@ -50,7 +52,9 @@ data class Forecast(
 enum class WeatherModel(val apiName: String, val label: String) {
     /** Environment Canada GEM (HRDPS → RDPS → GDPS blend). */
     GEM_SEAMLESS("gem_seamless", "Environment Canada GEM"),
-    BEST_MATCH("best_match", "Open-Meteo best match");
+    BEST_MATCH("best_match", "Open-Meteo best match"),
+    /** German ICON global. Never the primary model; the second opinion beside it. */
+    ICON_SEAMLESS("icon_seamless", "German ICON");
 
     companion object {
         /**
@@ -59,5 +63,8 @@ enum class WeatherModel(val apiName: String, val label: String) {
          */
         fun forLocation(latitude: Double, longitude: Double): WeatherModel =
             if (latitude >= 41.6 && longitude in -141.1..-52.5) GEM_SEAMLESS else BEST_MATCH
+
+        /** Independent second opinion beside [primary]: a different modelling centre either way. */
+        fun secondaryFor(primary: WeatherModel): WeatherModel = ICON_SEAMLESS
     }
 }

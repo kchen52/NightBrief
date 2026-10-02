@@ -49,6 +49,8 @@ object DigestComposer {
             val cloud = SiteComparison.averageCloud(report)?.let { "cloud $it%" }
             lines += listOfNotNull("${score.verdict.label}: ${score.band.label.lowercase()}", window, cloud)
                 .joinToString(" · ")
+            // Confidence qualifies the cloud number above, so it reads second.
+            ModelAgreement.assess(report)?.let { lines += ModelAgreement.line(it) }
         }
         lines += moonLine(report.ephemeris, ::fmt)
         if (report.ephemeris.darkness != Darkness.ASTRONOMICAL) {

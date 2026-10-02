@@ -309,4 +309,6 @@
     <string name="darker_sky_show_map">Show on map</string>
     <string name="darker_sky_bortle_distance">Bortle %1$d · %2$d km %3$s</string>
     <string name="darker_sky_delta">+%1$d tonight</string>
+    <string name="section_confidence">Forecast confidence</string>
+    <string name="confidence_detail">Primary model against a second opinion across %1$d dark hours.</string>
 </resources>

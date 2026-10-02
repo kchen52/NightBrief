@@ -89,6 +89,7 @@ import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.MeteorAdvisor
 import app.nightbrief.score.MeteorOutlook
+import app.nightbrief.score.ModelAgreement
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.NightSummary
 import app.nightbrief.score.SavedForecast
@@ -139,6 +140,7 @@ fun NightDetail(
         MilkyWayCard(report)
         report.score?.let { BreakdownCard(report) }
         TimelineCard(report, units)
+        ModelAgreement.assess(report)?.let { ConfidenceCard(it) }
         if (report.suggestions.isNotEmpty()) {
             SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus) {
                 report.suggestions.forEachIndexed { i, s ->

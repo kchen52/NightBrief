@@ -88,7 +88,7 @@ Not committed scope. Ordered by value for effort. The P0 device checks (notifica
 ### Tier 3 — larger bets
 
 - [ ] **Sky events calendar.** Planets, conjunctions, eclipses, and comets. Needs planetary ephemeris in `:core-astro` (VSOP87 truncated, or bundled Chebyshev tables). It would add a year-ahead planning view to the 8-day forecast.
-- [ ] **Second forecast model for confidence.** Fetch a second Open-Meteo model and show "models agree" or "models disagree" on cloud. This doubles forecast calls per site; worth doing only if the session log shows cloud misses are the main complaint.
+- [x] **Second forecast model for confidence.** `ForecastRepository` fetches German ICON beside the primary model and joins its cloud series onto the same hours (`cloudCoverSecondary`; old cache files still decode). A failed second fetch leaves the field null and never fails the briefing. `ModelAgreement` in `:core-score` compares the models over the dark hours (≥3 overlapping hours): agree within 10 pts, mixed within 25, otherwise disagree. Tonight shows a Forecast confidence card and the digest adds the line after the verdict. It is not a score factor. Tests: `SecondaryModelTest`, `ForecastRepositoryTest` (dual-model request, second-model outage), `ModelAgreementTest`, Robolectric `ForecastConfidenceUiTest`, and goldens in `ForecastConfidenceScreenshotTest` (`docs/screenshots/forecast-confidence.png`).
 
 ### Debt that users would notice
 

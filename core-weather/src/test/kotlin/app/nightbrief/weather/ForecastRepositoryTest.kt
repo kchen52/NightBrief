@@ -19,6 +19,7 @@ import java.time.ZoneOffset
 class ForecastRepositoryTest {
     private lateinit var server: MockWebServer
     private var openMeteoCode = 200
+    private var secondModelCode = 200
     private var sevenTimerCode = 200
     private val requests = mutableListOf<String>()
 
@@ -32,6 +33,8 @@ class ForecastRepositoryTest {
                 val path = request.path.orEmpty()
                 requests += path
                 return when {
+                    path.startsWith("/om") && "icon_seamless" in path -> MockResponse().setResponseCode(secondModelCode)
+                        .setBody(if (secondModelCode == 200) resource("open_meteo_gem.json") else "{\"error\":true,\"reason\":\"down\"}")
                     path.startsWith("/om") -> MockResponse().setResponseCode(openMeteoCode)
                         .setBody(if (openMeteoCode == 200) resource("open_meteo_gem.json") else "{\"error\":true,\"reason\":\"down\"}")
                     path.startsWith("/7t") -> MockResponse().setResponseCode(sevenTimerCode)
@@ -85,6 +88,24 @@ class ForecastRepositoryTest {
         assertEquals(ForecastStatus.FRESH, result.status)
         assertTrue(result.forecast.hours.all { it.seeing == null })
         assertEquals(1, result.warnings.size)
+    }
+
+    @Test
+    fun fetchesASecondModelForConfidence() = runTest {
+        val result = repo().forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.FRESH, result.status)
+        assertTrue("expected a gem request, got $requests", requests.any { "models=gem_seamless" in it })
+        assertTrue("expected an icon request, got $requests", requests.any { "models=icon_seamless" in it })
+        val h = result.forecast.at(Instant.ofEpochSecond(1790866800))!!
+        assertEquals("secondary should mirror the fixture: ${h.cloudCoverSecondary}", h.cloudCover, h.cloudCoverSecondary)
+    }
+
+    @Test
+    fun secondModelOutageIsNonFatal() = runTest {
+        secondModelCode = 500
+        val result = repo().forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.FRESH, result.status)
+        assertTrue(result.forecast.hours.all { it.cloudCoverSecondary == null })
     }
 
     @Test

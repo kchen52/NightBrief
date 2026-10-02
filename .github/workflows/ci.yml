@@ -47,3 +47,14 @@ jobs:
           "$sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
       - name: JVM, Robolectric, lint, and Paparazzi
         run: ./gradlew assembleDebug lintDebug test verifyPaparazziDebug --stacktrace
+      - name: Upload Paparazzi failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paparazzi-failures
+          if-no-files-found: ignore
+          path: |
+            app/build/paparazzi
+            app/build/reports/paparazzi
+            wear/build/paparazzi
+            wear/build/reports/paparazzi

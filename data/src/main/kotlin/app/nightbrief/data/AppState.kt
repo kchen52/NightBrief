@@ -4,9 +4,11 @@ import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.SiteComparison
+import app.nightbrief.score.UnitSystem
 import app.nightbrief.sites.SiteBook
 import kotlinx.serialization.Serializable
 import java.time.LocalTime
+import java.util.Locale
 
 @Serializable
 data class AppState(
@@ -24,6 +26,13 @@ data class AppState(
     val lastBigNightAlerts: Map<String, String> = emptyMap(),
     /** Minimum score lead before the digest mentions another site. */
     val alternativeThreshold: Int = SiteComparison.DEFAULT_THRESHOLD,
+    /** Red-on-black theme for use at the telescope. Display only. */
+    val nightVision: Boolean = false,
+    /**
+     * Wind and temperature display. Null follows the device locale
+     * ([UnitSystem.fromLocale]) until the user picks one.
+     */
+    val units: UnitSystem? = null,
     /**
      * Stable notification slot per site id. Slots are positive and never reused, so one site's
      * digest cannot replace another's. Not part of a library export.
@@ -33,6 +42,9 @@ data class AppState(
     val notificationSlotNext: Int = 1,
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
+
+    fun resolvedUnits(locale: Locale = Locale.getDefault()): UnitSystem =
+        units ?: UnitSystem.fromLocale(locale)
 
     /** Gives every current site a unique positive slot without reusing a retired one. */
     fun ensureNotificationSlots(): AppState {

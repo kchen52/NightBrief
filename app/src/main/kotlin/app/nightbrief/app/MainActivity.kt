@@ -8,7 +8,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.ui.NightBriefNavHost
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.work.DigestNotifier
@@ -28,7 +30,8 @@ class MainActivity : ComponentActivity() {
             if (savedInstanceState == null) openTonight.intValue++
         }
         setContent {
-            NightBriefTheme {
+            val state by vm.state.collectAsStateWithLifecycle()
+            NightBriefTheme(nightVision = state?.nightVision == true) {
                 NightBriefNavHost(vm, openTonightSignal = openTonight.intValue)
             }
         }

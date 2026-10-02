@@ -28,6 +28,7 @@ object DigestComposer {
         others: List<NightReport>,
         timeFormat: DateTimeFormatter = DEFAULT_TIME_FORMAT,
         alternativeThreshold: Int = SiteComparison.DEFAULT_THRESHOLD,
+        units: UnitSystem = UnitSystem.METRIC,
     ): Digest {
         val zone = report.site.zone
         fun fmt(t: Instant) = timeFormat.withZone(zone).format(t)
@@ -72,7 +73,7 @@ object DigestComposer {
         }
         report.dew?.let { dew ->
             DewCopy.riskLine(dew, ::fmt)?.let { lines += it }
-            lines += DewCopy.lowLine(dew)
+            lines += DewCopy.lowLine(dew, units)
         }
         if (report.forecastStatus == ForecastStatus.STALE) {
             lines += "Offline — showing the last saved forecast"

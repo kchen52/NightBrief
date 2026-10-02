@@ -2,7 +2,6 @@ package app.nightbrief.score
 
 import app.nightbrief.weather.Forecast
 import java.time.Instant
-import kotlin.math.abs
 
 /**
  * Dew and frost during one night. Display only: this is not a [NightScoreEngine] factor.
@@ -78,29 +77,25 @@ object DewCopy {
         }
     }
 
-    fun lowLine(dew: DewOutlook): String = "Dress for ${formatCelsius(dew.overnightLowC)}"
+    fun lowLine(dew: DewOutlook, units: UnitSystem = UnitSystem.METRIC): String =
+        "Dress for ${units.formatTemperature(dew.overnightLowC)}"
 
-    fun detail(dew: DewOutlook): String = when {
-        dew.frostFrom != null && dew.from != null && dew.frostFrom != dew.from ->
-            "Dew starts above freezing, then the glass can frost. A heater matters more than a shield."
-        dew.frostFrom != null ->
-            "The air is at or below freezing and within 2 °C of the dew point. A heater keeps frost off the glass."
-        dew.from != null ->
-            "The air is within 2 °C of the dew point, so moisture can settle on the front element."
-        dew.spreadKnown ->
-            "The air stays more than 2 °C above the dew point during darkness."
-        else ->
-            "This forecast has no dew point for the dark hours, so this is only the overnight low."
+    fun detail(dew: DewOutlook, units: UnitSystem = UnitSystem.METRIC): String {
+        val spread = units.dewSpread()
+        return when {
+            dew.frostFrom != null && dew.from != null && dew.frostFrom != dew.from ->
+                "Dew starts above freezing, then the glass can frost. A heater matters more than a shield."
+            dew.frostFrom != null ->
+                "The air is at or below freezing and within $spread of the dew point. A heater keeps frost off the glass."
+            dew.from != null ->
+                "The air is within $spread of the dew point, so moisture can settle on the front element."
+            dew.spreadKnown ->
+                "The air stays more than $spread above the dew point during darkness."
+            else ->
+                "This forecast has no dew point for the dark hours, so this is only the overnight low."
+        }
     }
 
     /** Nearest degree, with a minus sign below zero. Half a degree rounds away from zero. */
-    fun formatCelsius(celsius: Double): String {
-        val rounded = if (celsius >= 0.0) {
-            kotlin.math.floor(celsius + 0.5)
-        } else {
-            kotlin.math.ceil(celsius - 0.5)
-        }.toInt()
-        val number = if (rounded < 0) "−${abs(rounded)}" else rounded.toString()
-        return "$number °C"
-    }
+    fun formatCelsius(celsius: Double): String = formatSigned(celsius, "°C")
 }

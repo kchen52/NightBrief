@@ -101,7 +101,7 @@
     <string name="timeline_seeing">Seeing</string>
     <string name="timeline_transp">Transp.</string>
     <string name="timeline_wind">Wind</string>
-    <string name="timeline_footnote">Shaded columns are full darkness. Seeing and transparency use the 7Timer scale (1 best, 8 worst); wind in km/h.</string>
+    <string name="timeline_footnote">Shaded columns are full darkness. Seeing and transparency use the 7Timer scale (1 best, 8 worst); wind in %1$s.</string>
     <string name="section_targets">Suggested targets</string>
     <string name="target_kind_window">%1$s · %2$s</string>
     <string name="compass_at">%1$s at %2$s</string>
@@ -112,6 +112,16 @@
     <string name="previous_night">Previous night</string>
     <string name="next_night">Next night</string>
 
+    <string name="section_display">Display</string>
+    <string name="night_vision">Night vision</string>
+    <string name="night_vision_summary">Red on black, so your eyes stay adapted to the dark.</string>
+    <string name="night_vision_on">Night vision on</string>
+    <string name="night_vision_off">Night vision off</string>
+    <string name="units_title">Units</string>
+    <string name="units_metric">km/h, °C</string>
+    <string name="units_imperial">mph, °F</string>
+    <string name="units_following_locale">%1$s, from this phone\'s region. Choose one to keep it.</string>
+    <string name="units_chosen">%1$s</string>
     <string name="section_morning_digest">Morning digest</string>
     <string name="daily_digest">Daily digest</string>
     <string name="daily_digest_summary">Go/no-go summary for your primary site</string>

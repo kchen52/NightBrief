@@ -52,6 +52,7 @@ import app.nightbrief.score.SiteAlternative
 import app.nightbrief.score.SiteComparison
 import app.nightbrief.score.TargetSuggestion
 import app.nightbrief.score.TimelineHour
+import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Verdict
 import app.nightbrief.weather.ForecastStatus
 import java.time.ZoneId
@@ -63,6 +64,7 @@ fun NightDetail(
     alternative: SiteAlternative?,
     onOpenAlternative: (String) -> Unit,
     modifier: Modifier = Modifier,
+    units: UnitSystem = UnitSystem.METRIC,
 ) {
     Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         StatusBanners(report)
@@ -85,13 +87,13 @@ fun NightDetail(
         }
         HeroCard(report)
         SkyCard(report)
-        report.dew?.let { DewCard(it, report.site.zone) }
+        report.dew?.let { DewCard(it, report.site.zone, units) }
         report.aurora?.let { AuroraCard(it) }
         report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
         if (report.issPasses.isNotEmpty()) IssCard(report)
         MilkyWayCard(report)
         report.score?.let { BreakdownCard(report) }
-        TimelineCard(report)
+        TimelineCard(report, units)
         if (report.suggestions.isNotEmpty()) {
             SectionCard(stringResource(R.string.section_targets)) {
                 report.suggestions.forEachIndexed { i, s ->
@@ -182,7 +184,7 @@ private fun SkyCard(report: NightReport) {
 }
 
 @Composable
-private fun DewCard(dew: DewOutlook, zone: ZoneId) {
+private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem) {
     val title = when {
         dew.frostFrom != null -> R.string.section_frost
         dew.from != null -> R.string.section_dew
@@ -200,13 +202,13 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId) {
             Spacer(Modifier.height(6.dp))
         }
         Text(
-            DewCopy.lowLine(dew),
+            DewCopy.lowLine(dew, units),
             style = if (dew.risk) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
             fontWeight = if (dew.risk) FontWeight.Normal else FontWeight.SemiBold,
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            DewCopy.detail(dew),
+            DewCopy.detail(dew, units),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -372,25 +374,31 @@ private data class TimelineRow(
 )
 
 @Composable
-private fun TimelineCard(report: NightReport) {
+private fun TimelineCard(report: NightReport, units: UnitSystem) {
     val zone = report.site.zone
+    val colors = NightColors.palette
     fun layer(percent: Int?): String = percent?.let { "$it%" } ?: "–"
-    fun layerColor(percent: Int?): Color? = percent?.let { NightColors.forScore(100 - it) }
+    fun layerColor(percent: Int?): Color? = percent?.let { colors.forScore(100 - it) }
     val rows = listOf(
-        TimelineRow(stringResource(R.string.timeline_score), { it.score.toString() }, { NightColors.forScore(it.score) }, emphasize = true),
+        TimelineRow(stringResource(R.string.timeline_score), { it.score.toString() }, { colors.forScore(it.score) }, emphasize = true),
         TimelineRow(stringResource(R.string.timeline_cloud), { h -> layer(h.cloudCover) }, { h -> layerColor(h.cloudCover) }),
         TimelineRow(stringResource(R.string.timeline_cloud_low), { h -> layer(h.cloudLow) }, { h -> layerColor(h.cloudLow) }),
         TimelineRow(stringResource(R.string.timeline_cloud_mid), { h -> layer(h.cloudMid) }, { h -> layerColor(h.cloudMid) }),
         TimelineRow(stringResource(R.string.timeline_cloud_high), { h -> layer(h.cloudHigh) }, { h -> layerColor(h.cloudHigh) }),
         TimelineRow(stringResource(R.string.timeline_moon), { h -> if (h.moonAltitudeDeg > 0) Format.degrees(h.moonAltitudeDeg) else "↓" }, { h ->
-            if (h.moonAltitudeDeg > 0 && h.moonIllumination > 0.05) NightColors.Fair else null
+            if (h.moonAltitudeDeg > 0 && h.moonIllumination > 0.05) colors.fair else null
         }),
         TimelineRow(stringResource(R.string.timeline_mw), { h -> if (h.galacticCenterAltitudeDeg > 0) Format.degrees(h.galacticCenterAltitudeDeg) else "↓" }, { h ->
-            if (h.isDark && h.galacticCenterAltitudeDeg >= 10) NightColors.Primary else null
+            if (h.isDark && h.galacticCenterAltitudeDeg >= 10) colors.primary else null
         }),
-        TimelineRow(stringResource(R.string.timeline_seeing), { h -> h.seeingIndex?.let { "$it/8" } ?: "–" }, { h -> h.seeingIndex?.let { NightColors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow(stringResource(R.string.timeline_transp), { h -> h.transparencyIndex?.let { "$it/8" } ?: "–" }, { h -> h.transparencyIndex?.let { NightColors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow(stringResource(R.string.timeline_wind), { h -> h.windKmh?.roundToInt()?.toString() ?: "–" }, { h -> h.windKmh?.let { NightColors.forScore((100 - it * 2.5).roundToInt()) } }),
+        TimelineRow(stringResource(R.string.timeline_seeing), { h -> h.seeingIndex?.let { "$it/8" } ?: "–" }, { h -> h.seeingIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
+        TimelineRow(stringResource(R.string.timeline_transp), { h -> h.transparencyIndex?.let { "$it/8" } ?: "–" }, { h -> h.transparencyIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
+        TimelineRow(
+            stringResource(R.string.timeline_wind),
+            { h -> h.windKmh?.let(units::formatWind) ?: "–" },
+            // Colour stays on km/h so a unit change does not repaint the same wind.
+            { h -> h.windKmh?.let { colors.forScore((100 - it * 2.5).roundToInt()) } },
+        ),
     )
     SectionCard(stringResource(R.string.section_timeline)) {
         Row {
@@ -439,7 +447,7 @@ private fun TimelineCard(report: NightReport) {
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            stringResource(R.string.timeline_footnote),
+            stringResource(R.string.timeline_footnote, units.windUnit),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

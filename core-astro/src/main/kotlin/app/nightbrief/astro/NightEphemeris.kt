@@ -32,6 +32,11 @@ data class MilkyWayWindow(
     val peakAzimuthDeg: Double,
     /** Portion of [window] with the Moon below the horizon (or too thin to matter). */
     val moonFree: List<TimeWindow>,
+    /**
+     * When a local horizon delays the window, this is the instant the core clears it.
+     * Null when the site horizon does not push the start back.
+     */
+    val clearsHorizonAt: Instant? = null,
 ) {
     val moonFreeDuration: Duration get() = moonFree.fold(Duration.ZERO) { acc, w -> acc + w.duration }
 }
@@ -58,6 +63,10 @@ data class NightEphemeris(
     /** Parts of [darkWindow] with no Moon in the sky. */
     val moonFreeDark: List<TimeWindow>,
     val milkyWay: MilkyWayWindow?,
+    /**
+     * True when the core would clear the flat minimum altitude, but the local horizon hides it.
+     */
+    val milkyWayBlockedByHorizon: Boolean = false,
     /** One sample per whole hour spanning sunset to sunrise (or the whole night at polar latitudes). */
     val hourly: List<HourlyAstro>,
 ) {
@@ -72,6 +81,9 @@ data class NightEphemeris(
         /**
          * Computes the night that starts on the evening of [date] in [zone]
          * (local noon on [date] to local noon the following day).
+         *
+         * [horizonObstructionDeg] is extra altitude the sky must clear at that azimuth.
+         * 0 leaves [milkyWayMinAltitudeDeg] as the only floor.
          */
         fun compute(
             date: LocalDate,
@@ -79,6 +91,7 @@ data class NightEphemeris(
             latitudeDeg: Double,
             longitudeDeg: Double,
             milkyWayMinAltitudeDeg: Double = DEFAULT_MILKY_WAY_MIN_ALTITUDE,
+            horizonObstructionDeg: (Double) -> Double = { 0.0 },
         ): NightEphemeris {
             val start = date.atTime(LocalTime.NOON).atZone(zone).toInstant()
             val end = date.plusDays(1).atTime(LocalTime.NOON).atZone(zone).toInstant()
@@ -118,9 +131,11 @@ data class NightEphemeris(
                 )
             }
 
-            val milkyWay = darkWindow?.let {
-                milkyWayWindow(it, moonFreeDark, latitudeDeg, longitudeDeg, milkyWayMinAltitudeDeg)
-            }
+            val (milkyWay, milkyWayBlockedByHorizon) = darkWindow?.let {
+                milkyWayWindow(
+                    it, moonFreeDark, latitudeDeg, longitudeDeg, milkyWayMinAltitudeDeg, horizonObstructionDeg,
+                )
+            } ?: (null to false)
 
             val sunset = firstSetting(Ephemeris.HORIZON_ALTITUDE)
             val sunrise = lastRising(Ephemeris.HORIZON_ALTITUDE)
@@ -165,6 +180,7 @@ data class NightEphemeris(
                 moonPhase = moonPhase,
                 moonFreeDark = moonFreeDark,
                 milkyWay = milkyWay,
+                milkyWayBlockedByHorizon = milkyWayBlockedByHorizon,
                 hourly = hourly,
             )
         }
@@ -175,28 +191,38 @@ data class NightEphemeris(
             lat: Double,
             lon: Double,
             minAltitude: Double,
-        ): MilkyWayWindow? {
-            val gcAlt = { t: Instant -> Ephemeris.galacticCenter(t, lat, lon).altitudeDeg }
-            val window = Ephemeris.intervalsAbove(dark.start, dark.end, minAltitude, altitude = gcAlt)
-                .maxByOrNull { it.duration } ?: return null
+            horizonObstructionDeg: (Double) -> Double,
+        ): Pair<MilkyWayWindow?, Boolean> {
+            fun excess(obstruction: (Double) -> Double): (Instant) -> Double = { t ->
+                val gc = Ephemeris.galacticCenter(t, lat, lon)
+                gc.altitudeDeg - maxOf(minAltitude, obstruction(gc.azimuthDeg))
+            }
+            fun longest(obstruction: (Double) -> Double): TimeWindow? =
+                Ephemeris.intervalsAbove(dark.start, dark.end, 0.0, altitude = excess(obstruction))
+                    .maxByOrNull { it.duration }
+
+            val flat = longest { 0.0 }
+            val window = longest(horizonObstructionDeg) ?: return null to (flat != null)
             var peakTime = window.start
-            var peakAlt = gcAlt(peakTime)
+            var peakAlt = Ephemeris.galacticCenter(peakTime, lat, lon).altitudeDeg
             var t = window.start
             while (!t.isAfter(window.end)) {
-                val a = gcAlt(t)
-                if (a > peakAlt) {
-                    peakAlt = a
+                val altitude = Ephemeris.galacticCenter(t, lat, lon).altitudeDeg
+                if (altitude > peakAlt) {
+                    peakAlt = altitude
                     peakTime = t
                 }
                 t = t.plus(Duration.ofMinutes(5))
             }
+            val delayMinutes = flat?.let { Duration.between(it.start, window.start).toMinutes() } ?: 0
             return MilkyWayWindow(
                 window = window,
                 peakAltitudeDeg = peakAlt,
                 peakTime = peakTime,
                 peakAzimuthDeg = Ephemeris.galacticCenter(peakTime, lat, lon).azimuthDeg,
                 moonFree = moonFreeDark.mapNotNull { it.intersect(window) },
-            )
+                clearsHorizonAt = if (delayMinutes >= 10) window.start else null,
+            ) to false
         }
     }
 }

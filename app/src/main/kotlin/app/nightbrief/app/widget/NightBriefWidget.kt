@@ -48,7 +48,12 @@ class NightBriefWidget : GlanceAppWidget() {
         return WidgetContent.Night(
             siteName = primary.name,
             scoreLine = WidgetCopy.scoreLine(report?.scoreValue),
-            milkyWayLine = WidgetCopy.milkyWayLine(report?.ephemeris?.milkyWay?.window, primary.zone),
+            milkyWayLine = WidgetCopy.milkyWayLine(
+                report?.ephemeris?.milkyWay?.window,
+                primary.zone,
+                clearsHorizonAt = report?.ephemeris?.milkyWay?.clearsHorizonAt,
+                blockedByHorizon = report?.ephemeris?.milkyWayBlockedByHorizon == true,
+            ),
             savedLine = SavedForecast.shortLabel(report?.forecastStatus, report?.forecastFetchedAt, primary.zone),
         )
     }

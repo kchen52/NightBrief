@@ -37,8 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import app.nightbrief.app.R
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -51,6 +54,7 @@ import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.sites.BortleClass
 import app.nightbrief.sites.BortleSource
+import app.nightbrief.sites.LocalHorizon
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -289,6 +293,49 @@ fun SiteForm(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        SectionCard(stringResource(R.string.section_horizon)) {
+            val horizonLabel = stringResource(R.string.local_horizon)
+            val enabled = !draft.horizon.isUnset
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(horizonLabel, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.local_horizon_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { on ->
+                        onChange(draft.copy(horizon = if (on) LocalHorizon.open() else LocalHorizon()))
+                    },
+                    modifier = Modifier.semantics { contentDescription = horizonLabel },
+                )
+            }
+            if (enabled) {
+                val names = stringArrayResource(R.array.horizon_directions)
+                Spacer(Modifier.height(8.dp))
+                draft.horizon.altitudes().forEachIndexed { index, altitude ->
+                    val degrees = (altitude ?: 0.0).roundToInt().coerceIn(0, 90)
+                    val direction = stringResource(R.string.horizon_direction, names[index])
+                    Text(
+                        stringResource(R.string.horizon_altitude, LocalHorizon.ABBREVIATIONS[index], degrees),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Slider(
+                        value = (altitude ?: 0.0).toFloat().coerceIn(0f, 90f),
+                        onValueChange = {
+                            onChange(draft.copy(horizon = draft.horizon.withSector(index, it.roundToInt().toDouble())))
+                        },
+                        valueRange = 0f..90f,
+                        steps = 17,
+                        modifier = Modifier.semantics { contentDescription = direction },
+                    )
+                }
+            }
         }
 
         if (showDigestOverride || showPrimaryToggle) {

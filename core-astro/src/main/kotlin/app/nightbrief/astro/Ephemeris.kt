@@ -104,6 +104,27 @@ object Ephemeris {
     fun moonPhase(time: Instant): Double =
         Bodies.moonIllumination(AstroTime.daysSinceJ2000(time)).second
 
+    fun moonDeclination(time: Instant): Double =
+        Bodies.moonEquatorial(AstroTime.daysSinceJ2000(time)).first.decDeg
+
+    /**
+     * Position angle of the lunar terminator, degrees east of celestial north.
+     *
+     * 0 means the shadow boundary faces north. This is the bright-limb angle plus 180°,
+     * from the same low-precision Sun and Moon used for the rest of the ephemeris.
+     */
+    fun moonTerminatorAngleDeg(time: Instant): Double {
+        val d = AstroTime.daysSinceJ2000(time)
+        val moon = Bodies.moonEquatorial(d).first
+        val sun = Bodies.sunEquatorial(d)
+        val brightLimb = atan2D(
+            cosD(sun.decDeg) * sinD(sun.raDeg - moon.raDeg),
+            sinD(sun.decDeg) * cosD(moon.decDeg) -
+                cosD(sun.decDeg) * sinD(moon.decDeg) * cosD(sun.raDeg - moon.raDeg),
+        )
+        return norm360(brightLimb + 180.0)
+    }
+
     /** Position of a fixed (J2000) object such as a star, nebula or the galactic centre. */
     fun position(target: RaDec, time: Instant, latitudeDeg: Double, longitudeDeg: Double): AltAz =
         equatorialToHorizontal(target, latitudeDeg, longitudeDeg, AstroTime.daysSinceJ2000(time))

@@ -201,6 +201,21 @@
     <string name="bortle_unset">Not set — scoring assumes Bortle 5 until you choose.</string>
     <string name="bortle_from_map">From the light-pollution map. Drag to override.</string>
     <string name="bortle_user">Set by you. Check lightpollutionmap.info if unsure.</string>
+    <string name="section_horizon">Horizon</string>
+    <string name="local_horizon">Local horizon</string>
+    <string name="local_horizon_summary">Trees, ridges, and buildings. Targets and the Milky Way core have to clear these altitudes. 0° is an open horizon.</string>
+    <string name="horizon_altitude">%1$s · %2$d°</string>
+    <string name="horizon_direction">%1$s horizon</string>
+    <string-array name="horizon_directions">
+        <item>North</item>
+        <item>Northeast</item>
+        <item>East</item>
+        <item>Southeast</item>
+        <item>South</item>
+        <item>Southwest</item>
+        <item>West</item>
+        <item>Northwest</item>
+    </string-array>
     <string name="section_digest">Digest</string>
     <string name="primary_leads_digest">Primary site (leads the morning digest)</string>
     <string name="own_digest_time">Own digest time</string>

@@ -1,6 +1,7 @@
 package app.nightbrief.app
 
 import app.nightbrief.sites.BortleSource
+import app.nightbrief.sites.LocalHorizon
 import app.nightbrief.sites.Site
 import kotlinx.serialization.Serializable
 import java.time.LocalTime
@@ -31,6 +32,7 @@ data class SiteDraft(
     val savedZoneId: String? = null,
     val digestTimeOverride: String? = null,
     val makePrimary: Boolean = false,
+    val horizon: LocalHorizon = LocalHorizon(),
 ) {
     val lat: Double? get() = latitude.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it in -90.0..90.0 }
     val lon: Double? get() = longitude.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it in -180.0..180.0 }
@@ -64,6 +66,7 @@ data class SiteDraft(
         bortle = bortle,
         bortleSource = bortleSource,
         digestTimeOverride = digestTimeOverride,
+        horizon = horizon,
     )
 
     companion object {
@@ -83,6 +86,7 @@ data class SiteDraft(
                 savedZoneId = site.zoneId,
                 digestTimeOverride = site.digestTimeOverride,
                 makePrimary = isPrimary,
+                horizon = site.horizon,
             )
         }
     }

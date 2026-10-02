@@ -105,11 +105,54 @@ class NightEphemerisTest {
     }
 
     @Test
+    fun terminatorAngleFacesOppositeWaysAtTheQuarters() {
+        val first = Ephemeris.moonTerminatorAngleDeg(Instant.parse("2024-04-15T19:13:00Z"))
+        val last = Ephemeris.moonTerminatorAngleDeg(Instant.parse("2024-05-01T11:27:00Z"))
+        assertTrue("first quarter angle $first", first in 0.0..360.0)
+        assertTrue("last quarter angle $last", last in 0.0..360.0)
+        val gap = abs(first - last).let { if (it > 180) 360 - it else it }
+        assertTrue("quarters should face opposite ways, gap was $gap°", gap > 90)
+    }
+
+    @Test
+    fun aRaisedHorizonDelaysTheCoreAndAHigherOneHidesIt() {
+        // Mid-May: the core rises during darkness. In high summer it is already up at dusk.
+        val flat = NightEphemeris.compute(
+            LocalDate.of(2024, 5, 15), ZoneId.of("America/Toronto"), 43.6532, -79.3832,
+        )
+        val flatWindow = flat.milkyWay
+        assertNotNull(flatWindow)
+        val peak = flatWindow!!.peakAltitudeDeg
+        val mid = (NightEphemeris.DEFAULT_MILKY_WAY_MIN_ALTITUDE + peak) / 2.0
+        val delayed = NightEphemeris.compute(
+            flat.date, flat.zone, flat.latitudeDeg, flat.longitudeDeg,
+            horizonObstructionDeg = { mid },
+        )
+        val delayedWindow = delayed.milkyWay
+        assertNotNull("a mask between 10° and the peak should still leave a window", delayedWindow)
+        delayedWindow!!
+        assertTrue(
+            "start ${delayedWindow.window.start} should be after ${flatWindow.window.start}",
+            delayedWindow.window.start.isAfter(flatWindow.window.start.plus(Duration.ofMinutes(9))),
+        )
+        assertEquals(delayedWindow.window.start, delayedWindow.clearsHorizonAt)
+        assertTrue(!delayed.milkyWayBlockedByHorizon)
+
+        val hidden = NightEphemeris.compute(
+            flat.date, flat.zone, flat.latitudeDeg, flat.longitudeDeg,
+            horizonObstructionDeg = { peak + 2 },
+        )
+        assertNull(hidden.milkyWay)
+        assertTrue(hidden.milkyWayBlockedByHorizon)
+    }
+
+    @Test
     fun londonNeverSeesTheCoreAboveTenDegrees() {
         val night = NightEphemeris.compute(
             LocalDate.of(2024, 8, 1), ZoneId.of("Europe/London"), 51.5074, -0.1278,
         )
         assertNull(night.milkyWay)
+        assertTrue(!night.milkyWayBlockedByHorizon)
     }
 
     @Test

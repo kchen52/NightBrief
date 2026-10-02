@@ -75,7 +75,8 @@ class PrefetchBigNightTest {
         val posted = notifications(context).activeNotifications
         assertEquals(1, posted.size)
         val status = posted.single()
-        assertEquals(DigestNotifier.bigNightNotificationId(site.id), status.id)
+        val slot = graph.settings.current().notificationSlots.getValue(site.id)
+        assertEquals(DigestNotifier.bigNightNotificationId(slot), status.id)
         assertEquals(DigestNotifier.CHANNEL_BIG_NIGHT, status.notification.channelId)
         assertEquals(
             "Big Night at Home",

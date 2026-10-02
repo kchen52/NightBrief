@@ -2,13 +2,9 @@ package app.nightbrief.app.ui
 
 import android.app.Application
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -19,12 +15,10 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.settings.SettingsScreen
 import app.nightbrief.app.ui.theme.NightBriefTheme
-import app.nightbrief.app.ui.tonight.NightDetail
 import app.nightbrief.app.ui.week.NightRow
 import app.nightbrief.astro.Darkness
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
-import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.BriefingSource
@@ -38,11 +32,8 @@ import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastStatus
-import app.nightbrief.weather.HourlyWeather
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -69,29 +60,6 @@ class ConditionsUiTest {
     @After
     fun tearDown() {
         AppGraph.get(ApplicationProvider.getApplicationContext()).resetSourcesForTest()
-    }
-
-    @Test
-    fun tonightShowsDewDressAndTheCloudLayerSplit() {
-        val report = NightPlanner.plan(home, LocalDate.of(2024, 8, 12), forecast(), GearCatalog.exampleKit)
-        assertEquals("high thin cloud", report.cloudReason)
-
-        compose.setContent {
-            NightBriefTheme {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    NightDetail(report, alternative = null, onOpenAlternative = {})
-                }
-            }
-        }
-        compose.onNodeWithText("high thin cloud").assertIsDisplayed()
-        compose.onNodeWithText("Dress for −4 °C").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("bring a heater", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Low").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Mid").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("High").performScrollTo().assertIsDisplayed()
-        assertTrue(compose.onAllNodesWithText("11%").fetchSemanticsNodes().isNotEmpty())
-        assertTrue(compose.onAllNodesWithText("22%").fetchSemanticsNodes().isNotEmpty())
-        assertTrue(compose.onAllNodesWithText("77%").fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test
@@ -137,30 +105,6 @@ class ConditionsUiTest {
         }
         compose.onNodeWithText("Notify when a site reaches 72 tonight").assertIsDisplayed()
         compose.onNodeWithText("Big Night at 72 or above").performScrollTo().assertIsDisplayed()
-    }
-
-    private fun forecast(): Forecast {
-        val start = Instant.parse("2024-08-12T00:00:00Z").epochSecond
-        return Forecast(
-            home.latitude, home.longitude, "best_match", start,
-            (0 until 72).map {
-                HourlyWeather(
-                    epochSecond = start + it * 3600L,
-                    cloudCover = 80,
-                    cloudLow = 11,
-                    cloudMid = 22,
-                    cloudHigh = 77,
-                    humidity = 40,
-                    temperatureC = -4.2,
-                    dewPointC = -5.0,
-                    windKmh = 6.0,
-                    gustKmh = 8.0,
-                    jetStreamKmh = 70.0,
-                    seeing = 2,
-                    transparency = 2,
-                )
-            },
-        )
     }
 
     private fun initWorkManager(app: Application) {

@@ -29,7 +29,7 @@ class DigestNotifier(private val context: Context) {
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
-    fun post(digest: Digest, silent: Boolean = false) {
+    fun post(digest: Digest, slot: Int, silent: Boolean = false) {
         if (!canNotify()) return
         val style = NotificationCompat.InboxStyle().setBigContentTitle(digest.title)
         digest.lines.forEach(style::addLine)
@@ -39,44 +39,45 @@ class DigestNotifier(private val context: Context) {
             .setContentText(digest.summary)
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
-            .setContentIntent(openTonight(digest.siteId))
+            .setContentIntent(openTonight(digest.siteId, digestNotificationId(slot)))
             .setAutoCancel(true)
             .setOnlyAlertOnce(silent)
             .setSilent(silent)
             .build()
         @Suppress("MissingPermission")
-        NotificationManagerCompat.from(context).notify(notificationId(digest.siteId), notification)
+        NotificationManagerCompat.from(context).notify(digestNotificationId(slot), notification)
     }
 
-    fun postBigNight(siteId: String, siteName: String, score: Int, dateLabel: String) {
+    fun postBigNight(siteId: String, siteName: String, score: Int, dateLabel: String, slot: Int) {
         if (!canNotify()) return
+        val id = bigNightNotificationId(slot)
         val notification = NotificationCompat.Builder(context, CHANNEL_BIG_NIGHT)
             .setSmallIcon(R.drawable.ic_stat_nightbrief)
-            .setContentTitle("Big Night at $siteName")
-            .setContentText("Tonight scores $score. $dateLabel")
+            .setContentTitle(context.getString(R.string.big_night_title, siteName))
+            .setContentText(context.getString(R.string.big_night_text, score, dateLabel))
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
-            .setContentIntent(openTonight(siteId))
+            .setContentIntent(openTonight(siteId, id))
             .setAutoCancel(true)
             .build()
         @Suppress("MissingPermission")
-        NotificationManagerCompat.from(context).notify(bigNightNotificationId(siteId), notification)
+        NotificationManagerCompat.from(context).notify(id, notification)
     }
 
     fun progressNotification(): Notification =
         NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_stat_nightbrief)
-            .setContentTitle("Checking tonight's sky…")
+            .setContentTitle(context.getString(R.string.progress_title))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
 
-    private fun openTonight(siteId: String): PendingIntent {
+    private fun openTonight(siteId: String, requestCode: Int): PendingIntent {
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?: Intent().setPackage(context.packageName)
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(EXTRA_SITE_ID, siteId)
         return PendingIntent.getActivity(
-            context, notificationId(siteId), launch,
+            context, requestCode, launch,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
@@ -88,25 +89,47 @@ class DigestNotifier(private val context: Context) {
         const val PROGRESS_ID = 9000
         const val EXTRA_SITE_ID = "app.nightbrief.extra.SITE_ID"
 
-        fun notificationId(siteId: String): Int = 1000 + (siteId.hashCode() and 0x0FFF)
+        /** Digest ids sit above [PROGRESS_ID]. Big-night ids use a separate range so the two never collide. */
+        private const val DIGEST_BASE = 10_000
+        private const val BIG_NIGHT_BASE = 30_000
 
-        fun bigNightNotificationId(siteId: String): Int = 2000 + (siteId.hashCode() and 0x0FFF)
+        fun digestNotificationId(slot: Int): Int {
+            require(slot > 0) { "notification slot must be positive" }
+            return DIGEST_BASE + slot
+        }
+
+        fun bigNightNotificationId(slot: Int): Int {
+            require(slot > 0) { "notification slot must be positive" }
+            return BIG_NIGHT_BASE + slot
+        }
 
         fun ensureChannels(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_DIGEST, "Daily digest", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Morning go/no-go summary for tonight"
+                NotificationChannel(
+                    CHANNEL_DIGEST,
+                    context.getString(R.string.channel_digest_name),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = context.getString(R.string.channel_digest_description)
                 },
             )
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_BIG_NIGHT, "Big Night alerts", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Posted when tonight scores 85 or above"
+                NotificationChannel(
+                    CHANNEL_BIG_NIGHT,
+                    context.getString(R.string.channel_big_night_name),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = context.getString(R.string.channel_big_night_description)
                 },
             )
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_PROGRESS, "Background updates", NotificationManager.IMPORTANCE_MIN).apply {
-                    description = "Shown briefly while forecasts are fetched"
+                NotificationChannel(
+                    CHANNEL_PROGRESS,
+                    context.getString(R.string.channel_progress_name),
+                    NotificationManager.IMPORTANCE_MIN,
+                ).apply {
+                    description = context.getString(R.string.channel_progress_description)
                 },
             )
         }

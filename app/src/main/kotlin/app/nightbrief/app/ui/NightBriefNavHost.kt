@@ -19,9 +19,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -55,13 +58,13 @@ private object Routes {
     fun night(siteId: String, date: LocalDate) = "night/$siteId/$date"
 }
 
-private data class TopDest(val route: String, val label: String, val icon: ImageVector)
+private data class TopDest(val route: String, @StringRes val label: Int, val icon: ImageVector)
 
 private val topDestinations = listOf(
-    TopDest(Routes.Tonight, "Tonight", Icons.Filled.NightsStay),
-    TopDest(Routes.Week, "Week", Icons.Filled.DateRange),
-    TopDest(Routes.Sites, "Sites", Icons.Filled.Place),
-    TopDest(Routes.Gear, "Gear", Icons.Filled.PhotoCamera),
+    TopDest(Routes.Tonight, R.string.nav_tonight, Icons.Filled.NightsStay),
+    TopDest(Routes.Week, R.string.nav_week, Icons.Filled.DateRange),
+    TopDest(Routes.Sites, R.string.nav_sites, Icons.Filled.Place),
+    TopDest(Routes.Gear, R.string.nav_gear, Icons.Filled.PhotoCamera),
 )
 
 @Composable
@@ -101,7 +104,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                             selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
                             onClick = { navController.goTop(dest.route) },
                             icon = { Icon(dest.icon, contentDescription = null) },
-                            label = { Text(dest.label) },
+                            label = { Text(stringResource(dest.label)) },
                         )
                     }
                 }

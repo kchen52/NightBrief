@@ -1,6 +1,7 @@
 package app.nightbrief.app.ui.settings
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -46,6 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.R
+import app.nightbrief.data.LibraryFormatException
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -75,12 +79,31 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
     var canNotify by remember { mutableStateOf(DigestNotifier(context).canNotify()) }
     var canExact by remember { mutableStateOf(DigestScheduler.canScheduleExact(context)) }
     var digestNote by remember { mutableStateOf<String?>(null) }
+    var libraryNote by remember { mutableStateOf<String?>(null) }
+    val importLibrary = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
+        }.getOrNull()
+        libraryNote = if (text.isNullOrBlank()) {
+            context.getString(R.string.library_import_failed)
+        } else {
+            try {
+                vm.importLibrary(text)
+                context.getString(R.string.library_imported)
+            } catch (_: LibraryFormatException) {
+                context.getString(R.string.library_import_failed)
+            }
+        }
+    }
     var askedNotification by rememberSaveable { mutableStateOf(false) }
     var dragThreshold by remember { mutableStateOf<Int?>(null) }
     var dragBigNight by remember { mutableStateOf<Int?>(null) }
     val shownThreshold = dragThreshold ?: s.alternativeThreshold
     val shownBigNight = (dragBigNight ?: s.bigNightThreshold)
         .coerceIn(BigNightAlerts.MIN_THRESHOLD, BigNightAlerts.MAX_THRESHOLD)
+    val digestLabel = stringResource(R.string.daily_digest)
+    val bigNightLabel = stringResource(R.string.big_night_alerts)
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         canNotify = DigestNotifier(context).canNotify()
@@ -102,9 +125,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -117,12 +142,12 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            SectionCard("Morning digest") {
+            SectionCard(stringResource(R.string.section_morning_digest)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Daily digest", style = MaterialTheme.typography.bodyLarge)
+                        Text(digestLabel, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Go/no-go summary for your primary site",
+                            stringResource(R.string.daily_digest_summary),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -132,15 +157,15 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         onCheckedChange = vm::setDigestEnabled,
                         modifier = Modifier
                             .testTag("digest-enabled")
-                            .semantics { contentDescription = "Daily digest" },
+                            .semantics { contentDescription = digestLabel },
                     )
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Big Night alerts", style = MaterialTheme.typography.bodyLarge)
+                        Text(bigNightLabel, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Notify when a site reaches $shownBigNight tonight",
+                            stringResource(R.string.big_night_summary, shownBigNight),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -150,13 +175,15 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         onCheckedChange = vm::setBigNightAlertsEnabled,
                         modifier = Modifier
                             .testTag("big-night-enabled")
-                            .semantics { contentDescription = "Big Night alerts" },
+                            .semantics { contentDescription = bigNightLabel },
                     )
                 }
-                TextButton(onClick = { showTime = true }) { Text("Time: ${clockLabel(s.digestTime)}") }
+                TextButton(onClick = { showTime = true }) {
+                    Text(stringResource(R.string.digest_time_button, clockLabel(s.digestTime)))
+                }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Mention another site when it's at least $shownThreshold points better",
+                    stringResource(R.string.alternative_threshold, shownThreshold),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -171,13 +198,13 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     steps = 24,
                 )
                 Text(
-                    "Between 5 and 30. A higher bar means fewer site suggestions in the digest.",
+                    stringResource(R.string.alternative_threshold_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Big Night at $shownBigNight or above",
+                    stringResource(R.string.big_night_threshold, shownBigNight),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -193,19 +220,19 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     modifier = Modifier.testTag("big-night-threshold"),
                 )
                 Text(
-                    "Between ${BigNightAlerts.MIN_THRESHOLD} and ${BigNightAlerts.MAX_THRESHOLD}. A bright home site may never reach 85.",
+                    stringResource(R.string.big_night_threshold_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
-            SectionCard("Notifications") {
+            SectionCard(stringResource(R.string.section_notifications)) {
                 Text(
-                    if (canNotify) "Notifications are allowed." else "Notifications are off.",
+                    stringResource(if (canNotify) R.string.notifications_allowed else R.string.notifications_off),
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    "The morning digest is posted as a notification. Without permission it can't be delivered.",
+                    stringResource(R.string.notifications_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -220,18 +247,18 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
-            SectionCard("Exact alarms") {
-                Text(exactAlarmStatus(canExact), style = MaterialTheme.typography.bodyLarge)
+            SectionCard(stringResource(R.string.section_exact_alarms)) {
+                Text(exactAlarmStatus(context, canExact), style = MaterialTheme.typography.bodyLarge)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canExact) {
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "The digest still arrives without exact alarms, just less precisely. Android may deliver it later while the phone is idle.",
+                        stringResource(R.string.exact_alarms_body),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(onClick = { context.openExactAlarmSettings() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Allow exact alarms")
+                        Text(stringResource(R.string.allow_exact_alarms))
                     }
                 }
             }
@@ -239,39 +266,53 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             Button(
                 onClick = {
                     vm.sendDigestNow()
-                    digestNote = if (canNotify) {
-                        "Digest queued. It will show up as a notification in a moment."
-                    } else {
-                        "Digest queued, but notifications are off so it may not appear."
-                    }
+                    digestNote = context.getString(
+                        if (canNotify) R.string.digest_queued else R.string.digest_queued_silent,
+                    )
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) { Text("Send digest now") }
+            ) { Text(stringResource(R.string.send_digest_now)) }
             digestNote?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            SectionCard("About") {
-                Text("NightBrief", style = MaterialTheme.typography.titleMedium)
+            SectionCard(stringResource(R.string.section_library)) {
+                Text(
+                    stringResource(R.string.library_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(8.dp))
-                Text("Weather by Open-Meteo.com (CC BY 4.0).", style = MaterialTheme.typography.bodyMedium)
-                Text("Seeing and transparency by 7Timer!.", style = MaterialTheme.typography.bodyMedium)
-                Text("Planetary Kp by NOAA SWPC.", style = MaterialTheme.typography.bodyMedium)
-                Text("ISS orbits by Celestrak.", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "Meteor rates are a static annual table, not a live feed.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text("Map data © OpenStreetMap contributors.", style = MaterialTheme.typography.bodyMedium)
+                OutlinedButton(
+                    onClick = {
+                        val json = vm.exportLibrary() ?: return@OutlinedButton
+                        shareLibrary(context, json)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.export_library)) }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { importLibrary.launch("*/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.import_library)) }
+                libraryNote?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            SectionCard(stringResource(R.string.section_about)) {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.about_open_meteo), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_7timer), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_swpc), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_iss), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_meteors), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_osm), style = MaterialTheme.typography.bodyMedium)
                 Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "The light-pollution data is licensed for non-commercial use only.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    "Ephemeris uses Astronomical Almanac low-precision formulas.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(stringResource(R.string.about_license), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_ephemeris), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -292,16 +333,25 @@ private fun clockLabel(hhmm: String): String = runCatching {
     DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(LocalTime.parse(hhmm))
 }.getOrDefault(hhmm)
 
-private fun exactAlarmStatus(canExact: Boolean): String = when {
-    canExact -> "Exact alarms are allowed, so the digest fires at the time you set."
-    else -> "Exact alarms are not allowed."
+private fun shareLibrary(context: Context, json: String) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.library_export_subject))
+        putExtra(Intent.EXTRA_TEXT, json)
+    }
+    val chooser = Intent.createChooser(send, context.getString(R.string.export_library))
+    if (context !is Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(chooser)
 }
+
+private fun exactAlarmStatus(context: Context, canExact: Boolean): String =
+    context.getString(if (canExact) R.string.exact_alarms_allowed else R.string.exact_alarms_denied)
 
 private fun notificationButtonLabel(context: Context, canNotify: Boolean): String {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission(context)) {
-        return "Allow notifications"
+        return context.getString(R.string.allow_notifications)
     }
-    return if (canNotify) "Notification settings" else "Open notification settings"
+    return context.getString(if (canNotify) R.string.notification_settings else R.string.open_notification_settings)
 }
 
 private fun requestNotifications(

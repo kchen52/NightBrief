@@ -40,9 +40,10 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
         if (due.isEmpty()) return Result.success()
 
+        val ready = state.ensureNotificationSlots()
         val briefing = graph.briefings.brief(
-            sites = state.sites.primaryFirst(),
-            kit = state.gear,
+            sites = ready.sites.primaryFirst(),
+            kit = ready.gear,
             outlookDays = 1,
             forceRefresh = true,
         )
@@ -51,8 +52,8 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val needsRetry = mutableListOf<String>()
         for (site in due) {
             val report = briefing.reportFor(site.id) ?: continue
-            val digest = DigestComposer.compose(report, briefing.tonight, timeFormat, state.alternativeThreshold)
-            notifier.post(digest, silent = refresh)
+            val digest = DigestComposer.compose(report, briefing.tonight, timeFormat, ready.alternativeThreshold)
+            notifier.post(digest, ready.notificationSlots.getValue(site.id), silent = refresh)
             if (report.forecastStatus != ForecastStatus.FRESH) needsRetry += site.id
         }
 
@@ -118,6 +119,7 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
             outlookDays = 1,
             forceRefresh = false,
         )
+        val ready = state.ensureNotificationSlots()
         val notifier = DigestNotifier(applicationContext)
         val alerts = BigNightAlerts.select(
             candidates = briefing.tonight.map {
@@ -129,7 +131,13 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         )
         val locale = Locale.getDefault()
         val newlyAlerted = alerts.associate { alert ->
-            notifier.postBigNight(alert.siteId, alert.siteName, alert.score, alert.dateLabel(locale))
+            notifier.postBigNight(
+                alert.siteId,
+                alert.siteName,
+                alert.score,
+                alert.dateLabel(locale),
+                ready.notificationSlots.getValue(alert.siteId),
+            )
             alert.siteId to alert.nightKey
         }
         if (newlyAlerted.isNotEmpty()) {

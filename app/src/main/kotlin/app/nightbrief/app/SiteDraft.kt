@@ -36,13 +36,13 @@ data class SiteDraft(
     val lon: Double? get() = longitude.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it in -180.0..180.0 }
     val zoneValid: Boolean get() = runCatching { ZoneId.of(zoneId.trim()) }.isSuccess
 
-    val errors: List<String>
+    val errors: List<Int>
         get() = buildList {
-            if (name.isBlank()) add("Give the site a name")
-            if (lat == null) add("Latitude must be between -90 and 90")
-            if (lon == null) add("Longitude must be between -180 and 180")
-            if (!zoneValid) add("Unknown time zone")
-            digestTimeOverride?.let { if (runCatching { LocalTime.parse(it) }.isFailure) add("Invalid digest time") }
+            if (name.isBlank()) add(R.string.site_error_name)
+            if (lat == null) add(R.string.site_error_latitude)
+            if (lon == null) add(R.string.site_error_longitude)
+            if (!zoneValid) add(R.string.site_error_zone)
+            digestTimeOverride?.let { if (runCatching { LocalTime.parse(it) }.isFailure) add(R.string.site_error_digest_time) }
         }
 
     val isValid: Boolean get() = errors.isEmpty()

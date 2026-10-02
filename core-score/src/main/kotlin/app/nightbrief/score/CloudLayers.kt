@@ -1,47 +1,40 @@
 package app.nightbrief.score
 
-/** One hour of total cloud and the low, mid, and high layers. Any field may be missing. */
-data class CloudSample(
-    val total: Int?,
-    val low: Int?,
-    val mid: Int?,
-    val high: Int?,
-)
+import app.nightbrief.weather.HourlyWeather
 
 /**
- * Describes the cloud when the high layer is what the total is made of.
- * Does not change [NightScoreEngine] cloud weight.
+ * What the cloud layers say about a night, beyond the single total the score uses.
+ * Not a [NightScoreEngine] factor. The cloud weight stays on total cover.
  */
+enum class CloudReason {
+    /** High cloud is more than half the total, and thicker than the low and mid layers. */
+    HIGH_THIN,
+}
+
 object CloudLayers {
-    /** Shown on Tonight when high cloud makes up most of the total. */
-    const val HIGH_THIN = "high thin cloud"
-
     /**
-     * Below this mean total (%), a night is clear enough that a layer reason is noise.
-     * A few percent of cirrus should not compete with the score.
+     * Dark hours only. A hour counts when it has both a total and a high-cloud percent.
+     * High cloud "makes up most of the total" when the high sum is strictly more than half
+     * the total sum. It also has to exceed the low sum and the mid sum when those layers
+     * were reported, so a night of low stratus is not called thin cirrus.
      */
-    const val MIN_TOTAL_PERCENT = 15.0
-
-    /**
-     * Dark hours whose high cloud is at least half the total, and strictly more than
-     * the low and mid layers. Hours missing a total or a high value are skipped.
-     */
-    fun reason(samples: List<CloudSample>): String? {
-        val usable = samples.filter { it.total != null && it.high != null }
-        if (usable.isEmpty()) return null
-        val total = usable.map { it.total!!.toDouble() }.average()
-        val high = usable.map { it.high!!.toDouble() }.average()
-        if (total < MIN_TOTAL_PERCENT || high < total * 0.5) return null
-        val low = averagePresent(usable.map { it.low })
-        val mid = averagePresent(usable.map { it.mid })
-        if (low != null && high <= low) return null
-        if (mid != null && high <= mid) return null
-        return HIGH_THIN
+    fun reason(hours: List<HourlyWeather>): CloudReason? {
+        val samples = hours.mapNotNull { hour ->
+            val total = hour.cloudCover ?: return@mapNotNull null
+            val high = hour.cloudHigh ?: return@mapNotNull null
+            if (total < 0 || high < 0) return@mapNotNull null
+            Sample(total, hour.cloudLow?.takeIf { it >= 0 }, hour.cloudMid?.takeIf { it >= 0 }, high)
+        }
+        if (samples.isEmpty()) return null
+        val total = samples.sumOf { it.total.toLong() }
+        val high = samples.sumOf { it.high.toLong() }
+        if (total <= 0L || high * 2 <= total) return null
+        val low = samples.mapNotNull { it.low }
+        val mid = samples.mapNotNull { it.mid }
+        if (low.isNotEmpty() && low.sumOf { it.toLong() } >= high) return null
+        if (mid.isNotEmpty() && mid.sumOf { it.toLong() } >= high) return null
+        return CloudReason.HIGH_THIN
     }
 
-    private fun averagePresent(values: List<Int?>): Double? {
-        val present = values.filterNotNull()
-        if (present.isEmpty()) return null
-        return present.map { it.toDouble() }.average()
-    }
+    private data class Sample(val total: Int, val low: Int?, val mid: Int?, val high: Int)
 }

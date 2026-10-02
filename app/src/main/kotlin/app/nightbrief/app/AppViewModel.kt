@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
+import app.nightbrief.data.LibraryTransfer
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.Briefing
@@ -82,7 +83,9 @@ class AppViewModel(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _briefing.update { it.copy(loading = false, error = e.message ?: "Something went wrong") }
+                _briefing.update {
+                    it.copy(loading = false, error = e.message ?: getApplication<Application>().getString(R.string.error_generic))
+                }
             }
         }
     }
@@ -165,6 +168,13 @@ class AppViewModel(
     fun setBigNightAlertsEnabled(enabled: Boolean) = mutate { it.copy(bigNightAlertsEnabled = enabled) }
     fun setBigNightThreshold(points: Int) = mutate { it.copy(bigNightThreshold = BigNightAlerts.clamp(points)) }
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
+
+    fun exportLibrary(): String? = state.value?.let(LibraryTransfer::encode)
+
+    fun importLibrary(json: String) {
+        val file = LibraryTransfer.decode(json)
+        mutate { LibraryTransfer.apply(it, file) }
+    }
 
     fun sendDigestNow() {
         val s = state.value ?: return

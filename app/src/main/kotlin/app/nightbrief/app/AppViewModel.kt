@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearKit
+import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
 import app.nightbrief.work.DigestScheduler
@@ -162,6 +163,7 @@ class AppViewModel(
     fun setDigestTime(time: String) = mutate { it.copy(digestTime = time) }
     fun setDigestEnabled(enabled: Boolean) = mutate { it.copy(digestEnabled = enabled) }
     fun setBigNightAlertsEnabled(enabled: Boolean) = mutate { it.copy(bigNightAlertsEnabled = enabled) }
+    fun setBigNightThreshold(points: Int) = mutate { it.copy(bigNightThreshold = BigNightAlerts.clamp(points)) }
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
 
     fun sendDigestNow() {

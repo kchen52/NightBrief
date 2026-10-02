@@ -87,7 +87,7 @@ fun WeekScreen(vm: AppViewModel, onOpenNight: (String, LocalDate) -> Unit, conte
                     SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "Strip scores show each site's best night. Nights 4–7 estimate seeing and transparency from humidity and jet-stream wind.",
+                            WEEK_FOOTNOTE,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -139,13 +139,17 @@ internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, 
                     night.coverage == ForecastCoverage.NONE -> "Beyond forecast"
                     else -> night.band?.label ?: ""
                 }
-                Text("$label · $moon", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val estimate = if (night.estimated) " · est." else ""
+                Text("$label$estimate · $moon", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.width(12.dp))
             ScorePill(night.score)
         }
     }
 }
+
+internal const val WEEK_FOOTNOTE =
+    "Strip scores show each site's best night. Nights marked est. estimate seeing and transparency from humidity and jet-stream wind."
 
 private fun moonEmoji(illumination: Double): String = when {
     illumination < 0.05 -> "○"

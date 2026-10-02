@@ -45,6 +45,7 @@ import app.nightbrief.app.ui.gear.GearEditor
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
 import app.nightbrief.app.ui.week.NightRow
+import app.nightbrief.app.ui.week.WEEK_FOOTNOTE
 import app.nightbrief.astro.IssPass
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.score.NightPlanner
@@ -151,7 +152,7 @@ class ReadmeScreenshotTest {
                         SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                             Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
                             Text(
-                                "Strip scores show each site's best night. Nights 4–7 estimate seeing and transparency from humidity and jet-stream wind.",
+                                WEEK_FOOTNOTE,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

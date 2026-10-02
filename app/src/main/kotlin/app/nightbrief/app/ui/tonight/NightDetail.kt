@@ -38,6 +38,8 @@ import app.nightbrief.astro.IssPass
 import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.AuroraCopy
 import app.nightbrief.score.AuroraOutlook
+import app.nightbrief.score.DewOutlook
+import app.nightbrief.score.DewRisk
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.MeteorAdvisor
@@ -73,6 +75,7 @@ fun NightDetail(
         }
         HeroCard(report)
         SkyCard(report)
+        report.dew?.takeIf { it.hasContent }?.let { DewCard(it, report.site.zone) }
         report.aurora?.let { AuroraCard(it) }
         report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
         if (report.issPasses.isNotEmpty()) IssCard(report)
@@ -155,6 +158,9 @@ private fun SkyCard(report: NightReport) {
         }
         Spacer(Modifier.height(12.dp))
         Text(DigestComposer.moonLine(e) { Format.time(it, zone) }, style = MaterialTheme.typography.bodyMedium)
+        report.cloudReason?.let { reason ->
+            Text(reason, style = MaterialTheme.typography.bodyMedium, color = NightColors.Amber)
+        }
         if (e.darkness != Darkness.ASTRONOMICAL) {
             Text(e.darkness.label, style = MaterialTheme.typography.bodyMedium, color = NightColors.Fair)
         }
@@ -163,6 +169,21 @@ private fun SkyCard(report: NightReport) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun DewCard(dew: DewOutlook, zone: ZoneId) {
+    val line = DewRisk.line(dew) { Format.time(it, zone) }
+    val dress = DewRisk.dressLine(dew)
+    SectionCard("Conditions") {
+        line?.let {
+            Text(it, style = MaterialTheme.typography.titleMedium, color = NightColors.Amber)
+        }
+        dress?.let {
+            if (line != null) Spacer(Modifier.height(6.dp))
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
@@ -309,19 +330,26 @@ private data class TimelineRow(val label: String, val value: (TimelineHour) -> S
 @Composable
 private fun TimelineCard(report: NightReport) {
     val zone = report.site.zone
-    val rows = listOf(
-        TimelineRow("Score", { it.score.toString() }, { NightColors.forScore(it.score) }),
-        TimelineRow("Cloud", { h -> h.cloudCover?.let { "$it%" } ?: "–" }, { h -> h.cloudCover?.let { NightColors.forScore(100 - it) } }),
-        TimelineRow("Moon", { h -> if (h.moonAltitudeDeg > 0) Format.degrees(h.moonAltitudeDeg) else "↓" }, { h ->
+    val showLayers = report.timeline.any { it.cloudLow != null || it.cloudMid != null || it.cloudHigh != null }
+    val rows = buildList {
+        add(TimelineRow("Score", { it.score.toString() }, { NightColors.forScore(it.score) }))
+        add(TimelineRow("Cloud", { h -> h.cloudCover?.let { "$it%" } ?: "–" }, { h -> h.cloudCover?.let { NightColors.forScore(100 - it) } }))
+        if (showLayers) {
+            val plain: (TimelineHour) -> Color? = { _ -> null }
+            add(TimelineRow("Low", { h -> h.cloudLow?.let { "$it%" } ?: "–" }, plain))
+            add(TimelineRow("Mid", { h -> h.cloudMid?.let { "$it%" } ?: "–" }, plain))
+            add(TimelineRow("High", { h -> h.cloudHigh?.let { "$it%" } ?: "–" }, plain))
+        }
+        add(TimelineRow("Moon", { h -> if (h.moonAltitudeDeg > 0) Format.degrees(h.moonAltitudeDeg) else "↓" }, { h ->
             if (h.moonAltitudeDeg > 0 && h.moonIllumination > 0.05) NightColors.Fair else null
-        }),
-        TimelineRow("MW core", { h -> if (h.galacticCenterAltitudeDeg > 0) Format.degrees(h.galacticCenterAltitudeDeg) else "↓" }, { h ->
+        }))
+        add(TimelineRow("MW core", { h -> if (h.galacticCenterAltitudeDeg > 0) Format.degrees(h.galacticCenterAltitudeDeg) else "↓" }, { h ->
             if (h.isDark && h.galacticCenterAltitudeDeg >= 10) NightColors.Primary else null
-        }),
-        TimelineRow("Seeing", { h -> h.seeingIndex?.let { "$it/8" } ?: "–" }, { h -> h.seeingIndex?.let { NightColors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow("Transp.", { h -> h.transparencyIndex?.let { "$it/8" } ?: "–" }, { h -> h.transparencyIndex?.let { NightColors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow("Wind", { h -> h.windKmh?.roundToInt()?.toString() ?: "–" }, { h -> h.windKmh?.let { NightColors.forScore((100 - it * 2.5).roundToInt()) } }),
-    )
+        }))
+        add(TimelineRow("Seeing", { h -> h.seeingIndex?.let { "$it/8" } ?: "–" }, { h -> h.seeingIndex?.let { NightColors.forScore(((8 - it) * 100) / 7) } }))
+        add(TimelineRow("Transp.", { h -> h.transparencyIndex?.let { "$it/8" } ?: "–" }, { h -> h.transparencyIndex?.let { NightColors.forScore(((8 - it) * 100) / 7) } }))
+        add(TimelineRow("Wind", { h -> h.windKmh?.roundToInt()?.toString() ?: "–" }, { h -> h.windKmh?.let { NightColors.forScore((100 - it * 2.5).roundToInt()) } }))
+    }
     SectionCard("Hour by hour") {
         Row {
             Column {
@@ -360,8 +388,9 @@ private fun TimelineCard(report: NightReport) {
             }
         }
         Spacer(Modifier.height(8.dp))
+        val layers = if (showLayers) " Low, mid, and high are the cloud layers." else ""
         Text(
-            "Shaded columns are full darkness. Seeing and transparency use the 7Timer scale (1 best, 8 worst); wind in km/h.",
+            "Shaded columns are full darkness. Seeing and transparency use the 7Timer scale (1 best, 8 worst); wind in km/h.$layers",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

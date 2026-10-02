@@ -96,6 +96,17 @@ class PrefetchBigNightTest {
     }
 
     @Test
+    fun savedThresholdBelowExcellentStillPosts() = runBlocking {
+        val context = context()
+        val graph = prepare(context, score = 72)
+        graph.settings.update { it.copy(bigNightThreshold = 72) }
+        val result = TestListenableWorkerBuilder<PrefetchWorker>(context).build().doWork()
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertEquals(1, notifications(context).activeNotifications.size)
+        assertEquals(night.toString(), graph.settings.current().lastBigNightAlerts[site.id])
+    }
+
+    @Test
     fun scoreBelowTheThresholdPostsNothing() = runBlocking {
         val context = context()
         val graph = prepare(context, score = BigNightAlerts.threshold - 1)

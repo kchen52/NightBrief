@@ -50,6 +50,10 @@ object DigestComposer {
                 .joinToString(" · ")
         }
         lines += moonLine(report.ephemeris, ::fmt)
+        report.dew?.let { dew ->
+            DewRisk.line(dew, ::fmt)?.let { lines += it }
+            DewRisk.dressLine(dew)?.let { lines += it }
+        }
         if (report.ephemeris.darkness != Darkness.ASTRONOMICAL) {
             lines += report.ephemeris.darkness.label
         }

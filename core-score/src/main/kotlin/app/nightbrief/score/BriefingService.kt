@@ -26,6 +26,8 @@ data class OutlookNight(
     val moonIllumination: Double,
     val darkness: Darkness,
     val coverage: ForecastCoverage,
+    /** True when any night-score factor was estimated (no 7Timer index, or a missing cloud value). */
+    val estimated: Boolean = false,
 ) {
     val band: Band? get() = score?.let(Band::of)
 }
@@ -111,7 +113,16 @@ class BriefingService(
             tonight += nights.first()
             outlooks += WeeklyOutlook(
                 site,
-                nights.map { OutlookNight(it.date, it.scoreValue, it.ephemeris.moonIllumination, it.ephemeris.darkness, it.coverage) },
+                nights.map {
+                    OutlookNight(
+                        it.date,
+                        it.scoreValue,
+                        it.ephemeris.moonIllumination,
+                        it.ephemeris.darkness,
+                        it.coverage,
+                        estimated = it.score?.factors?.any { factor -> factor.estimated } == true,
+                    )
+                },
             )
         }
         Briefing(now, tonight, outlooks, kpForecast)

@@ -82,7 +82,8 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
 /**
  * Keeps the forecast cache warm so the morning digest has data even if the network is down at 08:00.
- * After a successful fetch, scores tonight from that cache and posts a Big Night alert at 85 or above.
+ * After a successful fetch, scores tonight from that cache and posts a Big Night alert at or above
+ * the saved threshold (default 85).
  */
 class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -124,6 +125,7 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
             },
             alreadyAlerted = state.lastBigNightAlerts,
             enabled = true,
+            threshold = state.bigNightThreshold,
         )
         val locale = Locale.getDefault()
         val newlyAlerted = alerts.associate { alert ->

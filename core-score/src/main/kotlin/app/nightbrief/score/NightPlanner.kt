@@ -26,6 +26,9 @@ data class TimelineHour(
     val transparencyIndex: Int?,
     val windKmh: Double?,
     val score: Int,
+    val cloudLow: Int? = null,
+    val cloudMid: Int? = null,
+    val cloudHigh: Int? = null,
 )
 
 enum class ForecastCoverage { FULL, PARTIAL, NONE }
@@ -47,6 +50,13 @@ data class NightReport(
     val meteor: MeteorOutlook? = null,
     /** ISS passes whose peak falls in the dark window. Empty when no TLE was available. */
     val issPasses: List<IssPass> = emptyList(),
+    /**
+     * Dew, frost, and the overnight low for the dark hours. Not a score input.
+     * Empty fields when the forecast has no temperature.
+     */
+    val dew: DewOutlook? = null,
+    /** "high thin cloud" when the high layer makes up most of the dark-hour total. Not a score input. */
+    val cloudReason: String? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -108,6 +118,19 @@ object NightPlanner {
         }
 
         val darkInputs = darkHours(eph, inputs.map { it.first })
+        val weatherByHour = inputs.mapNotNull { (input, weather) -> weather?.let { input.time to it } }.toMap()
+        val dew = DewRisk.assess(
+            darkInputs.map { hour ->
+                val weather = weatherByHour[hour.time]
+                DewSample(hour.time, weather?.temperatureC, weather?.dewPointC)
+            },
+        )
+        val cloudReason = CloudLayers.reason(
+            darkInputs.map { hour ->
+                val weather = weatherByHour[hour.time]
+                CloudSample(weather?.cloudCover, weather?.cloudLow, weather?.cloudMid, weather?.cloudHigh)
+            },
+        )
         val covered = darkInputs.count { forecast?.at(it.time)?.cloudCover != null }
         val coverage = when {
             darkInputs.isEmpty() -> if (forecast != null) ForecastCoverage.FULL else ForecastCoverage.NONE
@@ -135,6 +158,9 @@ object NightPlanner {
                 transparencyIndex = w?.transparency,
                 windKmh = w?.windKmh,
                 score = NightScoreEngine.scoreHour(input).score,
+                cloudLow = w?.cloudLow,
+                cloudMid = w?.cloudMid,
+                cloudHigh = w?.cloudHigh,
             )
         }
 
@@ -149,6 +175,8 @@ object NightPlanner {
             forecastStatus = forecastStatus,
             warnings = warnings,
             meteor = MeteorAdvisor.forNight(eph),
+            dew = dew,
+            cloudReason = cloudReason,
         )
     }
 

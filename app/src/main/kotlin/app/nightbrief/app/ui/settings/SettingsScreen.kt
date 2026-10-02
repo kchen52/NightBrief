@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.data.LightPollutionAttribution
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.work.DigestNotifier
@@ -76,13 +77,19 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
     var digestNote by remember { mutableStateOf<String?>(null) }
     var askedNotification by rememberSaveable { mutableStateOf(false) }
     var dragThreshold by remember { mutableStateOf<Int?>(null) }
+    var dragBigNight by remember { mutableStateOf<Int?>(null) }
     val shownThreshold = dragThreshold ?: s.alternativeThreshold
+    val shownBigNight = (dragBigNight ?: s.bigNightThreshold)
+        .coerceIn(BigNightAlerts.MIN_THRESHOLD, BigNightAlerts.MAX_THRESHOLD)
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         canNotify = DigestNotifier(context).canNotify()
     }
     LaunchedEffect(s.alternativeThreshold) {
         if (dragThreshold == s.alternativeThreshold) dragThreshold = null
+    }
+    LaunchedEffect(s.bigNightThreshold) {
+        if (dragBigNight == s.bigNightThreshold) dragBigNight = null
     }
 
     LifecycleResumeEffect(Unit) {
@@ -133,7 +140,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Column(Modifier.weight(1f)) {
                         Text("Big Night alerts", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Notify when a site reaches 85 tonight",
+                            "Notify when a site reaches $shownBigNight tonight",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -165,6 +172,28 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 )
                 Text(
                     "Between 5 and 30. A higher bar means fewer site suggestions in the digest.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Big Night at $shownBigNight or above",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = shownBigNight.toFloat(),
+                    onValueChange = { dragBigNight = it.roundToInt() },
+                    onValueChangeFinished = {
+                        val chosen = dragBigNight
+                        if (chosen == null || chosen == s.bigNightThreshold) dragBigNight = null
+                        else vm.setBigNightThreshold(chosen)
+                    },
+                    valueRange = BigNightAlerts.MIN_THRESHOLD.toFloat()..BigNightAlerts.MAX_THRESHOLD.toFloat(),
+                    steps = BigNightAlerts.MAX_THRESHOLD - BigNightAlerts.MIN_THRESHOLD - 1,
+                    modifier = Modifier.testTag("big-night-threshold"),
+                )
+                Text(
+                    "Between ${BigNightAlerts.MIN_THRESHOLD} and ${BigNightAlerts.MAX_THRESHOLD}. A bright home site may never reach 85.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

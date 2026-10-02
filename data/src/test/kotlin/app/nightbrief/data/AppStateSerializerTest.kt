@@ -18,6 +18,7 @@ class AppStateSerializerTest {
             gear = GearCatalog.exampleKit,
             digestTime = "07:45",
             bigNightAlertsEnabled = false,
+            bigNightThreshold = 72,
             lastBigNightAlerts = mapOf("home" to "2026-08-12"),
         )
         val out = ByteArrayOutputStream()
@@ -42,6 +43,7 @@ class AppStateSerializerTest {
         val json = """{"onboardingComplete":true}"""
         val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
         assertEquals(true, state.bigNightAlertsEnabled)
+        assertEquals(85, state.bigNightThreshold)
         assertEquals(emptyMap<String, String>(), state.lastBigNightAlerts)
     }
 }

@@ -24,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -89,8 +91,8 @@ fun MapPickerDialog(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Tap to place the site") },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close") } },
+                    title = { Text(stringResource(R.string.tap_to_place)) },
+                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.close)) } },
                 )
             },
         ) { inner ->
@@ -101,7 +103,7 @@ fun MapPickerDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        "Map data © OpenStreetMap contributors",
+                        stringResource(R.string.map_osm),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -111,7 +113,10 @@ fun MapPickerDialog(
                         enabled = p != null,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(p?.let { "Use ${Format.coordinates(it.latitude, it.longitude)}" } ?: "Tap the map to choose a spot")
+                        Text(
+                            p?.let { stringResource(R.string.use_coordinates, Format.coordinates(it.latitude, it.longitude)) }
+                                ?: stringResource(R.string.tap_map),
+                        )
                     }
                 }
             }

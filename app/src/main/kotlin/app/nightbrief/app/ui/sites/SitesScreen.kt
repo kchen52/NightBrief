@@ -47,7 +47,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.SiteDraft
@@ -71,12 +73,16 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
-                title = { Text("Sites") },
+                title = { Text(stringResource(R.string.nav_sites)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { onEdit(null) }, icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Add site") })
+            ExtendedFloatingActionButton(
+                onClick = { onEdit(null) },
+                icon = { Icon(Icons.Filled.Add, null) },
+                text = { Text(stringResource(R.string.add_site)) },
+            )
         },
     ) { inner ->
         LazyColumn(
@@ -89,8 +95,8 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                 SectionCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.setPrimary(site.id) }) {
-                            if (isPrimary) Icon(Icons.Filled.Star, "Primary site", tint = NightColors.Amber)
-                            else Icon(Icons.Outlined.StarOutline, "Make primary")
+                            if (isPrimary) Icon(Icons.Filled.Star, stringResource(R.string.primary_site), tint = NightColors.Amber)
+                            else Icon(Icons.Outlined.StarOutline, stringResource(R.string.make_primary))
                         }
                         Column(Modifier.weight(1f)) {
                             Text(site.name, style = MaterialTheme.typography.titleMedium)
@@ -100,7 +106,7 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                bortleLabel(site) + (site.digestTimeOverride?.let { " · digest $it" } ?: ""),
+                                bortleLabel(site) + (site.digestTimeOverride?.let { stringResource(R.string.site_digest_suffix, it) } ?: ""),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -109,15 +115,15 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                     }
                     Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.moveSite(index, index - 1) }, enabled = index > 0) {
-                            Icon(Icons.Filled.KeyboardArrowUp, "Move up")
+                            Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up))
                         }
                         IconButton(onClick = { vm.moveSite(index, index + 1) }, enabled = index < book.sites.lastIndex) {
-                            Icon(Icons.Filled.KeyboardArrowDown, "Move down")
+                            Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down))
                         }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { onEdit(site.id) }) { Icon(Icons.Filled.Edit, "Edit") }
+                        IconButton(onClick = { onEdit(site.id) }) { Icon(Icons.Filled.Edit, stringResource(R.string.edit)) }
                         IconButton(onClick = { pendingDelete = site }, enabled = book.sites.size > 1) {
-                            Icon(Icons.Filled.Delete, "Delete")
+                            Icon(Icons.Filled.Delete, stringResource(R.string.delete))
                         }
                     }
                 }
@@ -128,23 +134,29 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
     pendingDelete?.let { site ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete ${site.name}?") },
-            text = { Text(if (site.id == book.primaryId) "Another site will become your primary site." else "This can't be undone.") },
+            title = { Text(stringResource(R.string.delete_site_title, site.name)) },
+            text = {
+                Text(
+                    if (site.id == book.primaryId) stringResource(R.string.delete_primary_body)
+                    else stringResource(R.string.delete_site_body),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     vm.deleteSite(site.id)
                     pendingDelete = null
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
 
-private fun bortleLabel(site: Site): String = when {
-    site.bortle == null -> "Bortle not set"
-    site.bortleSource == BortleSource.MAP -> "Bortle ${site.bortle} (map)"
-    else -> "Bortle ${site.bortle}"
+@Composable
+private fun bortleLabel(site: Site): String {
+    val bortle = site.bortle ?: return stringResource(R.string.bortle_not_set)
+    return if (site.bortleSource == BortleSource.MAP) stringResource(R.string.bortle_map, bortle)
+    else stringResource(R.string.bortle_value, bortle)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -160,8 +172,10 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (existing == null) "Add site" else "Edit site") },
-                navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                title = { Text(stringResource(if (existing == null) R.string.add_site else R.string.edit_site)) },
+                navigationIcon = {
+                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -184,7 +198,7 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 globalDigestTime = s.digestTime,
             )
             draft.errors.firstOrNull()?.let {
-                Text(it, color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
             }
             Button(
                 onClick = {
@@ -193,7 +207,7 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 },
                 enabled = draft.isValid,
                 modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth().height(52.dp),
-            ) { Text("Save site") }
+            ) { Text(stringResource(R.string.save_site)) }
         }
     }
 }

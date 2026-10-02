@@ -26,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Format
@@ -58,20 +60,27 @@ fun PlannedNightScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(report?.let { "${it.site.name} · ${Format.dayName(date)}" } ?: Format.dayName(date)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                title = {
+                    Text(
+                        report?.let { stringResource(R.string.planner_title, it.site.name, Format.dayName(date)) }
+                            ?: Format.dayName(date),
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                },
                 actions = {
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(-1)) },
                         enabled = tonight != null && NightPlanner.canStepToPreviousNight(date, tonight),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous night")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_night))
                     }
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(1)) },
                         enabled = tonight != null && NightPlanner.canStepToNextNight(date, tonight),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next night")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_night))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -82,7 +91,7 @@ fun PlannedNightScreen(
         when {
             !loaded -> Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             r == null -> Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("That night isn't available for this site.")
+                Text(stringResource(R.string.planner_unavailable))
             }
             else -> Box(Modifier.padding(inner).verticalScroll(rememberScrollState())) {
                 NightDetail(r, alternative = null, onOpenAlternative = {})

@@ -37,7 +37,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import app.nightbrief.app.R
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
@@ -98,10 +100,10 @@ fun SiteForm(
                 locating = true
                 val loc = LocationHelper.currentLocation(context)
                 locating = false
-                if (loc != null) setCoordinates(loc.latitude, loc.longitude) else locationError = "Couldn't get a location fix"
+                if (loc != null) setCoordinates(loc.latitude, loc.longitude) else locationError = context.getString(R.string.location_fix_failed)
             }
         } else {
-            locationError = "Location permission denied — enter coordinates or use the map"
+            locationError = context.getString(R.string.location_denied)
         }
     }
 
@@ -159,12 +161,12 @@ fun SiteForm(
         OutlinedTextField(
             value = draft.name,
             onValueChange = { onChange(draft.copy(name = it)) },
-            label = { Text("Site name") },
+            label = { Text(stringResource(R.string.site_name)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionCard("Location") {
+        SectionCard(stringResource(R.string.section_location)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = {
@@ -177,12 +179,12 @@ fun SiteForm(
                     if (locating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     else Icon(Icons.Filled.MyLocation, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Use GPS")
+                    Text(stringResource(R.string.use_gps))
                 }
                 OutlinedButton(onClick = { showMap = true }, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.Map, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Pick on map")
+                    Text(stringResource(R.string.pick_on_map))
                 }
             }
             locationError?.let {
@@ -194,7 +196,7 @@ fun SiteForm(
                 OutlinedTextField(
                     value = draft.latitude,
                     onValueChange = { onChange(draft.copy(latitude = it)) },
-                    label = { Text("Latitude") },
+                    label = { Text(stringResource(R.string.latitude)) },
                     isError = draft.latitude.isNotBlank() && draft.lat == null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -203,7 +205,7 @@ fun SiteForm(
                 OutlinedTextField(
                     value = draft.longitude,
                     onValueChange = { onChange(draft.copy(longitude = it)) },
-                    label = { Text("Longitude") },
+                    label = { Text(stringResource(R.string.longitude)) },
                     isError = draft.longitude.isNotBlank() && draft.lon == null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -218,15 +220,15 @@ fun SiteForm(
                         zoneLookupFailed = false
                         onChange(draft.copy(zoneId = it, zoneEdited = true))
                     },
-                    label = { Text("Time zone") },
+                    label = { Text(stringResource(R.string.time_zone)) },
                     isError = !draft.zoneValid,
-                    supportingText = { Text("IANA zone, e.g. America/Toronto") },
+                    supportingText = { Text(stringResource(R.string.time_zone_hint)) },
                     singleLine = true,
                     trailingIcon = {
                         TextButton(onClick = {
                             zoneLookupFailed = false
                             onChange(draft.copy(zoneId = ZoneId.systemDefault().id, zoneEdited = true))
-                        }) { Text("Device") }
+                        }) { Text(stringResource(R.string.device_zone)) }
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -234,11 +236,11 @@ fun SiteForm(
                 val editColor = MaterialTheme.colorScheme.primary
                 Text(
                     text = buildAnnotatedString {
-                        append("Time zone: ${draft.zoneId} · ")
-                        withStyle(SpanStyle(color = editColor)) { append("Edit") }
+                        append(stringResource(R.string.time_zone_summary, draft.zoneId))
+                        withStyle(SpanStyle(color = editColor)) { append(stringResource(R.string.edit_zone)) }
                     },
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.clickable(role = Role.Button, onClickLabel = "Edit time zone") {
+                    modifier = Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.edit_time_zone)) {
                         editingZone = true
                     },
                 )
@@ -246,17 +248,17 @@ fun SiteForm(
             if (zoneLookupFailed) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Couldn't look up time zone — using device zone",
+                    stringResource(R.string.zone_lookup_failed),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        SectionCard("Sky darkness") {
+        SectionCard(stringResource(R.string.section_darkness)) {
             val bortle = draft.bortle ?: 5
             val cls = BortleClass.of(bortle)
-            Text("Bortle $bortle — ${cls.label}", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.bortle_class, bortle, cls.label), style = MaterialTheme.typography.titleMedium)
             Text(cls.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Slider(
                 value = bortle.toFloat(),
@@ -269,7 +271,7 @@ fun SiteForm(
                     CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Looking up sky darkness…",
+                        stringResource(R.string.looking_up_darkness),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -277,15 +279,12 @@ fun SiteForm(
             }
             Text(
                 when {
-                    noSkyCoverage && draft.bortle == null ->
-                        "No coverage in the light-pollution map. Scoring assumes Bortle 5 until you choose."
-                    noSkyCoverage && draft.bortleSource == BortleSource.USER ->
-                        "No coverage in the light-pollution map for these coordinates. Set by you."
-                    noSkyCoverage ->
-                        "No coverage in the light-pollution map for these coordinates."
-                    draft.bortle == null -> "Not set — scoring assumes Bortle 5 until you choose."
-                    draft.bortleSource == BortleSource.MAP -> "From the light-pollution map. Drag to override."
-                    else -> "Set by you. Check lightpollutionmap.info if unsure."
+                    noSkyCoverage && draft.bortle == null -> stringResource(R.string.bortle_no_coverage_unset)
+                    noSkyCoverage && draft.bortleSource == BortleSource.USER -> stringResource(R.string.bortle_no_coverage_user)
+                    noSkyCoverage -> stringResource(R.string.bortle_no_coverage)
+                    draft.bortle == null -> stringResource(R.string.bortle_unset)
+                    draft.bortleSource == BortleSource.MAP -> stringResource(R.string.bortle_from_map)
+                    else -> stringResource(R.string.bortle_user)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -293,20 +292,21 @@ fun SiteForm(
         }
 
         if (showDigestOverride || showPrimaryToggle) {
-            SectionCard("Digest") {
+            SectionCard(stringResource(R.string.section_digest)) {
                 if (showPrimaryToggle) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = draft.makePrimary, onCheckedChange = { onChange(draft.copy(makePrimary = it)) })
-                        Text("Primary site (leads the morning digest)")
+                        Text(stringResource(R.string.primary_leads_digest))
                     }
                 }
                 if (showDigestOverride) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Own digest time", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.own_digest_time), style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                draft.digestTimeOverride?.let { "Sends a digest for this site at $it" }
-                                    ?: if (draft.makePrimary) "Uses the global time ($globalDigestTime)" else "No separate digest",
+                                draft.digestTimeOverride?.let { stringResource(R.string.digest_at_time, it) }
+                                    ?: if (draft.makePrimary) stringResource(R.string.digest_uses_global, globalDigestTime)
+                                    else stringResource(R.string.digest_none),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -317,7 +317,7 @@ fun SiteForm(
                         )
                     }
                     if (draft.digestTimeOverride != null) {
-                        TextButton(onClick = { showTime = true }) { Text("Change time") }
+                        TextButton(onClick = { showTime = true }) { Text(stringResource(R.string.change_time)) }
                     }
                 }
             }

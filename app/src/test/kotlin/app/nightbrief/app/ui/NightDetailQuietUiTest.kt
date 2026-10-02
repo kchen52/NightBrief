@@ -67,7 +67,7 @@ class NightDetailQuietUiTest {
         compose.onNodeWithText("front element", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Show Dew details").performScrollTo().performClick()
         compose.onNodeWithText("front element", substring = true).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Hide Dew details").performClick()
+        compose.onNodeWithContentDescription("Hide Dew details").performScrollTo().performClick()
         compose.onNodeWithText("front element", substring = true).assertDoesNotExist()
     }
 

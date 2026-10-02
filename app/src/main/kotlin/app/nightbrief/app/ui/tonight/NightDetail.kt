@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
@@ -50,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -431,7 +431,7 @@ private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
  */
 @Composable
 private fun WhyBlock(title: String, detail: String) {
-    var open by rememberSaveable(title) { mutableStateOf(false) }
+    var open by remember(title) { mutableStateOf(false) }
     if (open) {
         Spacer(Modifier.height(6.dp))
         EmphasizedText(detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -505,24 +505,13 @@ private fun MilkyWayCard(report: NightReport) {
             )
         } else {
             Row(Modifier.fillMaxWidth()) {
-                LabeledValue(
-                    stringResource(R.string.visible),
-                    Format.window(mw.window, zone),
-                    Modifier.weight(1.4f),
-                    icon = Icons.Filled.Visibility,
-                )
+                LabeledValue(stringResource(R.string.visible), Format.window(mw.window, zone), Modifier.weight(1.5f))
                 LabeledValue(
                     stringResource(R.string.peak),
                     stringResource(R.string.peak_altitude_at, Format.degrees(mw.peakAltitudeDeg), Format.time(mw.peakTime, zone)),
-                    Modifier.weight(1.4f),
-                    icon = Icons.Filled.Nightlight,
+                    Modifier.weight(1.3f),
                 )
-                LabeledValue(
-                    stringResource(R.string.direction),
-                    DigestComposer.compass(mw.peakAzimuthDeg),
-                    Modifier.weight(0.8f),
-                    icon = Icons.Filled.Explore,
-                )
+                LabeledValue(stringResource(R.string.direction), DigestComposer.compass(mw.peakAzimuthDeg), Modifier.weight(0.7f))
             }
             Spacer(Modifier.height(8.dp))
             val free = mw.moonFreeDuration

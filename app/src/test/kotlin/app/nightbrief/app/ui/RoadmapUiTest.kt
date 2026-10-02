@@ -3,6 +3,7 @@ package app.nightbrief.app.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -91,6 +92,25 @@ class RoadmapUiTest {
     }
 
     @Test
+    fun tonightShowsDewThenFrostAndTheOvernightLow() {
+        val date = LocalDate.of(2024, 8, 12)
+        val report = NightPlanner.plan(home, date, dewyForecast(), GearCatalog.exampleKit)
+        val dew = report.dew
+        assertTrue("fixture should flag dew", dew?.from != null)
+        assertTrue("fixture should reach frost", dew?.frostFrom != null)
+
+        compose.setContent {
+            NightBriefTheme {
+                NightDetail(report, alternative = null, onOpenAlternative = {})
+            }
+        }
+        compose.onNodeWithText("Dew likely from", substring = true).assertExists()
+        compose.onNodeWithText("frost from", substring = true).assertExists()
+        compose.onNodeWithText("Dress for", substring = true).assertExists()
+        compose.onNodeWithText("FROST").assertExists()
+    }
+
+    @Test
     fun tonightScreenShowsTheSiteStripFromSavedState() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         kotlinx.coroutines.runBlocking {
@@ -112,6 +132,34 @@ class RoadmapUiTest {
         compose.onNodeWithText("Tonight").assertIsDisplayed()
         compose.onNodeWithText("Cabin").assertIsDisplayed()
         assertTrue(compose.onAllNodesWithText("Home").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    private fun dewyForecast(): Forecast {
+        val start = Instant.parse("2024-08-12T00:00:00Z")
+        return Forecast(
+            home.latitude, home.longitude, "best_match", start.epochSecond,
+            (0 until 72).map { offset ->
+                val time = start.plusSeconds(offset * 3600L)
+                val localHour = time.atZone(java.time.ZoneId.of("America/Toronto")).hour
+                val temperature = when {
+                    localHour in 0..5 -> -4.0
+                    localHour >= 21 || localHour <= 8 -> 3.0
+                    else -> 16.0
+                }
+                HourlyWeather(
+                    epochSecond = time.epochSecond,
+                    cloudCover = 5,
+                    humidity = 90,
+                    windKmh = 6.0,
+                    gustKmh = 8.0,
+                    jetStreamKmh = 70.0,
+                    seeing = 2,
+                    transparency = 2,
+                    temperatureC = temperature,
+                    dewPointC = temperature - 1.0,
+                )
+            },
+        )
     }
 
     private fun forecast(): Forecast {

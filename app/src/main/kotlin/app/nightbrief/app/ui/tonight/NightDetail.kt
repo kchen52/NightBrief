@@ -40,6 +40,8 @@ import app.nightbrief.astro.IssPass
 import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.AuroraCopy
 import app.nightbrief.score.AuroraOutlook
+import app.nightbrief.score.DewCopy
+import app.nightbrief.score.DewOutlook
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.MeteorAdvisor
@@ -82,6 +84,7 @@ fun NightDetail(
         }
         HeroCard(report)
         SkyCard(report)
+        report.dew?.let { DewCard(it, report.site.zone) }
         report.aurora?.let { AuroraCard(it) }
         report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
         if (report.issPasses.isNotEmpty()) IssCard(report)
@@ -171,6 +174,38 @@ private fun SkyCard(report: NightReport) {
             ?: stringResource(R.string.bortle_assumed, report.site.effectiveBortle)
         Text(
             stringResource(R.string.moon_free_darkness, Format.duration(e.moonFreeDarkDuration), bortle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun DewCard(dew: DewOutlook, zone: ZoneId) {
+    val title = when {
+        dew.frostFrom != null -> R.string.section_frost
+        dew.from != null -> R.string.section_dew
+        else -> R.string.section_overnight
+    }
+    val color = if (dew.frostFrom != null) NightColors.Poor else NightColors.Amber
+    SectionCard(stringResource(title)) {
+        DewCopy.riskLine(dew) { Format.time(it, zone) }?.let { line ->
+            Text(
+                line,
+                style = MaterialTheme.typography.titleMedium,
+                color = color,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+        Text(
+            DewCopy.lowLine(dew),
+            style = if (dew.risk) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
+            fontWeight = if (dew.risk) FontWeight.Normal else FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            DewCopy.detail(dew),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

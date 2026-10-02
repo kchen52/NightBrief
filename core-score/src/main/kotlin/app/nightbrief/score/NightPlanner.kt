@@ -47,6 +47,8 @@ data class NightReport(
     val meteor: MeteorOutlook? = null,
     /** ISS passes whose peak falls in the dark window. Empty when no TLE was available. */
     val issPasses: List<IssPass> = emptyList(),
+    /** Dew, frost, and the overnight low. Null when the forecast has no temperature. Not a score input. */
+    val dew: DewOutlook? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 }
@@ -149,6 +151,11 @@ object NightPlanner {
             forecastStatus = forecastStatus,
             warnings = warnings,
             meteor = MeteorAdvisor.forNight(eph),
+            dew = Dew.assess(
+                darkHours = darkInputs.map { it.time },
+                overnightHours = eph.hourly.map { it.time },
+                forecast = forecast,
+            ),
         )
     }
 

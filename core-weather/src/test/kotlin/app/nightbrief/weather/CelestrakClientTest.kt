@@ -219,6 +219,22 @@ class CelestrakClientTest {
         }
     }
 
+    @Test
+    fun defaultUrlMatchesTheDocumentedQueryForm() {
+        assertEquals(
+            "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE",
+            CelestrakClient.DEFAULT_URL,
+        )
+    }
+
+    @Test
+    fun csvBodyThrowsASelfDescribingError() {
+        val csv = "OBJECT_NAME,OBJECT_ID,EPOCH\nISS (ZARYA),1998-067A,2026-10-02T11:10:18.655680\n"
+        val error = runCatching { CelestrakClient().parse(csv) }.exceptionOrNull()
+        assertTrue(error is WeatherApiException)
+        assertTrue("expected a CSV-specific message, got: ${error?.message}", error?.message?.contains("CSV") == true)
+    }
+
     private class SettableClock(var instant: Instant) : Clock() {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId): Clock = this

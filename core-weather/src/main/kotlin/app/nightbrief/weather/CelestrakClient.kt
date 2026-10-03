@@ -40,17 +40,22 @@ class CelestrakClient(
 
     internal fun parse(body: String, fetchedAt: Instant = clock.instant()): IssTle {
         val lines = body.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (lines.firstOrNull()?.startsWith("OBJECT_NAME") == true) {
+            throw WeatherApiException("Celestrak returned CSV, not TLE; query FORMAT=TLE")
+        }
+        val preview = body.take(120).replace('\n', ' ')
         val line1 = lines.firstOrNull { it.startsWith("1 ") }
-            ?: throw WeatherApiException("Celestrak TLE response has no line starting with \"1 \"")
+            ?: throw WeatherApiException("Celestrak TLE response has no line starting with \"1 \" (starts with: $preview)")
         val line2 = lines.firstOrNull { it.startsWith("2 ") }
-            ?: throw WeatherApiException("Celestrak TLE response has no line starting with \"2 \"")
+            ?: throw WeatherApiException("Celestrak TLE response has no line starting with \"2 \" (starts with: $preview)")
         requireTleLine(line1, '1')
         requireTleLine(line2, '2')
         return IssTle(line1, line2, fetchedAt)
     }
 
     companion object {
-        const val DEFAULT_URL = "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle"
+        /** Documented query form (`gp-data-formats.php` shows `FORMAT=TLE`); the endpoint serves CSV for anything else. */
+        const val DEFAULT_URL = "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE"
     }
 }
 

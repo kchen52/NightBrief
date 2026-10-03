@@ -19,6 +19,7 @@ import app.nightbrief.sites.BortleSource
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.HourlyWeather
+import app.nightbrief.weather.RoadAccess
 import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
@@ -43,8 +44,8 @@ class DarkerSkyScreenshotTest {
     @Test
     fun darkerSkyWithResults() {
         val candidates = listOf(
-            candidate(bortle = 3, lat = 43.75, lon = -79.10, distanceKm = 28.0, delta = 12),
-            candidate(bortle = 4, lat = 43.50, lon = -79.70, distanceKm = 41.0, delta = 7),
+            candidate(bortle = 3, lat = 43.75, lon = -79.10, distanceKm = 28.0, delta = 12, access = RoadAccess.DRIVE_UP),
+            candidate(bortle = 4, lat = 43.50, lon = -79.70, distanceKm = 41.0, delta = 7, access = RoadAccess.HIKE_IN),
         )
         paparazzi.snapshot("darkerSkyWithResults") {
             NightBriefTheme {
@@ -95,10 +96,17 @@ class DarkerSkyScreenshotTest {
         }
     }
 
-    private fun candidate(bortle: Int, lat: Double, lon: Double, distanceKm: Double, delta: Int): DarkSkyCandidate {
+    private fun candidate(
+        bortle: Int,
+        lat: Double,
+        lon: Double,
+        distanceKm: Double,
+        delta: Int,
+        access: RoadAccess = RoadAccess.UNKNOWN,
+    ): DarkSkyCandidate {
         val site = Site("darksky-$bortle", "candidate", lat, lon, "America/Toronto", bortle = bortle, bortleSource = BortleSource.MAP)
         val report = NightPlanner.plan(site, date, forecast(), GearCatalog.exampleKit)
-        return DarkSkyCandidate(site, distanceKm, bortle, report, delta)
+        return DarkSkyCandidate(site, distanceKm, bortle, report, delta, access)
     }
 
     private fun forecast(): Forecast {

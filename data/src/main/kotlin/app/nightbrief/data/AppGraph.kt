@@ -15,6 +15,8 @@ import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.NetworkTimingListener
 import app.nightbrief.weather.OpenMeteoClient
+import app.nightbrief.weather.OverpassRoadAccessClient
+import app.nightbrief.weather.RoadAccessSource
 import app.nightbrief.weather.SevenTimerClient
 import app.nightbrief.weather.SwpcKpClient
 import app.nightbrief.weather.TimeZoneLookup
@@ -55,6 +57,12 @@ class AppGraph private constructor(context: Context) {
         private set
 
     val timeZoneLookup = TimeZoneLookup(http = http)
+
+    /**
+     * Paved-road access for darker-sky candidates (OpenStreetMap via Overpass).
+     * A failed lookup leaves that candidate UNKNOWN and never fails the search.
+     */
+    val roadAccess: RoadAccessSource = OverpassRoadAccessClient(http = http)
 
     val issTles = CachingTleSource(CelestrakClient(http = http), File(context.filesDir, "tle/iss.txt"))
 

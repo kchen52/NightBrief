@@ -123,9 +123,10 @@ class CelestrakClientTest {
         assertEquals(LINE1, stillUsable.line1)
 
         clock.instant = FETCHED.plus(Duration.ofDays(7)).plusSeconds(1)
-        server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
+        // No enqueue: a recently failed origin fails fast without a network call.
         val expired = runCatching { withContext(Dispatchers.IO) { source.fetchIss() } }.exceptionOrNull()
         assertTrue(expired is WeatherApiException)
+        assertEquals("a recently failed origin should fail fast without network, got ${server.requestCount}", 2, server.requestCount)
 
         cacheFile.writeText("garbage")
         clock.instant = FETCHED.plus(Duration.ofHours(2))

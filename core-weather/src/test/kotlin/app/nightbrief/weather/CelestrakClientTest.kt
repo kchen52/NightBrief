@@ -1,9 +1,11 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -80,18 +82,20 @@ class CelestrakClientTest {
             clock = clock,
         )
         server.enqueue(MockResponse().setBody(THREE_LINE))
-        val first = source.fetchIss()
+        // MockWebServer answers on real threads: fetch on Dispatchers.IO so the origin
+        // timeout measures real time instead of racing ahead on runTest's virtual clock.
+        val first = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, first.line1)
         assertEquals(1, server.requestCount)
 
-        val second = source.fetchIss()
+        val second = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, second.line1)
         assertEquals(FETCHED, second.fetchedAt)
         assertEquals(1, server.requestCount)
 
         clock.instant = FETCHED.plus(Duration.ofHours(2))
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
-        val stale = source.fetchIss()
+        val stale = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, stale.line1)
         assertEquals(LINE2, stale.line2)
         assertEquals(FETCHED, stale.fetchedAt)
@@ -111,22 +115,22 @@ class CelestrakClientTest {
             clock = clock,
         )
         server.enqueue(MockResponse().setBody(THREE_LINE))
-        source.fetchIss()
+        withContext(Dispatchers.IO) { source.fetchIss() }
 
         clock.instant = FETCHED.plus(Duration.ofDays(7))
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
-        val stillUsable = source.fetchIss()
+        val stillUsable = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, stillUsable.line1)
 
         clock.instant = FETCHED.plus(Duration.ofDays(7)).plusSeconds(1)
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
-        val expired = runCatching { source.fetchIss() }.exceptionOrNull()
+        val expired = runCatching { withContext(Dispatchers.IO) { source.fetchIss() } }.exceptionOrNull()
         assertTrue(expired is WeatherApiException)
 
         cacheFile.writeText("garbage")
         clock.instant = FETCHED.plus(Duration.ofHours(2))
         server.enqueue(MockResponse().setBody("$LINE1\n$LINE2\n"))
-        val replaced = source.fetchIss()
+        val replaced = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE2, replaced.line2)
         assertTrue(cacheFile.readText().startsWith("v1\n"))
     }

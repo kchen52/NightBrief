@@ -109,6 +109,17 @@ class ForecastRepositoryTest {
     }
 
     @Test
+    fun secondModelAsksForCloudCoverOnly() = runTest {
+        repo().forecast(43.65, -79.38)
+        val icon = requests.first { "models=icon_seamless" in it }
+        assertTrue("expected cloud-only secondary request, got $icon", icon.contains("cloud_cover"))
+        assertTrue("secondary should not fetch dew point, got $icon", !icon.contains("dew_point_2m"))
+        assertTrue("secondary should not fetch wind, got $icon", !icon.contains("wind_speed_10m"))
+        val primary = requests.first { "models=gem_seamless" in it }
+        assertTrue("primary should keep the full series, got $primary", primary.contains("dew_point_2m"))
+    }
+
+    @Test
     fun servesRecentCacheWithoutNetwork() = runTest {
         val r = repo()
         r.forecast(43.65, -79.38)

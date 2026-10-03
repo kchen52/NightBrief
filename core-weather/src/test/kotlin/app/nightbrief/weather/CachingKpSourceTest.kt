@@ -1,5 +1,8 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -77,8 +80,61 @@ class CachingKpSourceTest {
             // A failed fetch must not fail the briefing upstream; here it must at least throw.
         }
         origin.result = Result.success(sample())
+        now = now.plus(Duration.ofMinutes(31))
         cached.fetch()
         assertEquals("expected 3 origin calls, got ${origin.calls}", 3, origin.calls)
+    }
+
+    @Test
+    fun failureWithinCooldownThrowsWithoutCallingTheOrigin() = runTest {
+        val origin = FakeKp()
+        val cached = CachingKpSource(origin, clock = clock)
+        cached.fetch()
+        origin.result = Result.failure(WeatherApiException("swpc down"))
+        now = now.plus(Duration.ofHours(2))
+        runCatching { cached.fetch() }
+        assertEquals("expected 2 origin calls, got ${origin.calls}", 2, origin.calls)
+        now = now.plus(Duration.ofMinutes(10))
+        try {
+            cached.fetch()
+            fail("expected the cooldown to fail fast, it returned a forecast")
+        } catch (_: WeatherApiException) {
+            // Within 30 minutes of a failure the network is not retried.
+        }
+        assertEquals("expected no origin call inside the cooldown, got ${origin.calls}", 2, origin.calls)
+    }
+
+    @Test
+    fun aSlowOriginTimesOutInsteadOfBlockingTheBriefing() = runTest {
+        var calls = 0
+        val hanging = CachingKpSource(
+            origin = object : KpSource {
+                override suspend fun fetch(): KpForecast {
+                    calls++
+                    delay(Duration.ofMinutes(5).toMillis())
+                    return sample()
+                }
+            },
+            originTimeout = Duration.ofSeconds(5),
+            clock = clock,
+        )
+        try {
+            hanging.fetch()
+            fail("expected the hanging SWPC fetch to time out")
+        } catch (_: WeatherApiException) {
+            // Bounded wait; the briefing omits the aurora row instead of stalling.
+        }
+        assertEquals("expected 1 timed-out origin call, got $calls", 1, calls)
+    }
+
+    @Test
+    fun concurrentFetchesShareOneOriginCall() = runTest {
+        val origin = FakeKp()
+        val cached = CachingKpSource(origin, clock = clock)
+        coroutineScope {
+            repeat(4) { launch { cached.fetch() } }
+        }
+        assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
     }
 
     companion object {

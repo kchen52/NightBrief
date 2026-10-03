@@ -104,7 +104,12 @@ class ForecastRepository(
         val primary = WeatherModel.forLocation(latitude, longitude)
         val second = async {
             runCatching {
-                openMeteo.fetch(latitude, longitude, model = WeatherModel.secondaryFor(primary))
+                openMeteo.fetch(
+                    latitude,
+                    longitude,
+                    model = WeatherModel.secondaryFor(primary),
+                    hourly = OpenMeteoClient.SECONDARY_HOURLY_FIELDS,
+                )
             }
         }
         val weather = openMeteo.fetch(latitude, longitude)

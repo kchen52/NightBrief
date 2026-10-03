@@ -1,6 +1,11 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -77,18 +82,20 @@ class CelestrakClientTest {
             clock = clock,
         )
         server.enqueue(MockResponse().setBody(THREE_LINE))
-        val first = source.fetchIss()
+        // MockWebServer answers on real threads: fetch on Dispatchers.IO so the origin
+        // timeout measures real time instead of racing ahead on runTest's virtual clock.
+        val first = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, first.line1)
         assertEquals(1, server.requestCount)
 
-        val second = source.fetchIss()
+        val second = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, second.line1)
         assertEquals(FETCHED, second.fetchedAt)
         assertEquals(1, server.requestCount)
 
         clock.instant = FETCHED.plus(Duration.ofHours(2))
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
-        val stale = source.fetchIss()
+        val stale = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, stale.line1)
         assertEquals(LINE2, stale.line2)
         assertEquals(FETCHED, stale.fetchedAt)
@@ -108,22 +115,23 @@ class CelestrakClientTest {
             clock = clock,
         )
         server.enqueue(MockResponse().setBody(THREE_LINE))
-        source.fetchIss()
+        withContext(Dispatchers.IO) { source.fetchIss() }
 
         clock.instant = FETCHED.plus(Duration.ofDays(7))
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
-        val stillUsable = source.fetchIss()
+        val stillUsable = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE1, stillUsable.line1)
 
         clock.instant = FETCHED.plus(Duration.ofDays(7)).plusSeconds(1)
-        server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
-        val expired = runCatching { source.fetchIss() }.exceptionOrNull()
+        // No enqueue: a recently failed origin fails fast without a network call.
+        val expired = runCatching { withContext(Dispatchers.IO) { source.fetchIss() } }.exceptionOrNull()
         assertTrue(expired is WeatherApiException)
+        assertEquals("a recently failed origin should fail fast without network, got ${server.requestCount}", 2, server.requestCount)
 
         cacheFile.writeText("garbage")
         clock.instant = FETCHED.plus(Duration.ofHours(2))
         server.enqueue(MockResponse().setBody("$LINE1\n$LINE2\n"))
-        val replaced = source.fetchIss()
+        val replaced = withContext(Dispatchers.IO) { source.fetchIss() }
         assertEquals(LINE2, replaced.line2)
         assertTrue(cacheFile.readText().startsWith("v1\n"))
     }
@@ -149,6 +157,90 @@ class CelestrakClientTest {
         )
         val error = runCatching { source.fetchIss() }.exceptionOrNull()
         assertTrue(error is WeatherApiException)
+    }
+
+    @Test
+    fun concurrentFetchesShareOneOriginCall() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-shared").resolve("iss.tle").toFile()
+        val origin = FakeTle(Result.success(IssTle(LINE1, LINE2, FETCHED)))
+        val source = CachingTleSource(origin = origin, cacheFile = cacheFile, clock = clock)
+        coroutineScope {
+            repeat(5) { launch { source.fetchIss() } }
+        }
+        assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
+    }
+
+    @Test
+    fun originTimeoutServesStaleWithoutWaiting() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-timeout").resolve("iss.tle").toFile()
+        CachingTleSource(
+            origin = FakeTle(Result.success(IssTle(LINE1, LINE2, FETCHED))),
+            cacheFile = cacheFile,
+            clock = clock,
+        ).fetchIss()
+
+        clock.instant = FETCHED.plus(Duration.ofHours(2))
+        val hanging = CachingTleSource(
+            origin = object : TleSource {
+                override suspend fun fetchIss(): IssTle {
+                    delay(Duration.ofMinutes(5).toMillis())
+                    return IssTle(LINE1, LINE2, clock.instant)
+                }
+            },
+            cacheFile = cacheFile,
+            maxAge = Duration.ofHours(1),
+            originTimeout = Duration.ofSeconds(5),
+            clock = clock,
+        )
+        val stale = hanging.fetchIss()
+        assertEquals("a hanging origin should fall back to the stale element, got ${stale.line1}", LINE1, stale.line1)
+        assertEquals(FETCHED, stale.fetchedAt)
+    }
+
+    @Test
+    fun failureCooldownSkipsTheNetworkUntilItPasses() = runTest {
+        val clock = SettableClock(FETCHED)
+        val cacheFile = Files.createTempDirectory("nightbrief-tle-cooldown").resolve("iss.tle").toFile()
+        val origin = FakeTle(Result.failure(WeatherApiException("celestrak down")))
+        val source = CachingTleSource(
+            origin = origin,
+            cacheFile = cacheFile,
+            failureCooldown = Duration.ofMinutes(10),
+            clock = clock,
+        )
+        assertTrue(runCatching { source.fetchIss() }.exceptionOrNull() is WeatherApiException)
+        assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
+        assertTrue(runCatching { source.fetchIss() }.exceptionOrNull() is WeatherApiException)
+        assertEquals("expected no origin call inside the cooldown, got ${origin.calls}", 1, origin.calls)
+        clock.instant = FETCHED.plus(Duration.ofMinutes(11))
+        assertTrue(runCatching { source.fetchIss() }.exceptionOrNull() is WeatherApiException)
+        assertEquals("expected a retry after the cooldown, got ${origin.calls}", 2, origin.calls)
+    }
+
+    private class FakeTle(var result: Result<IssTle>) : TleSource {
+        var calls = 0
+        override suspend fun fetchIss(): IssTle {
+            calls++
+            return result.getOrThrow()
+        }
+    }
+
+    @Test
+    fun defaultUrlMatchesTheDocumentedQueryForm() {
+        assertEquals(
+            "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE",
+            CelestrakClient.DEFAULT_URL,
+        )
+    }
+
+    @Test
+    fun csvBodyThrowsASelfDescribingError() {
+        val csv = "OBJECT_NAME,OBJECT_ID,EPOCH\nISS (ZARYA),1998-067A,2026-10-02T11:10:18.655680\n"
+        val error = runCatching { CelestrakClient().parse(csv) }.exceptionOrNull()
+        assertTrue(error is WeatherApiException)
+        assertTrue("expected a CSV-specific message, got: ${error?.message}", error?.message?.contains("CSV") == true)
     }
 
     private class SettableClock(var instant: Instant) : Clock() {

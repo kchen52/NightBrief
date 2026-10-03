@@ -1,6 +1,7 @@
 package app.nightbrief.app
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -94,9 +95,13 @@ class AppViewModel(
         refreshJob = viewModelScope.launch {
             _briefing.update { it.copy(loading = true, error = null) }
             try {
+                val started = System.nanoTime()
                 val result = withContext(Dispatchers.Default) {
                     graph.briefings.brief(s.sites.primaryFirst(), s.gear, forceRefresh = force)
                 }
+                val tookMs = (System.nanoTime() - started) / 1_000_000
+                val statuses = result.tonight.joinToString(",") { it.forecastStatus?.name ?: "null" }
+                Log.d(AppGraph.NET_LOG_TAG, "brief done sites=${s.sites.sites.size} force=$force took=${tookMs}ms statuses=[$statuses]")
                 _briefing.value = BriefingUiState(result, loading = false)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -115,7 +120,11 @@ class AppViewModel(
     suspend fun planNight(siteId: String, date: LocalDate): NightReport? {
         val s = state.value ?: return null
         val site = s.sites[siteId] ?: return null
-        return withContext(Dispatchers.Default) { graph.briefings.plan(site, date, s.gear) }
+        val started = System.nanoTime()
+        val report = withContext(Dispatchers.Default) { graph.briefings.plan(site, date, s.gear) }
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+        Log.d(AppGraph.NET_LOG_TAG, "plan done date=$date took=${tookMs}ms status=${report.forecastStatus}")
+        return report
     }
 
     /** Bortle class from the bundled light-pollution grid, or null when those grids have no data there. */

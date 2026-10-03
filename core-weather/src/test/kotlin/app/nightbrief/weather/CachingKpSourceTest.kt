@@ -1,5 +1,8 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -108,7 +111,7 @@ class CachingKpSourceTest {
             origin = object : KpSource {
                 override suspend fun fetch(): KpForecast {
                     calls++
-                    kotlinx.coroutines.delay(Duration.ofMinutes(5).toMillis())
+                    delay(Duration.ofMinutes(5).toMillis())
                     return sample()
                 }
             },
@@ -128,8 +131,8 @@ class CachingKpSourceTest {
     fun concurrentFetchesShareOneOriginCall() = runTest {
         val origin = FakeKp()
         val cached = CachingKpSource(origin, clock = clock)
-        kotlinx.coroutines.coroutineScope {
-            repeat(4) { kotlinx.coroutines.launch { cached.fetch() } }
+        coroutineScope {
+            repeat(4) { launch { cached.fetch() } }
         }
         assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
     }

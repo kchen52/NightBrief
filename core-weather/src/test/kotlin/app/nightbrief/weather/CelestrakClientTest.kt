@@ -1,5 +1,8 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -157,8 +160,8 @@ class CelestrakClientTest {
         val cacheFile = Files.createTempDirectory("nightbrief-tle-shared").resolve("iss.tle").toFile()
         val origin = FakeTle(Result.success(IssTle(LINE1, LINE2, FETCHED)))
         val source = CachingTleSource(origin = origin, cacheFile = cacheFile, clock = clock)
-        kotlinx.coroutines.coroutineScope {
-            repeat(5) { kotlinx.coroutines.launch { source.fetchIss() } }
+        coroutineScope {
+            repeat(5) { launch { source.fetchIss() } }
         }
         assertEquals("expected 1 origin call, got ${origin.calls}", 1, origin.calls)
     }
@@ -177,7 +180,7 @@ class CelestrakClientTest {
         val hanging = CachingTleSource(
             origin = object : TleSource {
                 override suspend fun fetchIss(): IssTle {
-                    kotlinx.coroutines.delay(Duration.ofMinutes(5).toMillis())
+                    delay(Duration.ofMinutes(5).toMillis())
                     return IssTle(LINE1, LINE2, clock.instant)
                 }
             },

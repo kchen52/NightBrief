@@ -133,6 +133,7 @@ fun TonightScreen(vm: AppViewModel, onOpenSettings: () -> Unit, contentPadding: 
                     onSearch = vm::searchDarkerSky,
                     onSave = vm::saveDarkerSky,
                     modifier = Modifier.padding(horizontal = 16.dp),
+                    onAccessFilter = vm::setDarkerSkyAccessFilter,
                 )
                 SessionHistoryCard(
                     sessions = current.sessions.filter { it.siteId == report.site.id },

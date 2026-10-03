@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.nightbrief.app.DarkerSkyAccessFilter
 import app.nightbrief.app.DarkerSkyUiState
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.Banner
@@ -50,6 +52,7 @@ import app.nightbrief.score.DarkSkyCandidate
 import app.nightbrief.score.DarkSkyFinder
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.sites.Site
+import app.nightbrief.weather.RoadAccess
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -67,8 +70,12 @@ fun DarkerSkyCard(
     onSearch: (String) -> Unit,
     onSave: (DarkSkyCandidate) -> Unit,
     modifier: Modifier = Modifier,
+    onAccessFilter: (DarkerSkyAccessFilter) -> Unit = {},
 ) {
     var showMap by remember { mutableStateOf(false) }
+    val visible = remember(state.candidates, state.accessFilter) {
+        filterByAccess(state.candidates.orEmpty(), state.accessFilter)
+    }
     SectionCard(
         title = stringResource(R.string.darker_sky_title),
         icon = Icons.Filled.Explore,
@@ -102,21 +109,39 @@ fun DarkerSkyCard(
                 OutlinedButton(onClick = { onSearch(site.id) }) { Text(stringResource(R.string.darker_sky_search)) }
             }
             else -> {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.candidates.forEach { candidate ->
-                        DarkerSkyRow(
-                            primary = site,
-                            candidate = candidate,
-                            saved = candidate.site.id in state.savedIds,
-                            onSave = { onSave(candidate) },
-                        )
-                    }
-                }
+                DarkerSkyAccessFilters(selected = state.accessFilter, onSelect = onAccessFilter)
                 Spacer(Modifier.height(8.dp))
-                Row {
-                    OutlinedButton(onClick = { onSearch(site.id) }) { Text(stringResource(R.string.darker_sky_search)) }
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = { showMap = true }) { Text(stringResource(R.string.darker_sky_show_map)) }
+                if (visible.isEmpty()) {
+                    Text(
+                        stringResource(
+                            if (state.accessFilter == DarkerSkyAccessFilter.DRIVE_UP) R.string.darker_sky_empty_drive_up
+                            else R.string.darker_sky_empty_hike_in,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        OutlinedButton(onClick = { onAccessFilter(DarkerSkyAccessFilter.ALL) }) { Text(stringResource(R.string.darker_sky_show_all)) }
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(onClick = { onSearch(site.id) }) { Text(stringResource(R.string.darker_sky_search)) }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        visible.forEach { candidate ->
+                            DarkerSkyRow(
+                                primary = site,
+                                candidate = candidate,
+                                saved = candidate.site.id in state.savedIds,
+                                onSave = { onSave(candidate) },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        OutlinedButton(onClick = { onSearch(site.id) }) { Text(stringResource(R.string.darker_sky_search)) }
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(onClick = { showMap = true }) { Text(stringResource(R.string.darker_sky_show_map)) }
+                    }
                 }
             }
         }
@@ -124,12 +149,47 @@ fun DarkerSkyCard(
     if (showMap && state.candidates != null) {
         DarkerSkyMapDialog(
             primary = site,
-            candidates = state.candidates,
+            candidates = visible,
             onDismiss = { showMap = false },
             onSave = onSave,
             savedIds = state.savedIds,
         )
     }
+}
+
+/** Tri-state access chips. Pure UI filtering; selecting one never refetches. */
+@Composable
+internal fun DarkerSkyAccessFilters(
+    selected: DarkerSkyAccessFilter,
+    onSelect: (DarkerSkyAccessFilter) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = selected == DarkerSkyAccessFilter.ALL,
+            onClick = { onSelect(DarkerSkyAccessFilter.ALL) },
+            label = { Text(stringResource(R.string.darker_sky_filter_all)) },
+        )
+        FilterChip(
+            selected = selected == DarkerSkyAccessFilter.DRIVE_UP,
+            onClick = { onSelect(DarkerSkyAccessFilter.DRIVE_UP) },
+            label = { Text(stringResource(R.string.darker_sky_filter_drive_up)) },
+        )
+        FilterChip(
+            selected = selected == DarkerSkyAccessFilter.HIKE_IN,
+            onClick = { onSelect(DarkerSkyAccessFilter.HIKE_IN) },
+            label = { Text(stringResource(R.string.darker_sky_filter_hike_in)) },
+        )
+    }
+}
+
+/** UNKNOWN access shows in ALL only; strict filters show confirmed spots only. */
+internal fun filterByAccess(
+    candidates: List<DarkSkyCandidate>,
+    filter: DarkerSkyAccessFilter,
+): List<DarkSkyCandidate> = when (filter) {
+    DarkerSkyAccessFilter.ALL -> candidates
+    DarkerSkyAccessFilter.DRIVE_UP -> candidates.filter { it.access == RoadAccess.DRIVE_UP }
+    DarkerSkyAccessFilter.HIKE_IN -> candidates.filter { it.access == RoadAccess.HIKE_IN }
 }
 
 @Composable
@@ -164,6 +224,17 @@ internal fun DarkerSkyRow(
                     color = if (delta >= 0) NightColors.Excellent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Text(
+                stringResource(
+                    when (candidate.access) {
+                        RoadAccess.DRIVE_UP -> R.string.darker_sky_access_drive_up
+                        RoadAccess.HIKE_IN -> R.string.darker_sky_access_hike_in
+                        RoadAccess.UNKNOWN -> R.string.darker_sky_access_unknown
+                    },
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (saved) {
             Text(

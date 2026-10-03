@@ -309,6 +309,15 @@
     <string name="darker_sky_show_map">Show on map</string>
     <string name="darker_sky_bortle_distance">Bortle %1$d · %2$d km %3$s</string>
     <string name="darker_sky_delta">+%1$d tonight</string>
+    <string name="darker_sky_filter_all">All</string>
+    <string name="darker_sky_filter_drive_up">Drive-up</string>
+    <string name="darker_sky_filter_hike_in">Hike-in</string>
+    <string name="darker_sky_access_drive_up">Drive-up</string>
+    <string name="darker_sky_access_hike_in">Hike-in</string>
+    <string name="darker_sky_access_unknown">Access unknown</string>
+    <string name="darker_sky_empty_drive_up">No drive-up spots in this search. Try All or Hike-in.</string>
+    <string name="darker_sky_empty_hike_in">No hike-in spots in this search. Try All or Drive-up.</string>
+    <string name="darker_sky_show_all">Show all</string>
     <string name="section_confidence">Forecast confidence</string>
     <string name="confidence_detail">Primary model against a second opinion across %1$d dark hours.</string>
     <string name="sky_events_button">Sky events · the year ahead</string>

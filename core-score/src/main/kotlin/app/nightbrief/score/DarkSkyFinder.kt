@@ -4,6 +4,8 @@ import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.BortleLookup
 import app.nightbrief.sites.BortleSource
 import app.nightbrief.sites.Site
+import app.nightbrief.weather.RoadAccess
+import app.nightbrief.weather.RoadAccessSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -29,6 +31,8 @@ data class DarkSkyCandidate(
     val bortle: Int,
     val report: NightReport,
     val delta: Int?,
+    /** Paved-road accessibility. UNKNOWN when no lookup ran or it failed; never blocks scoring. */
+    val access: RoadAccess = RoadAccess.UNKNOWN,
 )
 
 /** One ring sample before the grid lookup runs. */
@@ -61,6 +65,10 @@ object DarkSkyFinder {
      * Grid lookups run in parallel on [Dispatchers.IO]; the grids stay streamed (no in-memory
      * cache). One sample's grid or forecast failure skips that sample only. Returns at most
      * [maxToScore] candidates, darkest Bortle first, scored best first on ties.
+     *
+     * When [roads] is non-null each surviving candidate is annotated with its paved-road
+     * access in parallel with its forecast. A road failure leaves [RoadAccess.UNKNOWN]
+     * and never skips the candidate.
      */
     suspend fun search(
         primary: NightReport,
@@ -72,6 +80,7 @@ object DarkSkyFinder {
         ringsKm: List<Double> = RINGS_KM,
         bearingsPerRing: Int = BEARINGS_PER_RING,
         maxToScore: Int = MAX_CANDIDATES_TO_SCORE,
+        roads: RoadAccessSource? = null,
     ): List<DarkSkyCandidate> = coroutineScope {
         val samples = samplePoints(primary.site, radiusKm, ringsKm, bearingsPerRing)
         if (samples.isEmpty()) return@coroutineScope emptyList()
@@ -97,12 +106,13 @@ object DarkSkyFinder {
         darkest.map { (sample, bortle) ->
             async {
                 val site = candidateSite(primary.site, sample, bortle)
+                val accessDeferred = async { roadAccessFor(roads, sample) }
                 try {
                     val report = briefings.plan(site, date, kit)
                     val delta = report.scoreValue?.let { scored ->
                         primary.scoreValue?.let { scored - it }
                     }
-                    DarkSkyCandidate(site, sample.distanceKm, bortle, report, delta)
+                    DarkSkyCandidate(site, sample.distanceKm, bortle, report, delta, accessDeferred.await())
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
@@ -111,6 +121,21 @@ object DarkSkyFinder {
             }
         }.awaitAll().filterNotNull()
             .sortedWith(compareByDescending<DarkSkyCandidate> { it.report.scoreValue ?: Int.MIN_VALUE })
+    }
+
+    /**
+     * Paved-road access for one sample. Null source or any failure (other than
+     * cancellation) is [RoadAccess.UNKNOWN] so the candidate still scores.
+     */
+    internal suspend fun roadAccessFor(roads: RoadAccessSource?, sample: DarkSkySample): RoadAccess {
+        if (roads == null) return RoadAccess.UNKNOWN
+        return try {
+            roads.accessFor(sample.latitude, sample.longitude)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            RoadAccess.UNKNOWN
+        }
     }
 
     /**

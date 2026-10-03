@@ -47,7 +47,11 @@ data class DarkerSkyUiState(
     val error: String? = null,
     val searchedSiteId: String? = null,
     val savedIds: Set<String> = emptySet(),
+    val accessFilter: DarkerSkyAccessFilter = DarkerSkyAccessFilter.ALL,
 )
+
+/** Tri-state access filter for darker-sky candidates. UNKNOWN access shows in ALL only. */
+enum class DarkerSkyAccessFilter { ALL, DRIVE_UP, HIKE_IN }
 
 class AppViewModel(
     app: Application,
@@ -143,28 +147,36 @@ class AppViewModel(
         val s = state.value ?: return
         val report = _briefing.value.briefing?.reportFor(siteId) ?: return
         darkerSkyJob?.cancel()
+        val filter = _darkerSky.value.accessFilter
         darkerSkyJob = viewModelScope.launch {
-            _darkerSky.value = DarkerSkyUiState(searching = true, searchedSiteId = siteId)
+            _darkerSky.value = DarkerSkyUiState(searching = true, searchedSiteId = siteId, accessFilter = filter)
             try {
                 val lookup = graph.bortleLookup
                 if (lookup == null) {
                     _darkerSky.value = DarkerSkyUiState(
                         error = getApplication<Application>().getString(R.string.darker_sky_no_grid),
                         searchedSiteId = siteId,
+                        accessFilter = filter,
                     )
                     return@launch
                 }
-                val found = DarkSkyFinder.search(report, s.gear, lookup, graph.briefings)
-                _darkerSky.value = DarkerSkyUiState(candidates = found, searchedSiteId = siteId)
+                val found = DarkSkyFinder.search(report, s.gear, lookup, graph.briefings, roads = graph.roadAccess)
+                _darkerSky.value = DarkerSkyUiState(candidates = found, searchedSiteId = siteId, accessFilter = filter)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _darkerSky.value = DarkerSkyUiState(
                     error = e.message ?: getApplication<Application>().getString(R.string.error_generic),
                     searchedSiteId = siteId,
+                    accessFilter = filter,
                 )
             }
         }
+    }
+
+    /** Tri-state access filter. Pure UI filtering; it never refetches or rescores. */
+    fun setDarkerSkyAccessFilter(filter: DarkerSkyAccessFilter) {
+        _darkerSky.update { it.copy(accessFilter = filter) }
     }
 
     fun clearDarkerSky() {

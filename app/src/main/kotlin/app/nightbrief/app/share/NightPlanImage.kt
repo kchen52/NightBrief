@@ -22,7 +22,9 @@ import kotlin.math.roundToInt
  *
  * The frame is a postcard: a paper border, a perforated stamp in the corner, and a
  * circular postmark of [NightPlanCard.dateLabel] and [NightPlanCard.place] (already
- * rounded to 0.1°). The site pin is not drawn.
+ * rounded to 0.1°). Latitude and longitude are separate lines inside the ring and
+ * are scaled down until the whole place fits, so the location is never ellipsized.
+ * The date pill and the site name stay left of the stamp. The site pin is not drawn.
  *
  * Layout fills the 1080px frame: a header row pairs the "NightBrief" wordmark (left)
  * with a date pill (right), the score sits in a ring badge beside a surface card
@@ -35,6 +37,11 @@ object NightPlanImage {
     private const val FRAME_INSET = 28f
     private const val STAMP_WIDTH = 200f
     private const val STAMP_HEIGHT = 240f
+    /** Gap between the stamp and the date pill / site-name column. */
+    private const val STAMP_CLEARANCE = 40f
+    private const val POSTMARK_DATE_START = 18f
+    private const val POSTMARK_PLACE_START = 16f
+    private const val POSTMARK_MIN = 11f
 
     /** Top-right stamp. Tests sample this rect; the postmark is drawn inside it. */
     fun stampRect(): RectF {
@@ -53,7 +60,7 @@ object NightPlanImage {
         val palette = NightPalette.Standard
         val textWidth = WIDTH - PAD * 2
         val stamp = stampRect()
-        val besideStamp = (stamp.left - 36f - PAD).toInt().coerceIn(280, textWidth)
+        val besideStamp = (stamp.left - STAMP_CLEARANCE - PAD).toInt().coerceIn(280, textWidth)
         val scoreColor = palette.forScore(card.score).toArgb()
         val onBackground = palette.onBackground.toArgb()
         val muted = palette.textMuted.toArgb()
@@ -61,26 +68,31 @@ object NightPlanImage {
         val surface = palette.surface.toArgb()
         val outline = palette.outlineVariant.toArgb()
 
-        // Header: wordmark left, date pill right on one row. Columns never overlap:
-        // the pill is capped, single-line, and the wordmark takes the remainder.
+        // Header: wordmark left, date pill right. The pill's right edge is the
+        // site column's right edge, a fixed gap left of the stamp.
         val appPaint = paint(52f, primary, bold = true, tracking = 0.06f)
-        val datePaint = paint(32f, onBackground, bold = true)
-        val dateTextWidth = datePaint.measureText(card.dateLabel)
-        val pillWidth = (dateTextWidth + 64f).toInt().coerceIn(120, besideStamp / 2)
+        val dateLabel = card.dateLabel.ifBlank { "—" }
+        val maxPill = besideStamp / 2
+        val dateBudget = (maxPill - 64).toFloat().coerceAtLeast(40f)
+        val dateSize = sizeThatFits(listOf(dateLabel), dateBudget, bold = true, start = 32f, min = 12f)
+        val datePaint = paint(dateSize, onBackground, bold = true)
+        val dateTextWidth = datePaint.measureText(dateLabel)
+        val pillWidth = (dateTextWidth + 64f).toInt().coerceIn(120, maxPill)
         val appWidth = (besideStamp - pillWidth - 24).coerceAtLeast(1)
         val appName = text("NightBrief", appPaint, appWidth, maxLines = 1)
         val dateLayout = text(
-            card.dateLabel.ifBlank { "—" },
+            dateLabel,
             datePaint,
             (pillWidth - 64).coerceAtLeast(1),
             Layout.Alignment.ALIGN_CENTER,
             maxLines = 1,
+            ellipsize = false,
         )
         val pillHeight = dateLayout.height + 32
         val headerHeight = maxOf(appName.height, pillHeight)
 
         val site = text(card.siteName.ifBlank { "Untitled site" }, paint(66f, onBackground, bold = true), besideStamp, maxLines = 2)
-        val meta = text(card.place, paint(32f, muted), besideStamp, maxLines = 1)
+        val meta = fittedPlace(card.place, muted, besideStamp)
 
         // Hero left: score badge + verdict (+ estimated note).
         val scoreColWidth = if (hasDetails(card)) SCORE_COL else textWidth
@@ -270,34 +282,116 @@ object NightPlanImage {
 
     private fun drawPostmark(canvas: Canvas, card: NightPlanCard, stamp: RectF, ink: Int) {
         val cx = stamp.centerX()
-        val cy = stamp.top + stamp.height() * 0.68f
-        val radius = stamp.width() * 0.32f
+        val cy = postmarkCenterY(stamp)
+        val radius = postmarkRadius(stamp)
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ink
             style = Paint.Style.STROKE
             strokeWidth = 3f
         }
         canvas.drawCircle(cx, cy, radius, ring)
-        canvas.drawCircle(cx, cy, radius * 0.84f, Paint(ring).apply { strokeWidth = 1.5f })
-        val textWidth = (radius * 1.55f).toInt().coerceAtLeast(1)
-        val date = text(
-            card.dateLabel.ifBlank { "—" },
-            paint(20f, ink, bold = true),
-            textWidth,
-            Layout.Alignment.ALIGN_CENTER,
-            maxLines = 1,
-        )
-        val place = text(
-            card.place.ifBlank { "—" },
-            paint(16f, ink),
-            textWidth,
-            Layout.Alignment.ALIGN_CENTER,
-            maxLines = 1,
-        )
-        var ty = cy - (date.height + 4 + place.height) / 2f
-        drawAt(canvas, date, cx - textWidth / 2f, ty)
-        ty += date.height + 4
-        drawAt(canvas, place, cx - textWidth / 2f, ty)
+        canvas.drawCircle(cx, cy, radius * 0.86f, Paint(ring).apply { strokeWidth = 1.5f })
+        val maxWidth = postmarkInnerTextWidth(stamp)
+        val dateLabel = card.dateLabel.trim().ifEmpty { "—" }
+        val placeLines = postmarkPlaceLines(card.place)
+        val dateSize = sizeThatFits(listOf(dateLabel), maxWidth, bold = true, start = POSTMARK_DATE_START, min = POSTMARK_MIN)
+        val placeSize = sizeThatFits(placeLines, maxWidth, bold = false, start = POSTMARK_PLACE_START, min = POSTMARK_MIN)
+        val datePaint = paint(dateSize, ink, bold = true).apply { textAlign = Paint.Align.CENTER }
+        val placePaint = paint(placeSize, ink).apply { textAlign = Paint.Align.CENTER }
+        val gap = 3f
+        val dateHeight = lineHeight(datePaint)
+        val placeHeight = lineHeight(placePaint)
+        val total = dateHeight + placeLines.size * placeHeight + gap * placeLines.size
+        var top = cy - total / 2f
+        canvas.drawText(dateLabel, cx, top - datePaint.fontMetrics.ascent, datePaint)
+        top += dateHeight + gap
+        for (line in placeLines) {
+            canvas.drawText(line, cx, top - placePaint.fontMetrics.ascent, placePaint)
+            top += placeHeight + gap
+        }
+    }
+
+    /**
+     * Latitude and longitude on their own lines when [place] has a space.
+     * A blank place is a single em dash. The lines join back to [place].
+     */
+    internal fun postmarkPlaceLines(place: String): List<String> {
+        val value = place.trim().ifEmpty { return listOf("—") }
+        val parts = value.split(Regex("\\s+"), limit = 2)
+        return if (parts.size == 2 && parts[0].isNotEmpty() && parts[1].isNotEmpty()) parts else listOf(value)
+    }
+
+    /** Every postmark line fits the inner ring at or above [POSTMARK_MIN], with no ellipsis. */
+    internal fun postmarkShowsTheFullPlace(dateLabel: String, place: String): Boolean {
+        val width = postmarkInnerTextWidth(stampRect())
+        val date = dateLabel.trim().ifEmpty { "—" }
+        val lines = postmarkPlaceLines(place)
+        val dateSize = sizeThatFits(listOf(date), width, bold = true, start = POSTMARK_DATE_START, min = POSTMARK_MIN)
+        val placeSize = sizeThatFits(lines, width, bold = false, start = POSTMARK_PLACE_START, min = POSTMARK_MIN)
+        val dateFits = paint(dateSize, 0, bold = true).measureText(date) <= width + 0.5f
+        val placeFits = lines.all { paint(placeSize, 0).measureText(it) <= width + 0.5f }
+        val shown = if (lines.size == 1) lines[0] else lines.joinToString(" ")
+        val expected = place.trim().ifEmpty { "—" }
+        return dateFits && placeFits && shown == expected
+    }
+
+    /** The date pill and the site-name column stay [STAMP_CLEARANCE] left of the stamp. */
+    internal fun datePillClearsTheStamp(dateLabel: String): Boolean {
+        val stamp = stampRect()
+        val beside = besideStampWidth()
+        val label = dateLabel.ifBlank { "—" }
+        val maxPill = beside / 2
+        val budget = (maxPill - 64).toFloat().coerceAtLeast(40f)
+        val size = sizeThatFits(listOf(label), budget, bold = true, start = 32f, min = 12f)
+        val measured = paint(size, 0, bold = true).measureText(label)
+        val pillWidth = (measured + 64f).toInt().coerceIn(120, maxPill)
+        val pillRight = PAD + beside.toFloat()
+        val drawnRight = (PAD + beside - pillWidth) + 32f + measured
+        return stamp.left - pillRight >= STAMP_CLEARANCE - 0.5f &&
+            stamp.left - (PAD + beside) >= STAMP_CLEARANCE - 0.5f &&
+            drawnRight <= pillRight + 0.5f
+    }
+
+    private fun besideStampWidth(): Int {
+        val textWidth = WIDTH - PAD * 2
+        return (stampRect().left - STAMP_CLEARANCE - PAD).toInt().coerceIn(280, textWidth)
+    }
+
+    private fun postmarkRadius(stamp: RectF): Float = stamp.width() * 0.30f
+
+    private fun postmarkCenterY(stamp: RectF): Float = stamp.top + stamp.height() * 0.65f
+
+    private fun postmarkInnerTextWidth(stamp: RectF): Float {
+        val inner = postmarkRadius(stamp) * 0.86f
+        return inner * 2f * 0.90f
+    }
+
+    private fun lineHeight(paint: TextPaint): Float {
+        val m = paint.fontMetrics
+        return m.descent - m.ascent
+    }
+
+    /** Largest size in [min, start] at which every line is at most [maxWidth]. */
+    private fun sizeThatFits(lines: List<String>, maxWidth: Float, bold: Boolean, start: Float, min: Float): Float {
+        var size = start
+        while (size > min && lines.any { paint(size, 0, bold).measureText(it) > maxWidth }) {
+            size -= 0.5f
+        }
+        return size
+    }
+
+    /** One line when it fits; otherwise latitude and longitude, never ellipsized. */
+    private fun fittedPlace(place: String, color: Int, width: Int): StaticLayout {
+        val raw = place.trim().ifEmpty { "—" }
+        var size = 32f
+        while (size > 16f && paint(size, color).measureText(raw) > width) size -= 1f
+        if (paint(size, color).measureText(raw) <= width) {
+            return text(raw, paint(size, color), width, maxLines = 1, ellipsize = false)
+        }
+        val lines = postmarkPlaceLines(raw)
+        size = 28f
+        while (size > 14f && lines.any { paint(size, color).measureText(it) > width }) size -= 1f
+        return text(lines.joinToString("\n"), paint(size, color), width, maxLines = lines.size, ellipsize = false)
     }
 
     private fun hasDetails(card: NightPlanCard): Boolean =
@@ -358,12 +452,14 @@ object NightPlanImage {
         width: Int,
         alignment: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL,
         maxLines: Int = Int.MAX_VALUE,
+        ellipsize: Boolean = true,
     ): StaticLayout {
         val builder = StaticLayout.Builder.obtain(value, 0, value.length, paint, width)
             .setAlignment(alignment)
             .setIncludePad(false)
         if (maxLines != Int.MAX_VALUE) {
-            builder.setMaxLines(maxLines).setEllipsize(TextUtils.TruncateAt.END)
+            builder.setMaxLines(maxLines)
+            if (ellipsize) builder.setEllipsize(TextUtils.TruncateAt.END)
         }
         return builder.build()
     }

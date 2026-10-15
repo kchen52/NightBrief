@@ -154,6 +154,19 @@ class NightPlanSharerTest {
     }
 
     @Test
+    fun thePostmarkKeepsTheFullPlaceAndTheDatePillClearsTheStamp() {
+        val places = listOf("42.6°N 80.4°W", "-89.9°S 179.9°W", "12.3°S 123.4°E", "90.0°S 180.0°W")
+        for (place in places) {
+            val lines = NightPlanImage.postmarkPlaceLines(place)
+            assertEquals(place, lines.joinToString(" "))
+            assertTrue(place, lines.none { it.contains("…") || it.contains("...") })
+            assertTrue(place, NightPlanImage.postmarkShowsTheFullPlace("Wed 30 Sep", place))
+        }
+        assertTrue(NightPlanImage.datePillClearsTheStamp("Wed 30 Sep"))
+        assertTrue(NightPlanImage.datePillClearsTheStamp("Sat 10 Aug"))
+    }
+
+    @Test
     fun aVeryLongSiteNameStaysBounded() {
         val card = NightPlanCard(
             siteName = "A very long site name that keeps going and going and going and going and going",

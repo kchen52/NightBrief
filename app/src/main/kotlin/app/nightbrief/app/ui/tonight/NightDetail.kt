@@ -71,8 +71,10 @@ import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.EmphasizedText
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.LabeledValue
-import app.nightbrief.app.ui.common.ScoreGauge
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.tonight.whimsy.AliveHeroCard
+import app.nightbrief.app.ui.tonight.whimsy.CountingScoreGauge
+import app.nightbrief.app.ui.tonight.whimsy.MeteorSparkle
 import app.nightbrief.app.ui.common.emphasize
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
@@ -101,6 +103,7 @@ import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.NightPlanCard
 import app.nightbrief.score.WidgetCopy
 import app.nightbrief.weather.ForecastStatus
+import java.time.Clock
 import java.time.ZoneId
 import kotlin.math.roundToInt
 
@@ -111,6 +114,7 @@ fun NightDetail(
     onOpenAlternative: (String) -> Unit,
     modifier: Modifier = Modifier,
     units: UnitSystem = UnitSystem.METRIC,
+    clock: Clock = Clock.systemUTC(),
 ) {
     Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         StatusBanners(report)
@@ -131,7 +135,7 @@ fun NightDetail(
                 },
             )
         }
-        HeroCard(report)
+        HeroCard(report, clock)
         SkyCard(report)
         report.dew?.let { DewCard(it, report.site.zone, units) }
         report.aurora?.let { AuroraCard(it) }
@@ -183,11 +187,11 @@ private fun StatusBanners(report: NightReport) {
 }
 
 @Composable
-private fun HeroCard(report: NightReport) {
+private fun HeroCard(report: NightReport, clock: Clock) {
     val score = report.score
-    SectionCard {
+    AliveHeroCard(report, clock = clock) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ScoreGauge(score?.score)
+            CountingScoreGauge(score?.score)
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
                 Text(report.site.name, style = MaterialTheme.typography.titleLarge)
@@ -440,27 +444,29 @@ private fun AuroraCard(aurora: AuroraOutlook) {
 private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
     val title = stringResource(R.string.section_meteors)
     SectionCard(title, icon = Icons.Filled.Stars) {
-        EmphasizedText(MeteorAdvisor.digestLine(meteor), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Filled.Explore,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.width(6.dp))
-            EmphasizedText(
-                stringResource(
-                    R.string.meteor_radiant,
-                    Format.azimuth(meteor.peakRadiantAzimuthDeg),
-                    Format.time(meteor.peakRadiantTime, report.site.zone),
-                ),
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        MeteorSparkle {
+            EmphasizedText(MeteorAdvisor.digestLine(meteor), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Explore,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(6.dp))
+                EmphasizedText(
+                    stringResource(
+                        R.string.meteor_radiant,
+                        Format.azimuth(meteor.peakRadiantAzimuthDeg),
+                        Format.time(meteor.peakRadiantTime, report.site.zone),
+                    ),
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            WhyBlock(title, MeteorAdvisor.detail(meteor))
         }
-        WhyBlock(title, MeteorAdvisor.detail(meteor))
     }
 }
 

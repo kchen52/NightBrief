@@ -31,7 +31,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     androidResources {
         // Library noCompress is not enough: aapt2 stores the Bortle `.gzip` grids only if the app says so.
         noCompress += "gzip"

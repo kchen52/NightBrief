@@ -1,11 +1,16 @@
 package app.nightbrief.app.ui
 
 import android.app.Application
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.theme.NightBriefTheme
@@ -81,10 +86,12 @@ class WhimsyUiTest {
         assertNotNull(line)
         compose.setContent {
             NightBriefTheme {
-                NightDetail(report, alternative = null, onOpenAlternative = {})
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    NightDetail(report, alternative = null, onOpenAlternative = {})
+                }
             }
         }
-        compose.onNodeWithText(line!!).assertIsDisplayed()
+        compose.onNodeWithText(line!!).performScrollTo().assertIsDisplayed()
     }
 
     @Test

@@ -48,6 +48,11 @@ data class AppState(
     val sessions: List<SessionEntry> = emptyList(),
     /** "siteId/yyyy-MM-dd" prompts the user dismissed. Never reused as a session key. */
     val dismissedSessionPrompts: Set<String> = emptySet(),
+    /**
+     * Passport stamp ids Tonight has already announced. Empty for older settings files,
+     * so a stamp earned from existing sessions can show once.
+     */
+    val seenPassportStamps: Set<String> = emptySet(),
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 

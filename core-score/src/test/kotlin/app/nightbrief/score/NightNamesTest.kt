@@ -1,5 +1,6 @@
 package app.nightbrief.score
 
+import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.MeteorShowers
 import app.nightbrief.astro.MoonPhase
 import app.nightbrief.astro.SkyEventKind
@@ -135,12 +136,75 @@ class NightNamesTest {
     }
 
     @Test
+    fun onlyTheBestNightAboveTheThresholdIsTheBigOne() {
+        val monday = LocalDate.of(2024, 8, 12)
+        val nights = listOf(
+            outlook(monday, 91),
+            outlook(monday.plusDays(1), 90),
+            outlook(monday.plusDays(2), 89),
+            outlook(monday.plusDays(3), 87),
+            outlook(monday.plusDays(4), 40),
+        )
+        val titles = NightNames.titles(nights, 85)
+        assertEquals(mapOf(monday to "The Big One"), titles.filterValues { it == "The Big One" })
+        assertNull(titles[monday.plusDays(1)])
+        assertNull(titles[monday.plusDays(4)])
+    }
+
+    @Test
+    fun aScoreTieGivesTheBigOneToTheEarliestNight() {
+        val monday = LocalDate.of(2024, 8, 12)
+        val nights = listOf(
+            outlook(monday.plusDays(2), 91),
+            outlook(monday, 91),
+            outlook(monday.plusDays(1), 91),
+        )
+        val titles = NightNames.titles(nights, 85)
+        assertEquals(mapOf(monday to "The Big One"), titles.filterValues { it == "The Big One" })
+    }
+
+    @Test
+    fun aShowerNightKeepsItsShowerName() {
+        val monday = LocalDate.of(2024, 8, 12)
+        val nights = listOf(
+            outlook(monday, 91),
+            outlook(thursday, 88, showerLabel = "Perseid"),
+        )
+        val titles = NightNames.titles(nights, 85)
+        assertEquals("The Big One", titles[monday])
+        assertEquals("Perseid Thursday", titles[thursday])
+
+        val peakIsBest = NightNames.titles(
+            listOf(
+                outlook(monday, 90),
+                outlook(thursday, 96, showerLabel = "Perseid"),
+            ),
+            85,
+        )
+        assertEquals("Perseid Thursday", peakIsBest[thursday])
+        assertEquals(emptyMap<LocalDate, String>(), peakIsBest.filterValues { it == "The Big One" })
+    }
+
+    @Test
     fun aShowerNameBeatsAGhostMoonAndTheBigOne() {
         assertEquals(
             "Perseid Thursday",
             NightNames.title(thursday, 96, true, true, "Perseid", null, 85),
         )
     }
+
+    private fun outlook(
+        date: LocalDate,
+        score: Int?,
+        showerLabel: String? = null,
+    ) = OutlookNight(
+        date = date,
+        score = score,
+        moonIllumination = 0.2,
+        darkness = Darkness.ASTRONOMICAL,
+        coverage = ForecastCoverage.FULL,
+        showerLabel = showerLabel,
+    )
 
     private fun plan(
         site: Site,

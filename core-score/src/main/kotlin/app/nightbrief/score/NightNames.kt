@@ -15,12 +15,14 @@ import kotlin.math.abs
  * and a Big Night. A shower name needs the shower within a day of peak and [MeteorOutlook.worthWatching].
  * "Ghost Moon" needs a full moon and measured clear cloud: an estimated cloud factor is not called clear.
  * "The Big One" uses the caller's Big Night threshold, clamped the same way as [BigNightAlerts].
+ * [titles] gives that name to one night: the highest score that clears the threshold, earliest date on a tie.
+ * [awardBigOne] is how a single night is told whether it is that night.
  */
 object NightNames {
     const val NEAR_PEAK_DAYS = 1
     private const val CLEAR_CLOUD = 0.90
 
-    fun title(report: NightReport, bigNightThreshold: Int): String? = title(
+    fun title(report: NightReport, bigNightThreshold: Int, awardBigOne: Boolean = true): String? = title(
         date = report.date,
         score = report.scoreValue,
         fullMoon = report.ephemeris.moonPhaseName == MoonPhase.FULL,
@@ -28,9 +30,10 @@ object NightNames {
         showerLabel = showerLabel(report.meteor),
         skyEventTitle = eventTitle(SkyEvents.between(report.date, report.date, report.site.zone)),
         bigNightThreshold = bigNightThreshold,
+        awardBigOne = awardBigOne,
     )
 
-    fun title(night: OutlookNight, bigNightThreshold: Int): String? = title(
+    fun title(night: OutlookNight, bigNightThreshold: Int, awardBigOne: Boolean = true): String? = title(
         date = night.date,
         score = night.score,
         fullMoon = night.fullMoon,
@@ -38,7 +41,22 @@ object NightNames {
         showerLabel = night.showerLabel,
         skyEventTitle = night.skyEventTitle,
         bigNightThreshold = bigNightThreshold,
+        awardBigOne = awardBigOne,
     )
+
+    /**
+     * Special-night titles for an outlook. "The Big One" is present for at most one date.
+     * Nights with no special name are absent from the map.
+     */
+    fun titles(nights: List<OutlookNight>, bigNightThreshold: Int): Map<LocalDate, String> {
+        val winner = bestAboveThreshold(nights, bigNightThreshold)
+        return buildMap {
+            for (night in nights) {
+                val name = title(night, bigNightThreshold, awardBigOne = night.date == winner)
+                if (name != null) put(night.date, name)
+            }
+        }
+    }
 
     fun title(
         date: LocalDate,
@@ -48,12 +66,21 @@ object NightNames {
         showerLabel: String?,
         skyEventTitle: String?,
         bigNightThreshold: Int,
+        awardBigOne: Boolean = true,
     ): String? {
         if (!skyEventTitle.isNullOrBlank()) return skyEventTitle
         if (!showerLabel.isNullOrBlank()) return "$showerLabel ${dayName(date)}"
         if (fullMoon && clearSkies) return "Ghost Moon ${dayName(date)}"
-        if (score != null && score >= BigNightAlerts.clamp(bigNightThreshold)) return "The Big One"
+        if (awardBigOne && score != null && score >= BigNightAlerts.clamp(bigNightThreshold)) return "The Big One"
         return null
+    }
+
+    /** Highest score at or above the clamped threshold. The earliest date wins a tie. */
+    private fun bestAboveThreshold(nights: List<OutlookNight>, bigNightThreshold: Int): LocalDate? {
+        val bar = BigNightAlerts.clamp(bigNightThreshold)
+        val clearing = nights.filter { (it.score ?: return@filter false) >= bar }
+        val top = clearing.maxOfOrNull { it.score!! } ?: return null
+        return clearing.filter { it.score == top }.minOf { it.date }
     }
 
     /** True when cloud cover was measured and the night is clear. A proxy stays false. */

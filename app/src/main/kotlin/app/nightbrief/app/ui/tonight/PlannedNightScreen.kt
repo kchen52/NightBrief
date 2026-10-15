@@ -70,9 +70,17 @@ fun PlannedNightScreen(
     }
     // The app bar is a scaffold slot. Reading the night here recomposes that slot once planning finishes.
     val night = report
+    val briefing by vm.briefing.collectAsStateWithLifecycle()
+    val outlookNights = briefing.briefing?.outlookFor(siteId)?.nights
     val bigNightThreshold = state?.bigNightThreshold ?: BigNightAlerts.threshold
-    val nightName = remember(night?.site?.id, night?.date, night?.scoreValue, bigNightThreshold) {
-        night?.let { NightNames.title(it, bigNightThreshold) }
+    val nightName = remember(night?.site?.id, night?.date, night?.scoreValue, bigNightThreshold, outlookNights) {
+        val planned = night ?: return@remember null
+        val inOutlook = outlookNights?.any { it.date == planned.date } == true
+        if (inOutlook) {
+            NightNames.titles(outlookNights.orEmpty(), bigNightThreshold)[planned.date]
+        } else {
+            NightNames.title(planned, bigNightThreshold, awardBigOne = false)
+        }
     }
 
     Scaffold(

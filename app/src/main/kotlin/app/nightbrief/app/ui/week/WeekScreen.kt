@@ -103,6 +103,7 @@ fun WeekScreen(
                 }
             }
             if (outlook != null) {
+                val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
                 item {
                     SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
@@ -119,7 +120,7 @@ fun WeekScreen(
                         isBest = night == outlook.best,
                         modifier = Modifier.padding(horizontal = 16.dp),
                         onClick = { onOpenNight(siteId, night.date) },
-                        bigNightThreshold = bigNightThreshold,
+                        nightName = nightNames[night.date],
                     )
                 }
                 item {
@@ -139,9 +140,8 @@ internal fun NightRow(
     isBest: Boolean,
     modifier: Modifier,
     onClick: () -> Unit,
-    bigNightThreshold: Int = BigNightAlerts.threshold,
+    nightName: String? = null,
 ) {
-    val nightName = NightNames.title(night, bigNightThreshold)
     SectionCard(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))

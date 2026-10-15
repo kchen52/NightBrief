@@ -11,6 +11,8 @@ data class CameraBody(
     val sensorWidthMm: Double,
     val sensorHeightMm: Double,
     val megapixels: Double,
+    /** Personal name. Null or blank leaves the exposure line in its technical form. */
+    val nickname: String? = null,
 ) {
     init {
         require(sensorWidthMm > 0 && sensorHeightMm > 0 && megapixels > 0) { "invalid sensor spec" }
@@ -59,6 +61,8 @@ data class Lens(
     val maxAperture: Double,
     /** Widest aperture at [maxFocalMm] for variable-aperture zooms; equals [maxAperture] otherwise. */
     val maxApertureAtLongEnd: Double = maxAperture,
+    /** Personal name. Null or blank leaves the exposure line in its technical form. */
+    val nickname: String? = null,
 ) {
     init {
         require(minFocalMm > 0 && maxFocalMm >= minFocalMm) { "invalid focal range" }

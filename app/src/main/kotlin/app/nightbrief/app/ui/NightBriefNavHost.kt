@@ -37,6 +37,7 @@ import androidx.navigation.navArgument
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.gear.GearScreen
 import app.nightbrief.app.ui.onboarding.OnboardingScreen
+import app.nightbrief.app.ui.passport.PassportRoute
 import app.nightbrief.app.ui.settings.SettingsScreen
 import app.nightbrief.app.ui.sites.SiteEditorScreen
 import app.nightbrief.app.ui.sites.SitesScreen
@@ -53,6 +54,7 @@ private object Routes {
     const val Sites = "sites"
     const val Gear = "gear"
     const val Settings = "settings"
+    const val Passport = "passport"
     const val Events = "events"
     const val SiteEdit = "site/edit?id={id}"
     const val Night = "night/{siteId}/{date}"
@@ -124,6 +126,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                     vm,
                     onOpenSettings = { navController.navigate(Routes.Settings) },
                     contentPadding = innerPadding,
+                    onOpenPassport = { navController.navigate(Routes.Passport) },
                 )
             }
             composable(Routes.Week) {
@@ -145,7 +148,14 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 GearScreen(vm, contentPadding = innerPadding)
             }
             composable(Routes.Settings) {
-                SettingsScreen(vm, onBack = { navController.popBackStack() })
+                SettingsScreen(
+                    vm,
+                    onBack = { navController.popBackStack() },
+                    onOpenPassport = { navController.navigate(Routes.Passport) },
+                )
+            }
+            composable(Routes.Passport) {
+                PassportRoute(vm, onBack = { navController.popBackStack() })
             }
             composable(Routes.Events) {
                 EventsScreen(vm, onBack = { navController.popBackStack() })

@@ -13,6 +13,7 @@ import app.nightbrief.weather.KpSource
 import app.nightbrief.weather.WeatherApiException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -121,7 +122,10 @@ class PlannerAndDigestTest {
         val lpReport = NightPlanner.plan(longPoint, aug10, forecast(longPoint), kit)
         val digest = DigestComposer.compose(homeReport, listOf(lpReport))
         assertNull(digest.alternativeSiteId)
-        assertTrue(digest.title, digest.title.startsWith("Tonight: ${homeReport.scoreValue} at Home ·"))
+        val score = homeReport.score!!
+        assertTrue("score was ${score.score}", score.score >= BigNightAlerts.threshold)
+        assertEquals("🌠 Big Night. Cancel your plans.", digest.title)
+        assertFalse(digest.title.contains("Long Point"))
     }
 
     @Test

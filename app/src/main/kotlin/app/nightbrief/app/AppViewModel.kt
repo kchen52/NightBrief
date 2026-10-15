@@ -12,6 +12,7 @@ import app.nightbrief.gear.GearKit
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.DarkSkyCandidate
 import app.nightbrief.score.DarkSkyFinder
+import app.nightbrief.score.SessionCapture
 import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.UnitSystem
@@ -262,18 +263,45 @@ class AppViewModel(
     fun setNightVision(enabled: Boolean) = mutate { it.copy(nightVision = enabled) }
     fun setUnits(units: UnitSystem) = mutate { it.copy(units = units) }
 
-    fun logSession(siteId: String, date: LocalDate, score: Int?, rating: Int, note: String) {
+    fun logSession(
+        siteId: String,
+        date: LocalDate,
+        score: Int?,
+        rating: Int,
+        note: String,
+        report: NightReport? = null,
+    ) {
+        val matching = report?.takeIf { it.site.id == siteId && it.date == date }
+        val facts = matching?.let {
+            SessionCapture.from(
+                score = it.scoreValue,
+                bortle = it.site.effectiveBortle,
+                issPassCount = it.issPasses.size,
+                overnightLowC = it.dew?.overnightLowC,
+            )
+        }
         val entry = SessionEntry(
             siteId = siteId,
             nightDate = date.toString(),
-            score = score,
+            score = facts?.score ?: score,
             rating = rating,
             note = note.trim(),
             createdAtEpochSec = java.time.Instant.now().epochSecond,
+            bortle = facts?.bortle ?: state.value?.sites?.get(siteId)?.effectiveBortle,
+            issVisible = facts?.issVisible,
+            overnightLowC = facts?.overnightLowC,
         )
         mutate {
             if ("${entry.siteId}/${entry.nightDate}" in SessionPrompt.loggedKeys(it.sessions)) it
             else it.copy(sessions = it.sessions + entry)
+        }
+    }
+
+    fun markPassportStampsSeen(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        mutate { current ->
+            val merged = current.seenPassportStamps + ids
+            if (merged == current.seenPassportStamps) current else current.copy(seenPassportStamps = merged)
         }
     }
 

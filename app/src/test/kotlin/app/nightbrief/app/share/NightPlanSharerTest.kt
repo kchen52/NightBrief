@@ -20,6 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.time.Instant
 import java.time.LocalDate
 
@@ -103,6 +104,66 @@ class NightPlanSharerTest {
         }
         assertEquals("surface sliver rendered for empty details", 0, surfacePixels)
         bitmap.recycle()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun postcardKeepsTheBlueGroundAndDrawsTheStamp() {
+        val card = NightPlanCard(
+            siteName = "Long Point",
+            place = "42.6°N 80.4°W",
+            dateLabel = "Sat 10 Aug",
+            score = 91,
+            scoreText = "91",
+            verdictLabel = "Go · Excellent",
+            bestWindow = "00:00–03:00 (90)",
+            milkyWay = "Milky Way core 22:10–03:40",
+            target = "Cygnus",
+            saved = "Offline — forecast saved Tue 18:40",
+        )
+        val bitmap = NightPlanImage.render(card)
+        val background = NightPalette.Standard.background.toArgb()
+        val nightVision = NightPalette.NightVision.background.toArgb()
+        assertEquals(NightPlanImage.WIDTH, bitmap.width)
+        assertTrue("height was ${bitmap.height}", bitmap.height in 400..4000)
+        assertEquals(background, bitmap.getPixel(0, 0))
+        assertEquals(background, bitmap.getPixel(bitmap.width - 1, 0))
+        assertTrue(background != nightVision)
+        val stamp = NightPlanImage.stampRect()
+        val stampFill = NightPalette.Standard.surfaceHigh.toArgb()
+        val sampleX = (stamp.left + stamp.width() / 2f).toInt()
+        val sampleY = (stamp.top + 28f).toInt()
+        assertEquals(
+            "stamp fill at $sampleX,$sampleY",
+            stampFill,
+            bitmap.getPixel(sampleX, sampleY),
+        )
+        val scoreInk = NightPalette.Standard.forScore(card.score).toArgb()
+        var paintedScore = false
+        for (x in 0 until bitmap.width step 3) {
+            for (y in 0 until bitmap.height step 3) {
+                if (bitmap.getPixel(x, y) == scoreInk) {
+                    paintedScore = true
+                    break
+                }
+            }
+            if (paintedScore) break
+        }
+        assertTrue("score ink missing", paintedScore)
+        bitmap.recycle()
+    }
+
+    @Test
+    fun thePostmarkKeepsTheFullPlaceAndTheDatePillClearsTheStamp() {
+        val places = listOf("42.6°N 80.4°W", "-89.9°S 179.9°W", "12.3°S 123.4°E", "90.0°S 180.0°W")
+        for (place in places) {
+            val lines = NightPlanImage.postmarkPlaceLines(place)
+            assertEquals(place, lines.joinToString(" "))
+            assertTrue(place, lines.none { it.contains("…") || it.contains("...") })
+            assertTrue(place, NightPlanImage.postmarkShowsTheFullPlace("Wed 30 Sep", place))
+        }
+        assertTrue(NightPlanImage.datePillClearsTheStamp("Wed 30 Sep"))
+        assertTrue(NightPlanImage.datePillClearsTheStamp("Sat 10 Aug"))
     }
 
     @Test

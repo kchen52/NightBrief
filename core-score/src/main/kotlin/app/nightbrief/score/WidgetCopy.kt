@@ -15,6 +15,9 @@ object WidgetCopy {
         return "$value ${Band.of(value).label}"
     }
 
+    /** The night's playful sentence, or null. Tonight and the watch use the same text. */
+    fun flavorLine(report: NightReport?): String? = report?.flavorLine
+
     fun clearsTreeline(at: Instant, zone: ZoneId): String {
         val fmt = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT).withZone(zone)
         return "The core clears the treeline at ${fmt.format(at)}"

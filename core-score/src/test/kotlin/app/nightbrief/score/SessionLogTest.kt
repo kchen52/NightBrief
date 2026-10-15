@@ -36,4 +36,17 @@ class SessionLogTest {
             .onSuccess { throw AssertionError("rating 6 should fail") }
         assertEquals(5, SessionEntry("s1", "2026-10-02", rating = 5).rating)
     }
+
+    @Test
+    fun captureKeepsIssUnknownWhenTheReportListsNoPass() {
+        val quiet = SessionCapture.from(score = 70, bortle = 2, issPassCount = 0, overnightLowC = -2.0)
+        assertEquals(null, quiet.issVisible)
+        assertEquals(-2.0, quiet.overnightLowC!!, 0.001)
+        assertEquals(2, quiet.bortle)
+        assertEquals(70, quiet.score)
+        val spotted = SessionCapture.from(score = null, bortle = 4, issPassCount = 2, overnightLowC = null)
+        assertEquals(true, spotted.issVisible)
+        assertEquals(null, spotted.overnightLowC)
+        assertEquals(null, spotted.score)
+    }
 }

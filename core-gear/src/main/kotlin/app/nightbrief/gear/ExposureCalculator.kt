@@ -26,16 +26,37 @@ data class ExposureSuggestion(
 ) {
     val fullFrameEquivalentMm: Double get() = focalMm * body.cropFactor
 
+    /**
+     * Technical line when both nicknames are null or blank.
+     * A set nickname reads as "Old Faithful + the 10mm: 20 s at ISO 3200."
+     * A lens nickname replaces "the {focal}mm". A tracked stack plan is appended either way.
+     */
     val summary: String
-        get() = buildString {
-            append("${focalMm.fmt()}mm · f/${aperture.fmt()} · ")
-            append(ExposureCalculator.shutterLabel(shutterSeconds))
-            append(" · ISO $iso")
+        get() {
+            val bodyNick = body.nickname.displayNick()
+            val lensNick = lens.nickname.displayNick()
+            if (bodyNick == null && lensNick == null) return technicalSummary()
+            val lensPart = lensNick ?: "the ${focalMm.fmt()}mm"
+            val who = if (bodyNick != null) "$bodyNick + $lensPart" else lensPart
+            val friendly = "$who: ${shutterSeconds.fmt()} s at ISO $iso."
             if (tracked && stackCount != null && integrationMinutes != null) {
-                append(" · ${stackCount}×${ExposureCalculator.shutterLabel(shutterSeconds)} ($integrationMinutes min)")
+                return "$friendly · ${stackCount}×${ExposureCalculator.shutterLabel(shutterSeconds)} ($integrationMinutes min)"
             }
+            return friendly
         }
+
+    private fun technicalSummary(): String = buildString {
+        append("${focalMm.fmt()}mm · f/${aperture.fmt()} · ")
+        append(ExposureCalculator.shutterLabel(shutterSeconds))
+        append(" · ISO $iso")
+        if (tracked && stackCount != null && integrationMinutes != null) {
+            append(" · ${stackCount}×${ExposureCalculator.shutterLabel(shutterSeconds)} ($integrationMinutes min)")
+        }
+    }
 }
+
+/** Blank is the same as null: the exposure line stays technical. */
+private fun String?.displayNick(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
 object ExposureCalculator {
 

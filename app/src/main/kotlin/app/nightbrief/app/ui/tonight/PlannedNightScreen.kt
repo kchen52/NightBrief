@@ -1,6 +1,7 @@
 package app.nightbrief.app.ui.tonight
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -27,10 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Format
+import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.NightNames
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.UnitSystem
@@ -66,15 +70,36 @@ fun PlannedNightScreen(
     }
     // The app bar is a scaffold slot. Reading the night here recomposes that slot once planning finishes.
     val night = report
+    val briefing by vm.briefing.collectAsStateWithLifecycle()
+    val outlookNights = briefing.briefing?.outlookFor(siteId)?.nights
+    val bigNightThreshold = state?.bigNightThreshold ?: BigNightAlerts.threshold
+    val nightName = remember(night?.site?.id, night?.date, night?.scoreValue, bigNightThreshold, outlookNights) {
+        val planned = night ?: return@remember null
+        val inOutlook = outlookNights?.any { it.date == planned.date } == true
+        if (inOutlook) {
+            NightNames.titles(outlookNights.orEmpty(), bigNightThreshold)[planned.date]
+        } else {
+            NightNames.title(planned, bigNightThreshold, awardBigOne = false)
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        night?.let { stringResource(R.string.planner_title, it.site.name, Format.dayName(date)) }
-                            ?: Format.dayName(date),
-                    )
+                    Column {
+                        Text(
+                            night?.let { stringResource(R.string.planner_title, it.site.name, Format.dayName(date)) }
+                                ?: Format.dayName(date),
+                        )
+                        if (nightName != null) {
+                            Text(
+                                nightName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
@@ -104,12 +129,22 @@ fun PlannedNightScreen(
             r == null -> Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.planner_unavailable))
             }
-            else -> Box(Modifier.padding(inner).verticalScroll(rememberScrollState())) {
+            else -> Column(Modifier.padding(inner).verticalScroll(rememberScrollState())) {
                 NightDetail(
                     r,
                     alternative = null,
                     onOpenAlternative = {},
                     units = state?.resolvedUnits() ?: UnitSystem.METRIC,
+                )
+                LogNightPrompt(
+                    report = r,
+                    alreadyLogged = state?.sessions?.any {
+                        it.siteId == r.site.id && it.nightDate == r.date.toString()
+                    } == true,
+                    onSave = { rating, note ->
+                        vm.logSession(r.site.id, r.date, r.scoreValue, rating, note, report = r)
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }

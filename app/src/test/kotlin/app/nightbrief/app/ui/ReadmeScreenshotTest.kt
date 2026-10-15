@@ -52,6 +52,8 @@ import app.nightbrief.app.R
 import app.nightbrief.app.ui.week.NightRow
 import app.nightbrief.astro.IssPass
 import app.nightbrief.gear.GearCatalog
+import app.nightbrief.score.BigNightAlerts
+import app.nightbrief.score.NightNames
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.OutlookNight
@@ -177,6 +179,7 @@ class ReadmeScreenshotTest {
     @Test
     fun week() {
         val outlook = weekOutlook()
+        val nightNames = NightNames.titles(outlook.nights, BigNightAlerts.threshold)
         paparazzi.snapshot("week") {
             Phone("This week", "Week") { padding ->
                 LazyColumn(
@@ -210,6 +213,7 @@ class ReadmeScreenshotTest {
                             isBest = night == outlook.best,
                             modifier = Modifier.padding(horizontal = 16.dp),
                             onClick = {},
+                            nightName = nightNames[night.date],
                         )
                     }
                 }

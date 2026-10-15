@@ -46,7 +46,9 @@ import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
+import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.ForecastCoverage
+import app.nightbrief.score.NightNames
 import app.nightbrief.score.OutlookNight
 import app.nightbrief.weather.ForecastStatus
 import java.time.LocalDate
@@ -67,6 +69,7 @@ fun WeekScreen(
     val briefing = ui.briefing
     val outlook = briefing?.outlookFor(siteId)
     val report = briefing?.reportFor(siteId)
+    val bigNightThreshold = state?.bigNightThreshold ?: BigNightAlerts.threshold
 
     Scaffold(
         modifier = Modifier.padding(contentPadding),
@@ -100,6 +103,7 @@ fun WeekScreen(
                 }
             }
             if (outlook != null) {
+                val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
                 item {
                     SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
@@ -116,6 +120,7 @@ fun WeekScreen(
                         isBest = night == outlook.best,
                         modifier = Modifier.padding(horizontal = 16.dp),
                         onClick = { onOpenNight(siteId, night.date) },
+                        nightName = nightNames[night.date],
                     )
                 }
                 item {
@@ -130,7 +135,13 @@ fun WeekScreen(
 }
 
 @Composable
-internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, onClick: () -> Unit) {
+internal fun NightRow(
+    night: OutlookNight,
+    isBest: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    nightName: String? = null,
+) {
     SectionCard(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
@@ -176,6 +187,13 @@ internal fun NightRow(night: OutlookNight, isBest: Boolean, modifier: Modifier, 
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (nightName != null) {
+                    Text(
+                        nightName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
             ScorePill(night.score)

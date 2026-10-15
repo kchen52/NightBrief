@@ -29,6 +29,7 @@ object DigestComposer {
         timeFormat: DateTimeFormatter = DEFAULT_TIME_FORMAT,
         alternativeThreshold: Int = SiteComparison.DEFAULT_THRESHOLD,
         units: UnitSystem = UnitSystem.METRIC,
+        bigNightThreshold: Int = BigNightAlerts.threshold,
     ): Digest {
         val zone = report.site.zone
         fun fmt(t: Instant) = timeFormat.withZone(zone).format(t)
@@ -36,11 +37,16 @@ object DigestComposer {
         val alt = SiteComparison.bestAlternative(report, others, alternativeThreshold)
         val name = report.site.name
 
-        val title = when {
+        val factual = when {
             score == null -> "Tonight at $name: forecast not available yet"
             report.ephemeris.darkness == Darkness.NONE -> "Tonight at $name: no darkness"
             alt != null -> "Tonight: ${score.score} at $name, but ${alt.report.scoreValue} at ${alt.report.site.name}"
             else -> "Tonight: ${score.score} at $name · ${score.band.label}"
+        }
+        val title = if (score != null && report.ephemeris.darkness != Darkness.NONE && alt == null) {
+            winkTitle(report, bigNightThreshold) ?: factual
+        } else {
+            factual
         }
 
         val lines = mutableListOf<String>()
@@ -92,6 +98,36 @@ object DigestComposer {
             lines = lines,
             alternativeSiteId = alt?.report?.site?.id,
         )
+    }
+
+    /**
+     * Notification title for a special night, or null so the caller keeps the factual title.
+     * A shower peak that is a Go wins, then likely aurora, then a score at or above [bigNightThreshold].
+     * "Clear skies" is used only when cloud cover was measured. The body lines stay factual.
+     */
+    fun winkTitle(report: NightReport, bigNightThreshold: Int = BigNightAlerts.threshold): String? {
+        val score = report.score ?: return null
+        if (report.ephemeris.darkness == Darkness.NONE) return null
+        val meteor = report.meteor
+        if (meteor != null && meteor.worthWatching && meteor.daysFromPeak == 0 && score.verdict == Verdict.GO) {
+            val cloud = score.factor(Factor.CLOUD)
+            val clear = !cloud.estimated &&
+                cloud.quality >= 0.70 &&
+                report.forecastStatus != ForecastStatus.STALE
+            val name = meteor.shower.name
+            return if (clear) {
+                "🌠 $name + clear skies. Cancel your plans."
+            } else {
+                "🌠 $name peak, and it's a Go. Cancel your plans."
+            }
+        }
+        if (report.aurora?.chance == AuroraChance.LIKELY) {
+            return "🌠 Aurora likely. Cancel your plans."
+        }
+        if (score.score >= BigNightAlerts.clamp(bigNightThreshold)) {
+            return "🌠 Big Night. Cancel your plans."
+        }
+        return null
     }
 
     fun moonLine(eph: NightEphemeris, fmt: (Instant) -> String): String {

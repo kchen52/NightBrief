@@ -35,6 +35,7 @@ object WearPublisher {
                     dataMap.putString(WearGlance.KEY_SCORE, glance.scoreText)
                     dataMap.putString(WearGlance.KEY_VERDICT, glance.verdictText)
                     dataMap.putString(WearGlance.KEY_SAVED, glance.savedText.orEmpty())
+                    dataMap.putString(WearGlance.KEY_FLAVOR, glance.flavorText.orEmpty())
                     dataMap.putLong(WearGlance.KEY_UPDATED, System.currentTimeMillis())
                 }
                 Tasks.await(
@@ -63,6 +64,7 @@ object WearPublisher {
             siteName = primary.name,
             score = report?.scoreValue,
             savedText = SavedForecast.shortLabel(report?.forecastStatus, report?.forecastFetchedAt, primary.zone),
+            flavorText = report?.flavorLine,
         )
     }
 }

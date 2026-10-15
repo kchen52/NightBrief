@@ -45,6 +45,24 @@ class WearGlanceTest {
     }
 
     @Test
+    fun aFlavourLineIsOptionalAndSitsWithTheVerdict() {
+        val glance = WearGlance.from(
+            true,
+            "Home",
+            91,
+            flavorText = "The Moon is hogging the stage tonight.",
+        )
+        assertEquals(
+            listOf("Home", "91", "Go", "The Moon is hogging the stage tonight."),
+            glance.lines(),
+        )
+        val blank = WearGlance.from(true, "Home", 91, flavorText = "  ")
+        assertEquals(listOf("Home", "91", "Go"), blank.lines())
+        val older = WearGlance.from(true, "Home", 91)
+        assertEquals(listOf("Home", "91", "Go"), older.lines())
+    }
+
+    @Test
     fun aSavedForecastIsALineAfterTheVerdict() {
         val glance = WearGlance.from(true, "Home", 91, savedText = "Saved Thu 18:40")
         assertEquals(listOf("Home", "91", "Go", "Saved Thu 18:40"), glance.lines())

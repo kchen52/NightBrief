@@ -3,6 +3,9 @@ package app.nightbrief.app.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -79,7 +82,7 @@ class RoadmapUiTest {
 
         compose.setContent {
             NightBriefTheme {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     SiteStrip(
                         sites = listOf(
                             SiteChip(home.id, home.name, score, true),
@@ -93,9 +96,9 @@ class RoadmapUiTest {
             }
         }
         compose.onNodeWithText("Cabin").assertIsDisplayed()
-        compose.onNodeWithText(why!!).assertIsDisplayed()
-        compose.onNodeWithText(SavedForecast.detail(report.forecastFetchedAt!!, home.zone)).assertIsDisplayed()
-        compose.onNodeWithText("/ 100").assertIsDisplayed()
+        compose.onNodeWithText(why!!).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(SavedForecast.detail(report.forecastFetchedAt!!, home.zone)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("/ 100").performScrollTo().assertIsDisplayed()
         assertTrue(compose.onAllNodesWithText(score.toString()).fetchSemanticsNodes().isNotEmpty())
     }
 

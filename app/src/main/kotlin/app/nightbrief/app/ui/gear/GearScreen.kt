@@ -128,6 +128,7 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
                             selected = body.id == primaryId,
                             onSelect = { onChange(kit.copy(primaryBodyId = body.id)) },
                             onDelete = { onChange(kit.removeBody(body.id)) },
+                            onNickname = { value -> onChange(kit.withBodyNickname(body.id, value)) },
                         )
                     }
                 }
@@ -159,7 +160,12 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
                 if (index > 0) {
                     HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                LensRow(lens = lens, body = body, onDelete = { onChange(kit.removeLens(lens.id)) })
+                LensRow(
+                    lens = lens,
+                    body = body,
+                    onDelete = { onChange(kit.removeLens(lens.id)) },
+                    onNickname = { value -> onChange(kit.withLensNickname(lens.id, value)) },
+                )
             }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = { addLens = true }, modifier = Modifier.fillMaxWidth()) {
@@ -273,49 +279,84 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
 }
 
 @Composable
-private fun BodyRow(body: CameraBody, selected: Boolean, onSelect: () -> Unit, onDelete: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Column(
-            Modifier
-                .weight(1f)
-                .clickable(onClick = onSelect)
-                .semantics { role = Role.RadioButton }
-                .padding(vertical = 8.dp),
-        ) {
-            Text(body.name, style = MaterialTheme.typography.titleMedium)
-            Text(
-                bodySpec(body),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
-    }
-}
-
-@Composable
-private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text(lens.name, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${lens.focalLabel} · ${lens.apertureLabel}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            if (body != null) {
-                val npf = ExposureCalculator.npf(lens.minFocalMm, lens.maxAperture, body.pixelPitchUm)
-                val rule = ExposureCalculator.rule500(lens.minFocalMm, body.cropFactor)
+private fun BodyRow(
+    body: CameraBody,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onDelete: () -> Unit,
+    onNickname: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            RadioButton(selected = selected, onClick = onSelect)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable(onClick = onSelect)
+                    .semantics { role = Role.RadioButton }
+                    .padding(vertical = 8.dp),
+            ) {
+                Text(body.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    stringResource(R.string.npf_line, ExposureCalculator.shutterLabel(npf), ExposureCalculator.shutterLabel(rule)),
+                    bodySpec(body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
         }
-        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
+        NicknameField(body.nickname.orEmpty(), onNickname)
     }
 }
+
+@Composable
+private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit, onNickname: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(lens.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${lens.focalLabel} · ${lens.apertureLabel}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (body != null) {
+                    val npf = ExposureCalculator.npf(lens.minFocalMm, lens.maxAperture, body.pixelPitchUm)
+                    val rule = ExposureCalculator.rule500(lens.minFocalMm, body.cropFactor)
+                    Text(
+                        stringResource(R.string.npf_line, ExposureCalculator.shutterLabel(npf), ExposureCalculator.shutterLabel(rule)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
+        }
+        NicknameField(lens.nickname.orEmpty(), onNickname)
+    }
+}
+
+@Composable
+private fun NicknameField(value: String, onValue: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValue,
+        label = { Text(stringResource(R.string.nickname)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+private fun GearKit.withBodyNickname(id: String, value: String): GearKit = copy(
+    bodies = bodies.map { body ->
+        if (body.id == id) body.copy(nickname = value.ifBlank { null }) else body
+    },
+)
+
+private fun GearKit.withLensNickname(id: String, value: String): GearKit = copy(
+    lenses = lenses.map { lens ->
+        if (lens.id == id) lens.copy(nickname = value.ifBlank { null }) else lens
+    },
+)
 
 private fun bodySpec(body: CameraBody): String {
     val crop = "%.2f".format(Locale.ROOT, body.cropFactor)

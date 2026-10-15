@@ -3,6 +3,7 @@ package app.nightbrief.app.share
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
@@ -19,6 +20,10 @@ import kotlin.math.roundToInt
  * Renders a [NightPlanCard] to a bitmap for sharing.
  * Always the blue night palette, so a night-vision screen does not paint the picture red.
  *
+ * The frame is a postcard: a paper border, a perforated stamp in the corner, and a
+ * circular postmark of [NightPlanCard.dateLabel] and [NightPlanCard.place] (already
+ * rounded to 0.1°). The site pin is not drawn.
+ *
  * Layout fills the 1080px frame: a header row pairs the "NightBrief" wordmark (left)
  * with a date pill (right), the score sits in a ring badge beside a surface card
  * with the night's details, and a centered footer signs the picture "NightBrief".
@@ -27,6 +32,16 @@ import kotlin.math.roundToInt
 object NightPlanImage {
     const val WIDTH = 1080
     private const val PAD = 80
+    private const val FRAME_INSET = 28f
+    private const val STAMP_WIDTH = 200f
+    private const val STAMP_HEIGHT = 240f
+
+    /** Top-right stamp. Tests sample this rect; the postmark is drawn inside it. */
+    fun stampRect(): RectF {
+        val right = WIDTH - FRAME_INSET - 16f
+        val top = FRAME_INSET + 16f
+        return RectF(right - STAMP_WIDTH, top, right, top + STAMP_HEIGHT)
+    }
 
     private const val SCORE_COL = 320
     private const val HERO_GAP = 48
@@ -37,6 +52,8 @@ object NightPlanImage {
     fun render(card: NightPlanCard): Bitmap {
         val palette = NightPalette.Standard
         val textWidth = WIDTH - PAD * 2
+        val stamp = stampRect()
+        val besideStamp = (stamp.left - 36f - PAD).toInt().coerceIn(280, textWidth)
         val scoreColor = palette.forScore(card.score).toArgb()
         val onBackground = palette.onBackground.toArgb()
         val muted = palette.textMuted.toArgb()
@@ -49,8 +66,8 @@ object NightPlanImage {
         val appPaint = paint(52f, primary, bold = true, tracking = 0.06f)
         val datePaint = paint(32f, onBackground, bold = true)
         val dateTextWidth = datePaint.measureText(card.dateLabel)
-        val pillWidth = (dateTextWidth + 64f).toInt().coerceIn(120, textWidth / 2)
-        val appWidth = (textWidth - pillWidth - 24).coerceAtLeast(1)
+        val pillWidth = (dateTextWidth + 64f).toInt().coerceIn(120, besideStamp / 2)
+        val appWidth = (besideStamp - pillWidth - 24).coerceAtLeast(1)
         val appName = text("NightBrief", appPaint, appWidth, maxLines = 1)
         val dateLayout = text(
             card.dateLabel.ifBlank { "—" },
@@ -62,8 +79,8 @@ object NightPlanImage {
         val pillHeight = dateLayout.height + 32
         val headerHeight = maxOf(appName.height, pillHeight)
 
-        val site = text(card.siteName.ifBlank { "Untitled site" }, paint(66f, onBackground, bold = true), textWidth, maxLines = 2)
-        val meta = text(card.place, paint(32f, muted), textWidth, maxLines = 1)
+        val site = text(card.siteName.ifBlank { "Untitled site" }, paint(66f, onBackground, bold = true), besideStamp, maxLines = 2)
+        val meta = text(card.place, paint(32f, muted), besideStamp, maxLines = 1)
 
         // Hero left: score badge + verdict (+ estimated note).
         val scoreColWidth = if (hasDetails(card)) SCORE_COL else textWidth
@@ -99,7 +116,9 @@ object NightPlanImage {
         val footerTitle = text("Shared with NightBrief", paint(34f, onBackground, bold = true), textWidth, Layout.Alignment.ALIGN_CENTER, maxLines = 1)
         val footerSub = text("Is tonight worth imaging?", paint(32f, muted), textWidth, Layout.Alignment.ALIGN_CENTER, maxLines = 1)
 
-        var height = PAD + headerHeight + 28 + site.height + 12 + meta.height + 40
+        val beforeHero = PAD + headerHeight + 28 + site.height + 12 + meta.height + 40 + 3 + 40
+        val stampGap = (stamp.bottom + 24f - beforeHero).toInt().coerceAtLeast(0)
+        var height = PAD + headerHeight + 28 + site.height + 12 + meta.height + 40 + stampGap
         height += heroHeight + 40
         if (saved != null) height += saved.height + 32
         height += 3 + 36 + footerTitle.height + 10 + footerSub.height + PAD
@@ -116,7 +135,7 @@ object NightPlanImage {
         canvas.translate(PAD.toFloat(), y + (headerHeight - appName.height) / 2f)
         appName.draw(canvas)
         canvas.restore()
-        val pillLeft = (PAD + textWidth - pillWidth).toFloat()
+        val pillLeft = (PAD + besideStamp - pillWidth).toFloat()
         val pillTop = y + (headerHeight - pillHeight) / 2f
         val pillRect = RectF(pillLeft, pillTop, pillLeft + pillWidth, pillTop + pillHeight)
         canvas.drawRoundRect(pillRect, pillHeight / 2f, pillHeight / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -131,8 +150,8 @@ object NightPlanImage {
         y = drawAt(canvas, site, PAD.toFloat(), y) + 12
         y = drawAt(canvas, meta, PAD.toFloat(), y) + 40
 
-        // Divider under the site block.
         y = drawDivider(canvas, y, outline) + 40
+        if (y < stamp.bottom + 24f) y = stamp.bottom + 24f
 
         // Hero: badge (+ verdict) and details card share the row, both centered
         // in the row so a tall card does not strand the badge at the top.
@@ -188,7 +207,97 @@ object NightPlanImage {
         y = drawDivider(canvas, y, outline) + 36
         y = drawAt(canvas, footerTitle, PAD.toFloat(), y) + 10
         drawAt(canvas, footerSub, PAD.toFloat(), y)
+        drawStamp(canvas, stamp, palette.surfaceHigh.toArgb(), palette.background.toArgb(), primary)
+        drawPostmark(canvas, card, stamp, palette.amber.toArgb())
+        drawPaperBorder(canvas, height.toFloat(), palette.outline.toArgb(), outline)
         return bitmap
+    }
+
+    private fun drawPaperBorder(canvas: Canvas, height: Float, ink: Int, hairline: Int) {
+        val frame = RectF(FRAME_INSET, FRAME_INSET, WIDTH - FRAME_INSET, height - FRAME_INSET)
+        canvas.drawRoundRect(frame, 18f, 18f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ink
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+        })
+        val inner = RectF(frame.left + 8f, frame.top + 8f, frame.right - 8f, frame.bottom - 8f)
+        canvas.drawRoundRect(inner, 12f, 12f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = hairline
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+        })
+    }
+
+    private fun drawStamp(canvas: Canvas, rect: RectF, fill: Int, hole: Int, ink: Int) {
+        canvas.drawRoundRect(rect, 8f, 8f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fill })
+        val inner = RectF(rect.left + 16f, rect.top + 16f, rect.right - 16f, rect.bottom - 16f)
+        canvas.drawRoundRect(inner, 4f, 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ink
+            style = Paint.Style.STROKE
+            strokeWidth = 3f
+        })
+        drawStar(canvas, rect.centerX(), rect.top + 58f, ink, 26f)
+        val punch = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = hole }
+        val step = 16f
+        val radius = 3.4f
+        var x = rect.left
+        while (x <= rect.right + 0.5f) {
+            canvas.drawCircle(x, rect.top, radius, punch)
+            canvas.drawCircle(x, rect.bottom, radius, punch)
+            x += step
+        }
+        var y = rect.top + step
+        while (y < rect.bottom) {
+            canvas.drawCircle(rect.left, y, radius, punch)
+            canvas.drawCircle(rect.right, y, radius, punch)
+            y += step
+        }
+    }
+
+    private fun drawStar(canvas: Canvas, cx: Float, cy: Float, color: Int, outer: Float) {
+        val path = Path()
+        val inner = outer * 0.42f
+        for (i in 0 until 8) {
+            val radius = if (i % 2 == 0) outer else inner
+            val angle = Math.toRadians(-90.0 + i * 45.0)
+            val x = cx + (radius * Math.cos(angle)).toFloat()
+            val y = cy + (radius * Math.sin(angle)).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+    }
+
+    private fun drawPostmark(canvas: Canvas, card: NightPlanCard, stamp: RectF, ink: Int) {
+        val cx = stamp.centerX()
+        val cy = stamp.top + stamp.height() * 0.68f
+        val radius = stamp.width() * 0.32f
+        val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ink
+            style = Paint.Style.STROKE
+            strokeWidth = 3f
+        }
+        canvas.drawCircle(cx, cy, radius, ring)
+        canvas.drawCircle(cx, cy, radius * 0.84f, Paint(ring).apply { strokeWidth = 1.5f })
+        val textWidth = (radius * 1.55f).toInt().coerceAtLeast(1)
+        val date = text(
+            card.dateLabel.ifBlank { "—" },
+            paint(20f, ink, bold = true),
+            textWidth,
+            Layout.Alignment.ALIGN_CENTER,
+            maxLines = 1,
+        )
+        val place = text(
+            card.place.ifBlank { "—" },
+            paint(16f, ink),
+            textWidth,
+            Layout.Alignment.ALIGN_CENTER,
+            maxLines = 1,
+        )
+        var ty = cy - (date.height + 4 + place.height) / 2f
+        drawAt(canvas, date, cx - textWidth / 2f, ty)
+        ty += date.height + 4
+        drawAt(canvas, place, cx - textWidth / 2f, ty)
     }
 
     private fun hasDetails(card: NightPlanCard): Boolean =

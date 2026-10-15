@@ -2,6 +2,9 @@ package app.nightbrief.score
 
 import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.IssPasses
+import app.nightbrief.astro.MoonPhase
+import app.nightbrief.astro.SkyEvent
+import app.nightbrief.astro.SkyEvents
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.ForecastResult
@@ -18,6 +21,7 @@ import kotlinx.coroutines.coroutineScope
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -29,6 +33,14 @@ data class OutlookNight(
     val coverage: ForecastCoverage,
     /** True when any night-score factor was estimated (no 7Timer index, or a missing cloud value). */
     val estimated: Boolean = false,
+    /** Measured clear cloud. False when cloud was estimated, so a full moon is not named clear. */
+    val clearSkies: Boolean = false,
+    /** True when the ephemeris phase is full. Illumination alone is not enough. */
+    val fullMoon: Boolean = false,
+    /** Shower adjective when it is near peak and worth watching, e.g. "Perseid". */
+    val showerLabel: String? = null,
+    /** Eclipse or opposition title from [app.nightbrief.astro.SkyEvents] on this date. */
+    val skyEventTitle: String? = null,
 ) {
     val band: Band? get() = score?.let(Band::of)
 }
@@ -108,6 +120,7 @@ class BriefingService(
                 result.exceptionOrNull()?.let { add("Forecast unavailable: ${it.message}") }
             }
             val start = NightPlanner.tonight(now, site.zone)
+            val skyEvents = skyEventsFor(start, outlookDays, site.zone)
             val nights = (0 until outlookDays).map { offset ->
                 NightPlanner.plan(
                     site = site,
@@ -123,6 +136,9 @@ class BriefingService(
             outlooks += WeeklyOutlook(
                 site,
                 nights.map {
+                    val onDate = skyEvents.filter { event ->
+                        event.instant.atZone(site.zone).toLocalDate() == it.date
+                    }
                     OutlookNight(
                         it.date,
                         it.scoreValue,
@@ -130,6 +146,10 @@ class BriefingService(
                         it.ephemeris.darkness,
                         it.coverage,
                         estimated = it.score?.factors?.any { factor -> factor.estimated } == true,
+                        clearSkies = NightNames.clearSkies(it),
+                        fullMoon = it.ephemeris.moonPhaseName == MoonPhase.FULL,
+                        showerLabel = NightNames.showerLabel(it.meteor),
+                        skyEventTitle = NightNames.eventTitle(onDate),
                     )
                 },
             )
@@ -149,6 +169,17 @@ class BriefingService(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(fr.exceptionOrNull()?.message),
         ).withAurora(kpForecast).withIss(issTle)
+    }
+
+    private fun skyEventsFor(start: LocalDate, days: Int, zone: ZoneId): List<SkyEvent> {
+        val end = start.plusDays((days.coerceAtLeast(1) - 1).toLong())
+        return try {
+            SkyEvents.between(start, end, zone)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     private suspend fun fetchKp(): KpForecast? {

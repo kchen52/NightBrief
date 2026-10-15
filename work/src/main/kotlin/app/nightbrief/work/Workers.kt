@@ -61,6 +61,7 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 timeFormat,
                 ready.alternativeThreshold,
                 ready.resolvedUnits(),
+                ready.bigNightThreshold,
             )
             notifier.post(digest, ready.notificationSlots.getValue(site.id), silent = refresh)
             if (report.forecastStatus != ForecastStatus.FRESH) needsRetry += site.id

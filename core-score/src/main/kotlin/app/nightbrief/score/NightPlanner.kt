@@ -61,6 +61,9 @@ data class NightReport(
     val forecastFetchedAt: Instant? = null,
 ) {
     val scoreValue: Int? get() = score?.score
+
+    /** Playful sentence for this night, or null. The same text on Tonight, the widget, and the watch. */
+    val flavorLine: String? get() = NightFlavor.line(this)
 }
 
 object NightPlanner {

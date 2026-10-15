@@ -47,8 +47,25 @@ object SkyEvents {
     /** Days scanned ahead. */
     const val DAYS_AHEAD = 365
 
-    fun yearAhead(from: LocalDate, zone: ZoneId): List<SkyEvent> {
-        val days = (0..DAYS_AHEAD).map { from.plusDays(it.toLong()) }
+    fun yearAhead(from: LocalDate, zone: ZoneId): List<SkyEvent> = scan(from, DAYS_AHEAD, zone)
+
+    /**
+     * Events whose local date in [zone] falls on [start] through [endInclusive].
+     * The scan includes two extra days on each side so a peak on the first or last
+     * date still has neighbours. Empty when nothing in that window qualifies.
+     */
+    fun between(start: LocalDate, endInclusive: LocalDate, zone: ZoneId): List<SkyEvent> {
+        val from = start.minusDays(2)
+        val until = endInclusive.plusDays(2)
+        val span = java.time.temporal.ChronoUnit.DAYS.between(from, until).toInt()
+        return scan(from, span, zone).filter { event ->
+            val day = event.instant.atZone(zone).toLocalDate()
+            !day.isBefore(start) && !day.isAfter(endInclusive)
+        }
+    }
+
+    private fun scan(from: LocalDate, daysAhead: Int, zone: ZoneId): List<SkyEvent> {
+        val days = (0..daysAhead).map { from.plusDays(it.toLong()) }
         val noons = days.associateWith { it.atTime(12, 0).atZone(zone).toInstant() }
         val events = mutableListOf<SkyEvent>()
         events += seasons(days, noons)
@@ -216,7 +233,8 @@ object SkyEvents {
     private fun appulses(days: List<LocalDate>, noons: Map<LocalDate, Instant>): List<SkyEvent> {
         val targets = listOf(Planet.VENUS, Planet.MARS, Planet.JUPITER, Planet.SATURN)
         // The Moon moves ~13°/day, so daily samples would skip close appulses: step 6 hours.
-        val steps = (0..DAYS_AHEAD * 4).map { noons.getValue(days.first()).plusSeconds(it * 6 * 3600L) }
+        val daysAhead = days.size - 1
+        val steps = (0..daysAhead * 4).map { noons.getValue(days.first()).plusSeconds(it * 6 * 3600L) }
         val moons = steps.associateWith { Bodies.moonEquatorial(AstroTime.daysSinceJ2000(it)).first }
         val events = mutableListOf<SkyEvent>()
         for (planet in targets) {

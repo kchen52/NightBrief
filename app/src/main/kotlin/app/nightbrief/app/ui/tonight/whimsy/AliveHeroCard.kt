@@ -97,15 +97,17 @@ fun AliveHeroCard(
             if (sky.shootingStar && motionAllowed()) {
                 ShootingStar(palette.amber)
             }
-            Column(Modifier.padding(16.dp)) {
+            Column(
+                Modifier.padding(start = 16.dp, top = 16.dp, end = HeroGutter, bottom = 16.dp),
+            ) {
                 content()
             }
             NightOwl(
                 mood,
                 mood.contentDescription(report),
                 Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 8.dp, top = 8.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 8.dp, bottom = 8.dp)
                     .size(52.dp),
             )
             MoonTarget(
@@ -118,8 +120,8 @@ fun AliveHeroCard(
                 onLongClick = { showFact = true },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 10.dp, end = 10.dp)
-                    .size(48.dp),
+                    .padding(top = 12.dp, end = 12.dp)
+                    .size(36.dp),
             )
         }
     }
@@ -204,36 +206,63 @@ private fun MoonTarget(
     }
 }
 
+private val HeroGutter = 64.dp
+
 private fun DrawScope.drawStars(color: Color, alpha: Float) {
     if (alpha <= 0f) return
-    val spots = listOf(
-        0.18f to 0.22f,
-        0.32f to 0.62f,
-        0.46f to 0.18f,
-        0.62f to 0.48f,
-        0.74f to 0.16f,
-        0.22f to 0.78f,
-        0.55f to 0.72f,
-    )
-    spots.forEachIndexed { i, (x, y) ->
+    val left = 10.dp.toPx()
+    val right = size.width - (HeroGutter + 8.dp).toPx()
+    val span = (right - left).coerceAtLeast(1f)
+    val alongTop = listOf(0.06f, 0.24f, 0.42f, 0.63f, 0.84f)
+    alongTop.forEachIndexed { i, f ->
         drawCircle(
-            color.copy(alpha = alpha * if (i % 2 == 0) 0.9f else 0.55f),
-            radius = if (i % 3 == 0) 1.8.dp.toPx() else 1.1.dp.toPx(),
-            center = Offset(size.width * x, size.height * y),
+            color.copy(alpha = alpha * if (i % 2 == 0) 0.55f else 0.32f),
+            radius = if (i % 2 == 0) 1.15.dp.toPx() else 0.8.dp.toPx(),
+            center = Offset(left + span * f, 7.dp.toPx() + if (i % 2 == 0) 0f else 2.5.dp.toPx()),
         )
     }
+    drawCircle(color.copy(alpha = alpha * 0.4f), 0.9.dp.toPx(), Offset(6.dp.toPx(), size.height * 0.42f))
+    drawCircle(color.copy(alpha = alpha * 0.28f), 0.8.dp.toPx(), Offset(6.dp.toPx(), size.height * 0.68f))
 }
 
+/**
+ * A wash along the bottom padding, left of the owl gutter.
+ * Peak alpha is 0.10 at a score of 100 and falls to 0 across the band.
+ */
 private fun DrawScope.drawMilkyWay(color: Color, strength: Float) {
     if (strength <= 0.01f) return
+    val peak = (0.10f * strength).coerceIn(0f, 0.12f)
+    val right = (size.width - (HeroGutter + 4.dp).toPx()).coerceAtLeast(0f)
+    val mid = size.height - 7.dp.toPx()
+    val half = 8.dp.toPx()
+    val rise = 3.dp.toPx()
+    fun centerY(x: Float): Float {
+        val t = if (right <= 1f) 0f else (x / right).coerceIn(0f, 1f)
+        val u = 2f * t - 1f
+        return mid - rise * (1f - u * u)
+    }
+    val steps = 24
     val path = Path().apply {
-        moveTo(0f, size.height * 0.42f)
-        quadraticBezierTo(size.width * 0.45f, size.height * 0.08f, size.width, size.height * 0.36f)
+        moveTo(0f, centerY(0f) - half)
+        for (s in 1..steps) {
+            val x = right * s / steps
+            lineTo(x, centerY(x) - half)
+        }
+        for (s in steps downTo 0) {
+            val x = right * s / steps
+            lineTo(x, centerY(x) + half)
+        }
+        close()
     }
     drawPath(
         path,
-        color.copy(alpha = 0.42f * strength),
-        style = Stroke(width = size.minDimension * 0.16f, cap = StrokeCap.Round),
+        Brush.verticalGradient(
+            0f to Color.Transparent,
+            0.5f to color.copy(alpha = peak),
+            1f to Color.Transparent,
+            startY = mid - rise - half,
+            endY = mid + half,
+        ),
     )
 }
 

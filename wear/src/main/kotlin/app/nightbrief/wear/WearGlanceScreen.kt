@@ -10,6 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -20,6 +23,9 @@ import app.nightbrief.score.WearGlance
 private val Background = Color(0xFF12141C)
 private val TextPrimary = Color(0xFFF4F6FB)
 private val TextMuted = Color(0xFFB7BDD0)
+
+/** TalkBack name for the decorative Go-night mark. Maybe and No-go do not draw it. */
+const val GO_SPARKLE_DESCRIPTION = "Sparkle"
 
 @Composable
 fun WearGlanceScreen(glance: WearGlance, modifier: Modifier = Modifier) {
@@ -39,6 +45,17 @@ fun WearGlanceScreen(glance: WearGlance, modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             )
         } else {
+            if (glance.verdictText == Verdict.GO.label) {
+                Text(
+                    NightBriefTile.GO_SPARKLE,
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .testTag("go-sparkle")
+                        .semantics { contentDescription = GO_SPARKLE_DESCRIPTION },
+                )
+            }
             Text(glance.siteName, color = TextMuted, fontSize = 14.sp, textAlign = TextAlign.Center)
             Text(
                 glance.scoreText,
@@ -54,6 +71,9 @@ fun WearGlanceScreen(glance: WearGlance, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
             )
+            glance.flavorText?.let { flavor ->
+                Text(flavor, color = TextMuted, fontSize = 12.sp, textAlign = TextAlign.Center)
+            }
             glance.savedText?.let { saved ->
                 Text(saved, color = TextMuted, fontSize = 12.sp, textAlign = TextAlign.Center)
             }

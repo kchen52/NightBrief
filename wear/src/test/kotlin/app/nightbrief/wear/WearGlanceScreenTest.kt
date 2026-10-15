@@ -3,6 +3,7 @@ package app.nightbrief.wear
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import app.nightbrief.score.WearGlance
 import org.junit.Rule
@@ -24,6 +25,8 @@ class WearGlanceScreenTest {
         compose.onNodeWithText("Home").assertIsDisplayed()
         compose.onNodeWithText("92").assertIsDisplayed()
         compose.onNodeWithText("Go").assertIsDisplayed()
+        compose.onNodeWithTag("go-sparkle").assertIsDisplayed()
+        compose.onNodeWithText(NightBriefTile.GO_SPARKLE).assertIsDisplayed()
     }
 
     @Test
@@ -33,6 +36,7 @@ class WearGlanceScreenTest {
         compose.onNodeWithText("Long Point").assertIsDisplayed()
         compose.onNodeWithText("15").assertIsDisplayed()
         compose.onNodeWithText("No-go").assertIsDisplayed()
+        compose.onNodeWithTag("go-sparkle").assertDoesNotExist()
     }
 
     @Test
@@ -41,6 +45,7 @@ class WearGlanceScreenTest {
         compose.setContent { WearGlanceScreen(glance) }
         compose.onNodeWithText("55").assertIsDisplayed()
         compose.onNodeWithText("Maybe").assertIsDisplayed()
+        compose.onNodeWithTag("go-sparkle").assertDoesNotExist()
     }
 
     @Test
@@ -50,6 +55,19 @@ class WearGlanceScreenTest {
         compose.onNodeWithText("70").assertIsDisplayed()
         compose.onNodeWithText("Go").assertIsDisplayed()
         compose.onNodeWithText("Saved Thu 18:40").assertIsDisplayed()
+    }
+
+    @Test
+    fun aFlavourLineShowsUnderTheVerdict() {
+        val glance = WearGlance.from(
+            onboardingComplete = true,
+            siteName = "Home",
+            score = 12,
+            flavorText = "Overcast. Even the owls are staying in.",
+        )
+        compose.setContent { WearGlanceScreen(glance) }
+        compose.onNodeWithText("12").assertIsDisplayed()
+        compose.onNodeWithText("Overcast. Even the owls are staying in.").assertIsDisplayed()
     }
 
     @Test

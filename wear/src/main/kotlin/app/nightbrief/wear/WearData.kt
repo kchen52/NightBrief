@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import app.nightbrief.score.WearGlance
 import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.wearable.DataMap
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import java.util.concurrent.TimeUnit
@@ -16,13 +17,17 @@ object WearData {
         buffer.use { items ->
             if (items.count == 0) return null
             val map = DataMapItem.fromDataItem(items[0]).dataMap
-            return WearGlance(
-                ready = map.getBoolean(WearGlance.KEY_READY),
-                siteName = map.getString(WearGlance.KEY_SITE, ""),
-                scoreText = map.getString(WearGlance.KEY_SCORE, "—"),
-                verdictText = map.getString(WearGlance.KEY_VERDICT, WearGlance.SETUP),
-                savedText = map.getString(WearGlance.KEY_SAVED, "").ifBlank { null },
-            )
+            return glance(map)
         }
     }
+
+    /** [WearGlance.KEY_FLAVOR] is optional: a missing or blank value leaves [WearGlance.flavorText] null. */
+    internal fun glance(map: DataMap): WearGlance = WearGlance(
+        ready = map.getBoolean(WearGlance.KEY_READY),
+        siteName = map.getString(WearGlance.KEY_SITE, ""),
+        scoreText = map.getString(WearGlance.KEY_SCORE, "—"),
+        verdictText = map.getString(WearGlance.KEY_VERDICT, WearGlance.SETUP),
+        savedText = map.getString(WearGlance.KEY_SAVED, "").ifBlank { null },
+        flavorText = map.getString(WearGlance.KEY_FLAVOR, "").ifBlank { null },
+    )
 }

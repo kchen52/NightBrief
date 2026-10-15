@@ -226,6 +226,14 @@ private fun HeroCard(report: NightReport) {
                 }
             }
         }
+        report.flavorLine?.let { line ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                line,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (score != null) {
             NightSummary.whyGood(score, report.ephemeris)?.let { why ->
                 Spacer(Modifier.height(8.dp))

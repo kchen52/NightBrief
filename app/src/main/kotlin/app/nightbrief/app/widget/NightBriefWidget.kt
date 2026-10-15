@@ -48,6 +48,7 @@ class NightBriefWidget : GlanceAppWidget() {
         return WidgetContent.Night(
             siteName = primary.name,
             scoreLine = WidgetCopy.scoreLine(report?.scoreValue),
+            flavorLine = WidgetCopy.flavorLine(report),
             milkyWayLine = WidgetCopy.milkyWayLine(
                 report?.ephemeris?.milkyWay?.window,
                 primary.zone,
@@ -66,6 +67,7 @@ internal sealed interface WidgetContent {
         val scoreLine: String,
         val milkyWayLine: String,
         val savedLine: String? = null,
+        val flavorLine: String? = null,
     ) : WidgetContent
 }
 
@@ -91,6 +93,9 @@ internal fun NightBriefWidgetContent(content: WidgetContent) {
             is WidgetContent.Night -> {
                 Text(content.siteName, style = TextStyle(color = ColorProvider(Color(0xFFF4F6FB)), fontSize = 16.sp))
                 Text(content.scoreLine, style = TextStyle(color = ColorProvider(Color(0xFFE8EAF0)), fontSize = 14.sp))
+                content.flavorLine?.let {
+                    Text(it, style = TextStyle(color = ColorProvider(Color(0xFFB7BDD0)), fontSize = 13.sp))
+                }
                 Text(content.milkyWayLine, style = TextStyle(color = ColorProvider(Color(0xFFB7BDD0)), fontSize = 14.sp))
                 content.savedLine?.let {
                     Text(it, style = TextStyle(color = ColorProvider(Color(0xFFFBBF24)), fontSize = 13.sp))

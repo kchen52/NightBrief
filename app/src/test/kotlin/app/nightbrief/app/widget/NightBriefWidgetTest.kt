@@ -44,6 +44,24 @@ class NightBriefWidgetTest {
     }
 
     @Test
+    fun showsTheFlavourLineUnderTheScore() = runGlanceAppWidgetUnitTest {
+        setContext(ApplicationProvider.getApplicationContext())
+        val flavor = "Overcast. Even the owls are staying in."
+        provideComposable {
+            NightBriefWidgetContent(
+                WidgetContent.Night(
+                    siteName = "Home",
+                    scoreLine = WidgetCopy.scoreLine(12),
+                    milkyWayLine = WidgetCopy.milkyWayLine(null, zone),
+                    flavorLine = flavor,
+                ),
+            )
+        }
+        onNode(hasText(WidgetCopy.scoreLine(12))).assertExists()
+        onNode(hasText(flavor)).assertExists()
+    }
+
+    @Test
     fun showsWhenAStaleForecastWasSaved() = runGlanceAppWidgetUnitTest {
         setContext(ApplicationProvider.getApplicationContext())
         val saved = SavedForecast.shortLabel(

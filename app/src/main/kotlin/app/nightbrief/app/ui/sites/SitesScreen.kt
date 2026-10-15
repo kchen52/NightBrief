@@ -193,6 +193,7 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 onChange = { draft = it },
                 lookupBortle = vm::lookupBortle,
                 lookupTimeZone = vm::lookupTimeZone,
+                searchPlaces = vm::searchPlaces,
                 showPrimaryToggle = existing == null || existing.id != s.sites.primaryId,
                 showDigestOverride = true,
                 globalDigestTime = s.digestTime,

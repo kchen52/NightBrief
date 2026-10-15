@@ -356,6 +356,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.about_open_meteo), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_places), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_7timer), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_swpc), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_iss), style = MaterialTheme.typography.bodyMedium)

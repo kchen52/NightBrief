@@ -173,6 +173,7 @@ fun OnboardingScreen(vm: AppViewModel) {
                             onChange = vm::updateOnboardingSite,
                             lookupBortle = vm::lookupBortle,
                             lookupTimeZone = vm::lookupTimeZone,
+                            searchPlaces = vm::searchPlaces,
                             showPrimaryToggle = false,
                             showDigestOverride = false,
                             globalDigestTime = s.digestTime,

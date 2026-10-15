@@ -17,6 +17,7 @@ import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
+import app.nightbrief.weather.PlaceSearchResult
 import app.nightbrief.work.DigestScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -138,6 +139,10 @@ class AppViewModel(
     /** IANA time zone from Open-Meteo, or null when the lookup fails. */
     suspend fun lookupTimeZone(lat: Double, lon: Double): String? =
         withContext(Dispatchers.IO) { graph.timeZoneLookup.zoneFor(lat, lon) }
+
+    /** Fuzzy place-name search. A failure is [PlaceSearchResult.failed], not a thrown error. */
+    suspend fun searchPlaces(query: String): PlaceSearchResult =
+        withContext(Dispatchers.IO) { graph.placeSearch.search(query) }
 
     /**
      * Samples the bundled Bortle grid in rings around [siteId] and scores the darkest

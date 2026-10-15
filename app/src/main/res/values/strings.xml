@@ -169,12 +169,14 @@
     <string name="library_import_failed">That file isn\'t a NightBrief library.</string>
     <string name="section_about">About</string>
     <string name="about_open_meteo">Weather by Open-Meteo.com (CC BY 4.0).</string>
+    <string name="about_places">Place names by Open-Meteo and GeoNames (CC BY 4.0).</string>
     <string name="about_7timer">Seeing and transparency by 7Timer!.</string>
     <string name="about_swpc">Planetary Kp by NOAA SWPC.</string>
     <string name="about_iss">ISS orbits by Celestrak.</string>
     <string name="about_meteors">Meteor rates are a static annual table, not a live feed.</string>
     <string name="about_osm">Map data © OpenStreetMap contributors.</string>
     <string name="map_osm">Map data © OpenStreetMap contributors</string>
+    <string name="map_places">Place names by Open-Meteo and GeoNames</string>
     <string name="about_license">The light-pollution data is licensed for non-commercial use only.</string>
     <string name="about_ephemeris">Ephemeris uses Astronomical Almanac low-precision formulas.</string>
 
@@ -235,6 +237,10 @@
     <string name="bortle_value">Bortle %1$d</string>
     <string name="site_digest_suffix"> · digest %1$s</string>
     <string name="tap_to_place">Tap to place the site</string>
+    <string name="search_place">Search for a place</string>
+    <string name="clear_place_search">Clear place search</string>
+    <string name="place_search_failed">Couldn\'t search places. Tap the map instead.</string>
+    <string name="place_search_empty">No matching places</string>
     <string name="use_coordinates">Use %1$s</string>
     <string name="tap_map">Tap the map to choose a spot</string>
     <string name="site_error_name">Give the site a name</string>

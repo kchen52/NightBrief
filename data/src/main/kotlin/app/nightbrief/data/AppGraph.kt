@@ -16,6 +16,7 @@ import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.NetworkTimingListener
 import app.nightbrief.weather.OpenMeteoClient
 import app.nightbrief.weather.OverpassRoadAccessClient
+import app.nightbrief.weather.PlaceSearch
 import app.nightbrief.weather.RoadAccessSource
 import app.nightbrief.weather.SevenTimerClient
 import app.nightbrief.weather.SwpcKpClient
@@ -57,6 +58,9 @@ class AppGraph private constructor(context: Context) {
         private set
 
     val timeZoneLookup = TimeZoneLookup(http = http)
+
+    /** Fuzzy place names for the map picker. A failed search leaves the pin to a map tap. */
+    val placeSearch = PlaceSearch(http = http)
 
     /**
      * Paved-road access for darker-sky candidates (OpenStreetMap via Overpass).

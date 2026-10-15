@@ -35,6 +35,15 @@ class AppGraphSanitizeTest {
     }
 
     @Test
+    fun placeNameQueryIsNotLogged() {
+        val line = AppGraph.sanitizeUrl(
+            "https://geocoding-api.open-meteo.com/v1/search?name=Banff&count=8&language=en&format=json",
+        )
+        assertEquals("geocoding-api.open-meteo.com/v1/search", line)
+        assertFalse("place name leaked into log line: $line", line.contains("Banff"))
+    }
+
+    @Test
     fun preciseCoordinatesNeverAppear() {
         val line = AppGraph.sanitizeUrl(
             "https://api.open-meteo.com/v1/forecast?latitude=43.6532&longitude=-79.3832&hourly=cloud_cover",

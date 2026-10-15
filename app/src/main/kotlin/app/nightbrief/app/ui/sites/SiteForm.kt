@@ -55,6 +55,7 @@ import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.sites.BortleClass
 import app.nightbrief.sites.BortleSource
 import app.nightbrief.sites.LocalHorizon
+import app.nightbrief.weather.PlaceSearchResult
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -72,6 +73,7 @@ fun SiteForm(
     onChange: (SiteDraft) -> Unit,
     lookupBortle: suspend (Double, Double) -> Int?,
     lookupTimeZone: suspend (Double, Double) -> String?,
+    searchPlaces: suspend (String) -> PlaceSearchResult,
     showPrimaryToggle: Boolean,
     showDigestOverride: Boolean,
     globalDigestTime: String,
@@ -89,9 +91,12 @@ fun SiteForm(
     val latestDraft by rememberUpdatedState(draft)
     val latestOnChange by rememberUpdatedState(onChange)
 
-    fun setCoordinates(lat: Double, lon: Double) {
+    fun setCoordinates(lat: Double, lon: Double, placeName: String? = null) {
+        val current = latestDraft
+        val name = if (current.name.isBlank() && !placeName.isNullOrBlank()) placeName.trim() else current.name
         latestOnChange(
-            latestDraft.copy(
+            current.copy(
+                name = name,
                 latitude = String.format(Locale.ROOT, "%.5f", lat),
                 longitude = String.format(Locale.ROOT, "%.5f", lon),
             ),
@@ -372,9 +377,14 @@ fun SiteForm(
     }
 
     if (showMap) {
-        MapPickerDialog(draft.lat, draft.lon, onDismiss = { showMap = false }) { lat, lon ->
+        MapPickerDialog(
+            draft.lat,
+            draft.lon,
+            onDismiss = { showMap = false },
+            searchPlaces = searchPlaces,
+        ) { lat, lon, placeName ->
             showMap = false
-            setCoordinates(lat, lon)
+            setCoordinates(lat, lon, placeName)
         }
     }
     if (showTime) {

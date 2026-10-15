@@ -3,6 +3,7 @@ package app.nightbrief.wear
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -45,17 +46,6 @@ fun WearGlanceScreen(glance: WearGlance, modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             )
         } else {
-            if (glance.verdictText == Verdict.GO.label) {
-                Text(
-                    NightBriefTile.GO_SPARKLE,
-                    color = TextPrimary,
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .testTag("go-sparkle")
-                        .semantics { contentDescription = GO_SPARKLE_DESCRIPTION },
-                )
-            }
             Text(glance.siteName, color = TextMuted, fontSize = 14.sp, textAlign = TextAlign.Center)
             Text(
                 glance.scoreText,
@@ -64,13 +54,26 @@ fun WearGlanceScreen(glance: WearGlance, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-            Text(
-                glance.verdictText,
-                color = verdictColor(glance.verdictText),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    glance.verdictText,
+                    color = verdictColor(glance.verdictText),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+                if (glance.verdictText == Verdict.GO.label) {
+                    Text(
+                        NightBriefTile.GO_SPARKLE,
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .testTag("go-sparkle")
+                            .semantics { contentDescription = GO_SPARKLE_DESCRIPTION },
+                    )
+                }
+            }
             glance.flavorText?.let { flavor ->
                 Text(flavor, color = TextMuted, fontSize = 12.sp, textAlign = TextAlign.Center)
             }

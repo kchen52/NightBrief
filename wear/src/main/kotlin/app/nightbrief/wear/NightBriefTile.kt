@@ -9,6 +9,7 @@ import androidx.wear.protolayout.ResourceBuilders.Resources
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.protolayout.expression.AnimationParameterBuilders.AnimationParameters
 import androidx.wear.protolayout.expression.AnimationParameterBuilders.AnimationSpec
+import androidx.wear.protolayout.expression.AnimationParameterBuilders.REPEAT_MODE_REVERSE
 import androidx.wear.protolayout.expression.AnimationParameterBuilders.Repeatable
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicColor
 import androidx.wear.protolayout.material.Text
@@ -67,7 +68,12 @@ object NightBriefTile {
             TEXT_PRIMARY,
             AnimationSpec.Builder()
                 .setAnimationParameters(AnimationParameters.Builder().setDurationMillis(900).build())
-                .setRepeatable(Repeatable.INFINITE_REPEATABLE_WITH_REVERSE)
+                .setRepeatable(
+                    Repeatable.Builder()
+                        .setIterations(12)
+                        .setRepeatMode(REPEAT_MODE_REVERSE)
+                        .build(),
+                )
                 .build(),
         )
         return Text.Builder(context, GO_SPARKLE)

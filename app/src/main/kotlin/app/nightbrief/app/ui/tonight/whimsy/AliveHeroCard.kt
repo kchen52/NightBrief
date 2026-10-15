@@ -8,7 +8,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -99,7 +98,6 @@ fun AliveHeroCard(
                 ShootingStar(palette.amber)
             }
             Column(Modifier.padding(16.dp)) {
-                Spacer(Modifier.height(68.dp))
                 content()
             }
             NightOwl(
@@ -107,8 +105,8 @@ fun AliveHeroCard(
                 mood.contentDescription(report),
                 Modifier
                     .align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = 10.dp)
-                    .size(64.dp),
+                    .padding(start = 8.dp, top = 8.dp)
+                    .size(52.dp),
             )
             MoonTarget(
                 illumination = sky.moonIllumination.toFloat(),

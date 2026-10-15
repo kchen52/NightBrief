@@ -94,12 +94,15 @@ class DigestWhimsyTest {
 
     @Test
     fun aBetterSiteKeepsTheComparisonTitle() {
-        val homeReport = plan(home, LocalDate.of(2024, 4, 8), cloud = 10).copy(
-            meteor = peak(MeteorShowers.annual.first { it.id == "perseids" }),
+        val homeReport = plan(home, LocalDate.of(2024, 3, 15), cloud = 70).copy(
+            aurora = AuroraOutlook(6.0, "G2", KpStatus.PREDICTED, true, AuroraChance.LIKELY, 62.0),
         )
-        val elsewhere = plan(longPoint, LocalDate.of(2024, 4, 8), cloud = 0)
+        val elsewhere = plan(longPoint, LocalDate.of(2024, 3, 15), cloud = 0)
         val digest = DigestComposer.compose(homeReport, listOf(elsewhere))
-        assertNotNull(digest.alternativeSiteId)
+        assertNotNull(
+            "home ${homeReport.scoreValue} vs Long Point ${elsewhere.scoreValue}",
+            digest.alternativeSiteId,
+        )
         assertTrue(digest.title, digest.title.startsWith("Tonight: ${homeReport.scoreValue} at Home, but"))
         assertFalse(digest.title.contains("🌠"))
     }

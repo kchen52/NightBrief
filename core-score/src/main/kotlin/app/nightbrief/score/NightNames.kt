@@ -4,9 +4,8 @@ import app.nightbrief.astro.MoonPhase
 import app.nightbrief.astro.SkyEvent
 import app.nightbrief.astro.SkyEventKind
 import app.nightbrief.astro.SkyEvents
+import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.format.TextStyle
-import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -84,6 +83,14 @@ object NightNames {
     /** "Perseids" becomes "Perseid". A name that does not end in "ids" is kept. */
     fun adjective(name: String): String = if (name.endsWith("ids")) name.dropLast(1) else name
 
-    private fun dayName(date: LocalDate): String =
-        date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ROOT)
+    /** English day name. Copy is not localised, and Locale.ROOT's full style is the short form. */
+    private fun dayName(date: LocalDate): String = when (date.dayOfWeek) {
+        DayOfWeek.MONDAY -> "Monday"
+        DayOfWeek.TUESDAY -> "Tuesday"
+        DayOfWeek.WEDNESDAY -> "Wednesday"
+        DayOfWeek.THURSDAY -> "Thursday"
+        DayOfWeek.FRIDAY -> "Friday"
+        DayOfWeek.SATURDAY -> "Saturday"
+        DayOfWeek.SUNDAY -> "Sunday"
+    }
 }

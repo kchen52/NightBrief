@@ -1,14 +1,21 @@
 package app.nightbrief.app.ui.sites
 
 import android.app.Application
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -51,10 +58,7 @@ class MapPickerTest {
         val label = "Use ${Format.coordinates(43.6532, -79.3832)}"
         val button = compose.onNodeWithText(label)
         button.assertIsDisplayed()
-        val visible = button.getBoundsInRoot()
-        val full = button.getUnclippedBoundsInRoot()
-        assertEquals("confirm button was clipped at the bottom", full.bottom, visible.bottom, 0.5f)
-        assertEquals("confirm button was clipped at the top", full.top, visible.top, 0.5f)
+        assertFullyVisible(button)
         compose.onNodeWithText("Map data © OpenStreetMap contributors").assertIsDisplayed()
         compose.onNodeWithText("Place names by Open-Meteo and GeoNames").assertIsDisplayed()
         compose.onNodeWithText("Search for a place").assertIsDisplayed()
@@ -84,9 +88,7 @@ class MapPickerTest {
         val label = "Use ${Format.coordinates(banff.latitude, banff.longitude)}"
         val button = compose.onNodeWithText(label)
         button.assertIsDisplayed()
-        val visible = button.getBoundsInRoot()
-        val full = button.getUnclippedBoundsInRoot()
-        assertEquals("confirm button was clipped at the bottom", full.bottom, visible.bottom, 0.5f)
+        assertFullyVisible(button)
         button.performClick()
         assertEquals(Triple(banff.latitude, banff.longitude, "Banff"), picked)
     }
@@ -116,6 +118,7 @@ class MapPickerTest {
         var draft by mutableStateOf(SiteDraft())
         compose.setContent {
             NightBriefTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 SiteForm(
                     draft = draft,
                     onChange = { draft = it },
@@ -126,6 +129,7 @@ class MapPickerTest {
                     showDigestOverride = false,
                     globalDigestTime = "08:00",
                 )
+                }
             }
         }
         compose.onNodeWithText("Pick on map").performScrollTo().performClick()
@@ -150,5 +154,12 @@ class MapPickerTest {
         compose.waitUntil(timeoutMillis = 5_000) { draft.latitude == "51.17840" }
         assertEquals("Cabin", draft.name)
         assertNull(draft.bortle)
+    }
+
+    private fun assertFullyVisible(node: SemanticsNodeInteraction) {
+        val visible = node.getBoundsInRoot()
+        val full = node.getUnclippedBoundsInRoot()
+        assertEquals("confirm button was clipped at the bottom", full.bottom.value, visible.bottom.value, 0.5f)
+        assertEquals("confirm button was clipped at the top", full.top.value, visible.top.value, 0.5f)
     }
 }

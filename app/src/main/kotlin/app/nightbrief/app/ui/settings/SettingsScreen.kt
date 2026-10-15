@@ -12,6 +12,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.BuildConfig
 import app.nightbrief.app.R
 import app.nightbrief.data.LibraryFormatException
 import androidx.compose.ui.semantics.contentDescription
@@ -73,7 +76,7 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val context = LocalContext.current
@@ -190,6 +193,10 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         label = { Text(stringResource(R.string.units_imperial)) },
                         modifier = Modifier.testTag("units-imperial"),
                     )
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = onOpenPassport, modifier = Modifier.testTag("sky-passport")) {
+                    Text(stringResource(R.string.sky_passport))
                 }
             }
 
@@ -355,6 +362,8 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             SectionCard(stringResource(R.string.section_about)) {
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
+                AboutVersion()
+                Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.about_open_meteo), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_places), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_7timer), style = MaterialTheme.typography.bodyMedium)
@@ -377,6 +386,33 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
         ) { time ->
             showTime = false
             vm.setDigestTime("%02d:%02d".format(Locale.ROOT, time.hour, time.minute))
+        }
+    }
+}
+
+private const val PALE_BLUE_DOT_TAPS = 7
+
+/** Seven taps on the version line reveal a short Pale Blue Dot excerpt. Fewer taps leave it hidden. */
+@Composable
+private fun AboutVersion() {
+    var taps by remember { mutableIntStateOf(0) }
+    Column {
+        Text(
+            stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .testTag("about-version")
+                .clickable { taps += 1 },
+        )
+        if (taps >= PALE_BLUE_DOT_TAPS) {
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.pale_blue_dot), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(R.string.pale_blue_dot_attribution),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

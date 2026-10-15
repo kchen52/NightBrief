@@ -42,6 +42,13 @@
     <string name="allow_notifications">Allow notifications</string>
 
     <string name="tonight_empty">Pull fresh data with the refresh button</string>
+    <string-array name="refresh_lines">
+        <item>Asking the clouds politely…</item>
+        <item>Consulting 7Timer\'s crystal ball…</item>
+        <item>Polishing the lenses…</item>
+        <item>Counting photons…</item>
+        <item>Checking under the Moon…</item>
+    </string-array>
     <string name="week_title">This week</string>
     <string name="week_footnote">Strip scores show each site\'s best night. Nights marked est. estimate seeing and transparency from humidity and jet-stream wind.</string>
     <string name="week_estimated">est.</string>
@@ -168,6 +175,9 @@
     <string name="library_imported">Sites and gear restored from that file.</string>
     <string name="library_import_failed">That file isn\'t a NightBrief library.</string>
     <string name="section_about">About</string>
+    <string name="about_version">NightBrief %1$s</string>
+    <string name="pale_blue_dot">Look again at that dot. That\'s here. That\'s home. That\'s us.</string>
+    <string name="pale_blue_dot_attribution">Carl Sagan, Pale Blue Dot, 1994</string>
     <string name="about_open_meteo">Weather by Open-Meteo.com (CC BY 4.0).</string>
     <string name="about_places">Place names by Open-Meteo and GeoNames (CC BY 4.0).</string>
     <string name="about_7timer">Seeing and transparency by 7Timer!.</string>
@@ -253,6 +263,7 @@
     <string name="no_bodies">No camera bodies yet.</string>
     <string name="suggestions_use_body">Suggestions use the selected body.</string>
     <string name="add_body">Add body</string>
+    <string name="nickname">Nickname</string>
     <string name="lenses">Lenses</string>
     <string name="no_lenses">No lenses yet.</string>
     <string name="need_body">Add a camera body to calculate exposure limits.</string>
@@ -336,4 +347,9 @@
     <string name="event_solar_eclipse">Solar eclipse</string>
     <string name="event_season">Season</string>
     <string name="event_shower">Meteor shower</string>
+    <string name="sky_passport">Sky passport</string>
+    <string name="passport_constellations">Constellations</string>
+    <string name="passport_stamps">Stamps</string>
+    <string name="passport_new_stamp">New stamp: %1$s</string>
+    <string name="passport_earned_on">Earned %1$s</string>
 </resources>

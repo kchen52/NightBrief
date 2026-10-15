@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.score.ForecastSurprise
 import app.nightbrief.score.SessionEntry
 import java.time.LocalDate
 
@@ -82,8 +83,23 @@ fun SessionPromptCard(
 }
 
 @Composable
-fun SessionHistoryCard(sessions: List<SessionEntry>, modifier: Modifier = Modifier) {
+fun SessionHistoryCard(
+    sessions: List<SessionEntry>,
+    siteName: String,
+    streakLine: String?,
+    onOpenPassport: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     SectionCard(stringResource(R.string.session_history), modifier = modifier) {
+        TextButton(onClick = onOpenPassport) { Text(stringResource(R.string.sky_passport)) }
+        if (streakLine != null) {
+            Text(
+                streakLine,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         if (sessions.isEmpty()) {
             Text(
                 stringResource(R.string.session_empty),
@@ -100,6 +116,13 @@ fun SessionHistoryCard(sessions: List<SessionEntry>, modifier: Modifier = Modifi
                             (entry.score?.let { " · scored $it" } ?: ""),
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                    ForecastSurprise.line(siteName, entry)?.let { surprise ->
+                        Text(
+                            surprise,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
                     if (entry.note.isNotBlank()) {
                         Text(
                             entry.note,

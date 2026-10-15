@@ -129,6 +129,16 @@ class NightFlavorTest {
     }
 
     @Test
+    fun aClearGoNightWithAHalfMoonStillGetsALine() {
+        val report = plan(home, LocalDate.of(2024, 9, 9), cloud = 0)
+        val moon = report.ephemeris.moonIllumination
+        assertTrue("illumination was $moon", moon in NightEphemeris.NEGLIGIBLE_MOON..0.70)
+        assertEquals(Verdict.GO, report.score!!.verdict)
+        val line = report.flavorLine
+        assertTrue("line was $line", line in CLEAR_GO)
+    }
+
+    @Test
     fun theSameSiteAndDateKeepsTheSameLine() {
         val report = plan(home, LocalDate.of(2024, 3, 15), cloud = 100)
         val first = report.flavorLine
@@ -249,6 +259,10 @@ class NightFlavorTest {
         val CLEAR = setOf(
             "Clear, dark, and moonless. The universe is showing off.",
             "Clear, dark, and moonless. The universe is in a generous mood.",
+        )
+        val CLEAR_GO = setOf(
+            "Clear skies on the menu. Go make something.",
+            "The clouds took the night off. You shouldn't.",
         )
         val MOON = setOf(
             "The Moon is hogging the stage tonight.",

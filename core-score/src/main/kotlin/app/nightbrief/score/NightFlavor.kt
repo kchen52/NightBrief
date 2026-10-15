@@ -28,6 +28,9 @@ object NightFlavor {
             frostOrDew(report)?.let { return it }
         }
         moon(report)?.let { return it }
+        if (cloudMeasured(report)) {
+            clearGo(report)?.let { return it }
+        }
         if (report.score != null && report.forecastStatus == ForecastStatus.STALE) {
             return pick(report, STALE)
         }
@@ -83,6 +86,13 @@ object NightFlavor {
         if (report.ephemeris.darkness != Darkness.ASTRONOMICAL) return null
         if (!moonless(report.ephemeris)) return null
         return pick(report, CLEAR)
+    }
+
+    private fun clearGo(report: NightReport): String? {
+        val score = report.score ?: return null
+        if (score.verdict != Verdict.GO) return null
+        if (score.factor(Factor.CLOUD).quality < CLEAR_QUALITY) return null
+        return pick(report, CLEAR_GO)
     }
 
     private fun frostOrDew(report: NightReport): String? {
@@ -141,6 +151,10 @@ object NightFlavor {
     private val CLEAR = listOf(
         "Clear, dark, and moonless. The universe is showing off.",
         "Clear, dark, and moonless. The universe is in a generous mood.",
+    )
+    private val CLEAR_GO = listOf(
+        "Clear skies on the menu. Go make something.",
+        "The clouds took the night off. You shouldn't.",
     )
     private val MOON = listOf(
         "The Moon is hogging the stage tonight.",

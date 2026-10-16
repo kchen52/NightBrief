@@ -159,11 +159,7 @@
     <string name="notifications_body">The morning digest is posted as a notification. Without permission it can\'t be delivered.</string>
     <string name="notification_settings">Notification settings</string>
     <string name="open_notification_settings">Open notification settings</string>
-    <string name="section_exact_alarms">Exact alarms</string>
-    <string name="exact_alarms_allowed">Exact alarms are allowed, so the digest fires at the time you set.</string>
-    <string name="exact_alarms_denied">Exact alarms are not allowed.</string>
-    <string name="exact_alarms_body">The digest still arrives without exact alarms, just less precisely. Android may deliver it later while the phone is idle.</string>
-    <string name="allow_exact_alarms">Allow exact alarms</string>
+    <string name="digest_inexact">While the phone is idle, Android may deliver the digest a little after the time you set.</string>
     <string name="send_digest_now">Send digest now</string>
     <string name="digest_queued">Digest queued. It will show up as a notification in a moment.</string>
     <string name="digest_queued_silent">Digest queued, but notifications are off so it may not appear.</string>

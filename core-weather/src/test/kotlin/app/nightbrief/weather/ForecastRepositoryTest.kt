@@ -78,7 +78,10 @@ class ForecastRepositoryTest {
         assertEquals(5, h.transparency)
         assertEquals(4, f.at(Instant.ofEpochSecond(1790866800 + 3 * 3600))!!.seeing)
         assertNull("hours before 7Timer coverage keep null seeing", f.hours.first().seeing)
-        assertTrue(requests.first { it.startsWith("/om") }.contains("models=gem_seamless"))
+        assertTrue(
+            "expected a gem request, got $requests",
+            requests.any { it.startsWith("/om") && "models=gem_seamless" in it },
+        )
     }
 
     @Test

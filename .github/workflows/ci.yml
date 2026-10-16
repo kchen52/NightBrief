@@ -20,10 +20,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      # ubuntu-latest already has ANDROID_HOME, platform 35, and build-tools 35.
+      # The phone compiles against API 36. The watch still compiles against API 35.
       # android-actions/setup-android@v3 still runs `sdkmanager tools`, and Google
       # removed that package, so the job died before Gradle started.
-      - name: Confirm Android SDK 35
+      - name: Confirm Android SDK 35 and 36
         run: |
           set -euo pipefail
           if [ -z "${ANDROID_HOME:-}" ]; then
@@ -31,8 +31,21 @@ jobs:
             exit 1
           fi
           echo "ANDROID_HOME=$ANDROID_HOME"
-          if [ -d "$ANDROID_HOME/platforms/android-35" ] && compgen -G "$ANDROID_HOME/build-tools/35.*" >/dev/null; then
-            echo "Platform 35 and build-tools 35 are already installed"
+          need=()
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ]; then
+            need+=("platforms;android-35")
+          fi
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then
+            need+=("platforms;android-36")
+          fi
+          if ! compgen -G "$ANDROID_HOME/build-tools/35.*" >/dev/null; then
+            need+=("build-tools;35.0.0")
+          fi
+          if ! compgen -G "$ANDROID_HOME/build-tools/36.*" >/dev/null; then
+            need+=("build-tools;36.0.0")
+          fi
+          if [ ${#need[@]} -eq 0 ]; then
+            echo "Platforms 35 and 36 and build-tools 35 and 36 are already installed"
             exit 0
           fi
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
@@ -44,7 +57,7 @@ jobs:
             exit 1
           fi
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"
+          "$sdkmanager" --install "${need[@]}"
       - name: JVM, Robolectric, lint, and Paparazzi
         run: ./gradlew assembleDebug lintDebug test verifyPaparazziDebug --stacktrace
       - name: Upload Paparazzi failures

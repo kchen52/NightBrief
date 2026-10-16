@@ -8,6 +8,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.impl.utils.SynchronousExecutor
 import androidx.work.testing.TestListenableWorkerBuilder
@@ -18,6 +19,7 @@ import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -28,6 +30,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
 import org.robolectric.shadows.ShadowApplication
 import java.io.File
 
@@ -104,6 +107,74 @@ class DigestWorkerTest {
         DigestScheduler.reschedule(context, onboarded.copy(digestEnabled = false))
         assertNull(alarms.peekNextScheduledAlarm())
     }
+
+    @Test
+    fun rescheduleOnApi31AndAboveStaysInexactEvenWhenExactAlarmsLookAllowed() {
+        val context = context()
+        val alarms = shadowOf(context.getSystemService(AlarmManager::class.java))
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+
+        DigestScheduler.reschedule(context, onboardedDigest())
+
+        val alarm = alarms.peekNextScheduledAlarm()
+        assertNotNull(alarm)
+        assertEquals(AlarmManager.RTC_WAKEUP, alarm!!.getType())
+        assertEquals(true, alarm.isAllowWhileIdle)
+        assertEquals(ShadowAlarmManager.WINDOW_HEURISTIC, alarm.windowLengthMs)
+    }
+
+    @Test
+    @Config(sdk = [30])
+    fun rescheduleBelowApi31UsesExactAlarmWithoutThePlayPermission() {
+        val context = context()
+        val alarms = shadowOf(context.getSystemService(AlarmManager::class.java))
+
+        DigestScheduler.reschedule(context, onboardedDigest())
+
+        val alarm = alarms.peekNextScheduledAlarm()
+        assertNotNull(alarm)
+        assertEquals(AlarmManager.RTC_WAKEUP, alarm!!.getType())
+        assertEquals(true, alarm.isAllowWhileIdle)
+        assertEquals(ShadowAlarmManager.WINDOW_EXACT, alarm.windowLengthMs)
+    }
+
+    @Test
+    fun exactAlarmRefusalFallsBackToAnInexactDozeAlarm() {
+        var exactTries = 0
+        var inexactTries = 0
+        DigestScheduler.runDigestAlarm(
+            sdkInt = 30,
+            exact = {
+                exactTries += 1
+                throw SecurityException("exact alarms unavailable")
+            },
+            inexact = { inexactTries += 1 },
+        )
+        assertEquals(1, exactTries)
+        assertEquals(1, inexactTries)
+
+        exactTries = 0
+        inexactTries = 0
+        DigestScheduler.runDigestAlarm(
+            sdkInt = 34,
+            exact = { exactTries += 1 },
+            inexact = { inexactTries += 1 },
+        )
+        assertEquals(0, exactTries)
+        assertEquals(1, inexactTries)
+    }
+
+    @Test
+    fun digestWorkIsExpeditedOnlyOnApisThatDoNotStartAForegroundService() {
+        val modern = DigestScheduler.digestWorkRequest(null, null, sdkInt = 34)
+        val legacy = DigestScheduler.digestWorkRequest(null, null, sdkInt = 30)
+        assertTrue(modern.workSpec.expedited)
+        assertEquals(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST, modern.workSpec.outOfQuotaPolicy)
+        assertFalse(legacy.workSpec.expedited)
+    }
+
+    private fun onboardedDigest() =
+        AppState(onboardingComplete = true, sites = SiteBook().add(home), digestEnabled = true)
 
     private fun context(): Context = ApplicationProvider.getApplicationContext()
 

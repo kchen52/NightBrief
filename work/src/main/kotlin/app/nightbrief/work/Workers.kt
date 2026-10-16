@@ -1,8 +1,6 @@
 package app.nightbrief.work
 
 import android.content.Context
-import android.content.pm.ServiceInfo
-import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
@@ -75,13 +73,18 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         return Result.success()
     }
 
+    /**
+     * WorkManager reads this only when expedited work runs as a foreground service, which is
+     * below API 31. [DigestScheduler] does not expedite on those versions, and
+     * `FOREGROUND_SERVICE` is not declared, so this notification is not posted.
+     *
+     * The notification has no foreground service type. Below API 31 the platform ignores the
+     * type, and a `dataSync` type requires that type on `SystemForegroundService` plus
+     * `FOREGROUND_SERVICE_DATA_SYNC`.
+     */
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = DigestNotifier(applicationContext).progressNotification()
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(DigestNotifier.PROGRESS_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            ForegroundInfo(DigestNotifier.PROGRESS_ID, notification)
-        }
+        return ForegroundInfo(DigestNotifier.PROGRESS_ID, notification)
     }
 
     companion object {

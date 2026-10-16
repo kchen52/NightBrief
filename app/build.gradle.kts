@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace = "app.nightbrief.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.nightbrief"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        targetSdk = 36
+        versionCode = providers.gradleProperty("nightbrief.versionCode").get().toInt()
+        versionName = providers.gradleProperty("nightbrief.versionName").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
     }

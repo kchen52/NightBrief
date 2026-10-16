@@ -11,6 +11,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -26,9 +27,11 @@ import java.util.concurrent.TimeUnit
 /**
  * Schedules the morning digest.
  *
- * The digest fires from an `AlarmManager` alarm (exact when the user allows exact alarms, otherwise
- * Doze-tolerant inexact) which hands off to an expedited [DigestWorker]. A periodic [PrefetchWorker]
- * keeps the forecast cache warm so a digest can still be built offline.
+ * The digest fires from one `AlarmManager` alarm, which hands off to [DigestWorker]. Exact alarms
+ * need `SCHEDULE_EXACT_ALARM` on API 31+, and Play does not allow that permission for a daily
+ * digest, so those versions use a Doze-tolerant inexact alarm. Below API 31 the platform still
+ * allows an exact alarm without the permission. A periodic [PrefetchWorker] keeps the forecast
+ * cache warm so a digest can still be built offline.
  */
 object DigestScheduler {
     private const val ALARM_REQUEST_CODE = 1001
@@ -52,32 +55,67 @@ object DigestScheduler {
             return
         }
         val (at, time) = next
-        val pi = alarmIntent(context, time)
-        if (canScheduleExact(context)) {
-            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pi)
-        } else {
-            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pi)
-        }
+        armDigestAlarm(alarms, at.toEpochMilli(), alarmIntent(context, time))
         schedulePrefetch(context)
     }
 
-    fun canScheduleExact(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
-        return context.getSystemService<AlarmManager>()?.canScheduleExactAlarms() == true
+    /**
+     * Arms [pending] for [triggerAtMillis].
+     *
+     * Below API 31 the alarm is exact. A [SecurityException] from that call means the device
+     * refused it, and the same instant is armed with [AlarmManager.setAndAllowWhileIdle] instead.
+     * API 31+ always uses that inexact alarm: `SCHEDULE_EXACT_ALARM` is absent, and
+     * [AlarmManager.setExactAndAllowWhileIdle] throws without it.
+     */
+    internal fun armDigestAlarm(alarms: AlarmManager, triggerAtMillis: Long, pending: PendingIntent) {
+        runDigestAlarm(
+            sdkInt = Build.VERSION.SDK_INT,
+            exact = { alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending) },
+            inexact = { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending) },
+        )
+    }
+
+    internal fun runDigestAlarm(sdkInt: Int, exact: () -> Unit, inexact: () -> Unit) {
+        if (sdkInt < Build.VERSION_CODES.S) {
+            try {
+                exact()
+                return
+            } catch (_: SecurityException) {
+                // Exact alarms are unavailable. Fall through to the inexact alarm.
+            }
+        }
+        inexact()
     }
 
     /** Runs a digest immediately for the given sites (or the sites due at [time]). */
     fun runNow(context: Context, time: LocalTime? = null, siteIds: List<String>? = null) {
-        val request = OneTimeWorkRequestBuilder<DigestWorker>()
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        val request = digestWorkRequest(time, siteIds)
+        WorkManager.getInstance(context).enqueueUniqueWork(DIGEST_WORK, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+    }
+
+    /**
+     * Builds the one-shot digest request.
+     *
+     * On API 31+ the request is expedited and, past the expedited quota, runs as ordinary work.
+     * WorkManager implements expedited work below API 31 as a foreground service. That needs
+     * `FOREGROUND_SERVICE`, which is not declared, so those versions enqueue ordinary work.
+     */
+    internal fun digestWorkRequest(
+        time: LocalTime?,
+        siteIds: List<String>?,
+        sdkInt: Int = Build.VERSION.SDK_INT,
+    ): OneTimeWorkRequest {
+        val builder = OneTimeWorkRequestBuilder<DigestWorker>()
             .setInputData(
                 workDataOf(
                     DigestWorker.KEY_TIME to time?.toString(),
                     DigestWorker.KEY_SITE_IDS to siteIds?.toTypedArray(),
                 ),
             )
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(DIGEST_WORK, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        if (sdkInt >= Build.VERSION_CODES.S) {
+            builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        }
+        return builder.build()
     }
 
     /** Re-computes digests once the network is back; replaces the notification in place. */

@@ -17,7 +17,7 @@ class DigestAlarmReceiver : BroadcastReceiver() {
     }
 }
 
-/** Re-arms the alarm after reboot, app update, clock/zone changes and exact-alarm permission changes. */
+/** Re-arms the alarm after reboot, app update, and clock or timezone changes. */
 class RescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         rescheduleAsync(context)

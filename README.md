@@ -124,12 +124,12 @@ Forecasts are cached as one JSON file per ~1 km cell under the app's files direc
 
 Digest times are wall-clock times in the device zone. The primary site uses the global time (default 08:00) unless it has its own override. Any other site sends a digest only when it has an override. Turning the digest off, or leaving onboarding unfinished, clears the alarm.
 
-`DigestScheduler.reschedule` arms the next time with `AlarmManager`:
+`DigestScheduler.reschedule` arms the next time with one `AlarmManager` alarm (`RTC_WAKEUP`):
 
-* `setExactAndAllowWhileIdle` (`RTC_WAKEUP`) when exact alarms are allowed — always below API 31, and on API 31+ only if `canScheduleExactAlarms()` is true. The manifest declares `SCHEDULE_EXACT_ALARM`.
-* otherwise `setAndAllowWhileIdle`, which is inexact but still allowed to fire in Doze.
+* Below API 31, `setExactAndAllowWhileIdle`. Exact alarms on those versions do not need `SCHEDULE_EXACT_ALARM`. If that call throws `SecurityException`, the same instant is armed with `setAndAllowWhileIdle`.
+* On API 31 and above, `setAndAllowWhileIdle`. `SCHEDULE_EXACT_ALARM` is not in the manifest: Play allows it only for alarm-clock and calendar apps, and a daily digest does not qualify. The alarm is inexact, so it may fire later while the phone is idle, and it is still allowed to fire in Doze.
 
-When the alarm fires, `DigestAlarmReceiver` enqueues an expedited `DigestWorker` (if the app is out of expedited quota it runs as ordinary work) and arms the following day. `RescheduleReceiver` does the same re-arm after boot, app update, clock or timezone changes, and exact-alarm permission changes.
+When the alarm fires, `DigestAlarmReceiver` enqueues `DigestWorker` and arms the following day. On API 31+ that work is expedited, and if the app is out of expedited quota it runs as ordinary work. Below API 31 it is ordinary work, because expedited work there is a foreground service and `FOREGROUND_SERVICE` is not declared. `RescheduleReceiver` re-arms after boot, app update, and clock or timezone changes.
 
 `DigestWorker` scores tonight for each site that is due and posts a notification on the `digest` channel. On an ordinary night the title stays factual (`Tonight: {score} at {site} · {band}`, or the no-forecast, no-darkness, and better-site forms). A shower peak that is a Go, likely aurora, or a Big Night replaces only that title with a short wink; the expanded notification still opens with the verdict. If a site's forecast was not freshly fetched, it enqueues a **network-constrained** one-time worker (15 minute delay, exponential backoff of 15 minutes) that rebuilds the same notification in place and stays quiet (`setSilent`). A separate `PrefetchWorker` runs every 3 hours, only when the network is connected, so the cache is usually warm even if the morning itself is offline. Prefetch retries only when every site failed. After a successful prefetch, if Big Night alerts are on, a site whose tonight score is 85 or higher gets one notification per local night on the `big_night` channel.
 
@@ -137,7 +137,7 @@ The home-screen widget shows the primary site's score and Milky Way window. `Dig
 
 ## Build and test
 
-JDK 21 and an Android SDK are required (`compileSdk` 35).
+JDK 21 and an Android SDK are required (`compileSdk` 36 for the phone, 35 for the watch).
 
 ```bash
 export ANDROID_HOME=~/android-sdk

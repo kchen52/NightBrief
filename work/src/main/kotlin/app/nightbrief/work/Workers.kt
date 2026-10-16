@@ -75,6 +75,11 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         return Result.success()
     }
 
+    /**
+     * WorkManager reads this only when expedited work runs as a foreground service, which is
+     * below API 31. [DigestScheduler] does not expedite on those versions, and
+     * `FOREGROUND_SERVICE` is not declared, so this notification is not posted.
+     */
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = DigestNotifier(applicationContext).progressNotification()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

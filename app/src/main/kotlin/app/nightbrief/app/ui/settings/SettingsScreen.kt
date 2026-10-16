@@ -67,7 +67,6 @@ import app.nightbrief.score.UnitSystem
 import app.nightbrief.data.LightPollutionAttribution
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.work.DigestNotifier
-import app.nightbrief.work.DigestScheduler
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -82,7 +81,6 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     val context = LocalContext.current
     var showTime by remember { mutableStateOf(false) }
     var canNotify by remember { mutableStateOf(DigestNotifier(context).canNotify()) }
-    var canExact by remember { mutableStateOf(DigestScheduler.canScheduleExact(context)) }
     var digestNote by remember { mutableStateOf<String?>(null) }
     var libraryNote by remember { mutableStateOf<String?>(null) }
     val importLibrary = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -124,7 +122,6 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
 
     LifecycleResumeEffect(Unit) {
         canNotify = DigestNotifier(context).canNotify()
-        canExact = DigestScheduler.canScheduleExact(context)
         vm.rescheduleDigest()
         onPauseOrDispose { }
     }
@@ -239,6 +236,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 TextButton(onClick = { showTime = true }) {
                     Text(stringResource(R.string.digest_time_button, clockLabel(s.digestTime)))
                 }
+                Text(
+                    stringResource(R.string.digest_inexact),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     stringResource(R.string.alternative_threshold, shownThreshold),
@@ -302,22 +304,6 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(notificationButtonLabel(context, canNotify))
-                }
-            }
-
-            SectionCard(stringResource(R.string.section_exact_alarms)) {
-                Text(exactAlarmStatus(context, canExact), style = MaterialTheme.typography.bodyLarge)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canExact) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        stringResource(R.string.exact_alarms_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = { context.openExactAlarmSettings() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.allow_exact_alarms))
-                    }
                 }
             }
 
@@ -432,9 +418,6 @@ private fun shareLibrary(context: Context, json: String) {
     context.startActivity(chooser)
 }
 
-private fun exactAlarmStatus(context: Context, canExact: Boolean): String =
-    context.getString(if (canExact) R.string.exact_alarms_allowed else R.string.exact_alarms_denied)
-
 private fun notificationButtonLabel(context: Context, canNotify: Boolean): String {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission(context)) {
         return context.getString(R.string.allow_notifications)
@@ -470,12 +453,6 @@ private fun hasNotificationPermission(context: Context): Boolean {
 
 private fun Context.openNotificationSettings() {
     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-    runCatching { startActivity(intent) }.onFailure { openAppDetails() }
-}
-
-private fun Context.openExactAlarmSettings() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData(Uri.parse("package:$packageName"))
     runCatching { startActivity(intent) }.onFailure { openAppDetails() }
 }
 

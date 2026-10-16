@@ -1,6 +1,6 @@
 # Practices for agents
 
-NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `compileSdk` 35) that scores a night for astrophotography. Read this before changing code. `README.md` is the spec for the score, the Bortle grids, and digest scheduling. `ROADMAP.md` is status, known debt, and ideas that are not committed scope.
+NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `compileSdk` 36) that scores a night for astrophotography. Read this before changing code. `README.md` is the spec for the score, the Bortle grids, and digest scheduling. `ROADMAP.md` is status, known debt, and ideas that are not committed scope.
 
 Match the code that is already here. A change that "cleans up" an intentional constraint is a bug.
 

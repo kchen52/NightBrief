@@ -6,11 +6,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- User-grantable on API 31+; without it the digest falls back to an inexact Doze-tolerant alarm. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- Expedited work runs as a short foreground service on API < 31. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!--
+      WorkManager merges FOREGROUND_SERVICE and only uses it to promote expedited work to a
+      foreground service below API 31. The digest is ordinary work on those versions, so the
+      permission is removed and Play does not need a foreground-service declaration.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
 
     <application>
         <receiver
@@ -25,13 +26,7 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
-                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
-
-        <service
-            android:name="androidx.work.impl.foreground.SystemForegroundService"
-            android:foregroundServiceType="dataSync"
-            tools:node="merge" />
     </application>
 </manifest>

@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -64,6 +65,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
@@ -602,6 +604,8 @@ private fun BreakdownCard(report: NightReport) {
                     if (f.estimated) stringResource(R.string.factor_estimated, f.factor.label) else f.factor.label,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.width(150.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 LinearProgressIndicator(
                     progress = { (f.points / f.maxPoints).toFloat().coerceIn(0f, 1f) },
@@ -664,35 +668,50 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
         ),
     )
     SectionCard(stringResource(R.string.section_timeline), icon = Icons.Filled.Timeline) {
-        Row {
+        Row(Modifier.fillMaxWidth()) {
             Column {
-                Text("", style = MaterialTheme.typography.labelMedium, modifier = Modifier.height(24.dp))
+                Box(Modifier.timelineHead(), contentAlignment = Alignment.CenterStart) {}
                 rows.forEach {
-                    Box(Modifier.height(30.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(it.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(Modifier.timelineCell(), contentAlignment = Alignment.CenterStart) {
+                        Text(
+                            it.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
             Spacer(Modifier.width(8.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState())) {
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
                 report.timeline.forEach { h ->
                     Column(
                         Modifier
-                            .width(44.dp)
+                            .width(48.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (h.isDark) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Box(Modifier.height(24.dp), contentAlignment = Alignment.Center) {
-                            Text(Format.hour(h.time, zone), style = MaterialTheme.typography.labelMedium)
+                        Box(Modifier.timelineHead(), contentAlignment = Alignment.Center) {
+                            Text(
+                                Format.hour(h.time, zone),
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                softWrap = false,
+                            )
                         }
                         rows.forEach { row ->
-                            Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.timelineCell(), contentAlignment = Alignment.Center) {
                                 Text(
                                     row.value(h),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = row.color(h) ?: MaterialTheme.colorScheme.onSurface,
                                     fontWeight = if (row.emphasize) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -721,6 +740,14 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
         )
     }
 }
+
+/**
+ * Fixed so the label column and the hour columns stay on the same rows.
+ * Clipped, because a Box does not clip and a tall glyph would paint into the row below.
+ */
+private fun Modifier.timelineHead(): Modifier = height(28.dp).clipToBounds()
+
+private fun Modifier.timelineCell(): Modifier = height(36.dp).clipToBounds()
 
 /** Name, window, and peak stay visible. Reason, exposure, and the tip start hidden. */
 @Composable

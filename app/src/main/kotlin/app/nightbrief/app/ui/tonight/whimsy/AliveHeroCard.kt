@@ -50,17 +50,17 @@ import app.nightbrief.app.R
 import app.nightbrief.app.ui.theme.LocalNightPalette
 import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.HeroSky
-import app.nightbrief.score.MascotMood
 import app.nightbrief.score.MoonFacts
 import app.nightbrief.score.NightReport
 import java.time.Clock
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Tonight hero chrome: twilight gradient, Moon, Milky Way, owl, and the one-shot celebrations.
+ * Tonight hero chrome: twilight gradient, Moon, Milky Way, and the one-shot celebrations.
  * [clock] supplies "now" for the twilight band. A still frame uses [HeroSky.stillInstant]
  * so a screenshot does not follow the wall clock. Ephemeris is not recomputed here.
  */
@@ -76,7 +76,6 @@ fun AliveHeroCard(
     val now = if (still) HeroSky.stillInstant(report) else clock.instant()
     val sky = HeroSky.of(report, now)
     val paint = skyPaint(palette, sky.twilight)
-    val mood = MascotMood.of(report)
     var showFact by remember { mutableStateOf(false) }
     val percent = (sky.moonIllumination * 100).roundToInt()
     val moonDescription = "Moon, ${report.ephemeris.moonPhaseName.label}, $percent percent lit"
@@ -102,14 +101,6 @@ fun AliveHeroCard(
             ) {
                 content()
             }
-            NightOwl(
-                mood,
-                mood.contentDescription(report),
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 8.dp, bottom = 8.dp)
-                    .size(52.dp),
-            )
             MoonTarget(
                 illumination = sky.moonIllumination.toFloat(),
                 terminatorDeg = sky.moonTerminatorDeg.toFloat(),
@@ -162,17 +153,48 @@ private fun BoxScope.AuroraRipple(color: Color) {
 private fun BoxScope.ShootingStar(color: Color) {
     val anim = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        anim.animateTo(1f, tween(900, easing = LinearEasing))
+        anim.animateTo(1f, tween(720, easing = LinearEasing))
     }
     Canvas(Modifier.matchParentSize()) {
-        val t = anim.value
-        if (t <= 0.02f || t >= 0.98f) return@Canvas
-        val head = Offset(size.width * (-0.15f + 1.25f * t), size.height * (0.12f + 0.22f * t))
-        val tail = Offset(head.x - size.width * 0.14f, head.y - size.height * 0.05f)
-        drawLine(color.copy(alpha = 0.85f), tail, head, strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
-        drawCircle(color, 3.dp.toPx(), head)
+        val streak = shootingStarStreak(size.width, size.height, anim.value) ?: return@Canvas
+        val fade = sin(anim.value * PI).toFloat().coerceIn(0f, 1f)
+        drawLine(
+            Brush.linearGradient(
+                listOf(color.copy(alpha = 0f), color.copy(alpha = 0.9f * fade)),
+                start = streak.tail,
+                end = streak.head,
+            ),
+            streak.tail,
+            streak.head,
+            strokeWidth = 2.4.dp.toPx(),
+            cap = StrokeCap.Round,
+        )
+        drawCircle(color.copy(alpha = fade), 2.4.dp.toPx(), streak.head)
     }
 }
+
+/**
+ * One frame of the hero meteor. The head travels in a straight line about 24° down.
+ * A short card shortens the run so the angle stays, instead of the streak skimming the top.
+ * The tail lies on that same line, behind the head. [t] is 0 at the start and 1 at the end.
+ */
+internal fun shootingStarStreak(width: Float, height: Float, t: Float): StarStreak? {
+    if (width <= 1f || height <= 1f || t <= 0.02f || t >= 0.98f) return null
+    // ~24° down. On a short card the run shortens so the angle stays, instead of skimming the top edge.
+    val start = Offset(-0.04f * width, 0.04f * height)
+    val slope = 0.45f
+    val maxDrop = height * 0.42f
+    val travelX = (0.92f * width).coerceAtMost(maxDrop / slope)
+    val end = Offset(start.x + travelX, start.y + travelX * slope)
+    val head = Offset(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t)
+    val dx = end.x - start.x
+    val dy = end.y - start.y
+    val len = hypot(dx, dy).coerceAtLeast(1f)
+    val tailLen = (width * 0.18f).coerceAtMost(len * 0.28f)
+    return StarStreak(head, Offset(head.x - dx / len * tailLen, head.y - dy / len * tailLen))
+}
+
+internal data class StarStreak(val head: Offset, val tail: Offset)
 
 @Composable
 private fun MoonTarget(
@@ -206,6 +228,7 @@ private fun MoonTarget(
     }
 }
 
+/** Keeps the score copy clear of the Moon in the top-end corner. */
 private val HeroGutter = 64.dp
 
 private fun DrawScope.drawStars(color: Color, alpha: Float) {
@@ -226,13 +249,13 @@ private fun DrawScope.drawStars(color: Color, alpha: Float) {
 }
 
 /**
- * A wash along the bottom padding, left of the owl gutter.
+ * A wash along the bottom of the card, edge to edge.
  * Peak alpha is 0.10 at a score of 100 and falls to 0 across the band.
  */
 private fun DrawScope.drawMilkyWay(color: Color, strength: Float) {
     if (strength <= 0.01f) return
     val peak = (0.10f * strength).coerceIn(0f, 0.12f)
-    val right = (size.width - (HeroGutter + 4.dp).toPx()).coerceAtLeast(0f)
+    val right = size.width.coerceAtLeast(1f)
     val mid = size.height - 7.dp.toPx()
     val half = 8.dp.toPx()
     val rise = 3.dp.toPx()

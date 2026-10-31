@@ -28,6 +28,8 @@ data class Target(
     val idealFocalMm: Int,
     val minAltitudeDeg: Double = 20.0,
     val tip: String,
+    /** True when a tracking mount would spoil the shot (star trails). Omitted from the plan while a tracker is in the kit. */
+    val untrackedOnly: Boolean = false,
     /** When true, [position] is ignored and the Moon's coordinates are used. */
     val tracksMoon: Boolean = false,
     /** Offered only while the Moon is more than half illuminated. */
@@ -118,6 +120,7 @@ object TargetCatalog {
             RaDec(37.95, 89.264), maxBortle = 9, maxMoonIllumination = 1.0,
             minFocalMm = 10, idealFocalMm = 24, minAltitudeDeg = 10.0,
             tip = "Stack 100+ frames for circular trails; moonlight lights the foreground nicely.",
+            untrackedOnly = true,
         ),
         Target(
             id = "moon-closeup",

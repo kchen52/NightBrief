@@ -10,6 +10,23 @@ class TrackerFilterTest {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     @Test
+    fun olderTrackerWithoutFocalLengthStillDecodes() {
+        val raw = """{"bodies":[],"lenses":[],"tracker":{"id":"sw-star-adventurer-2i","name":"Sky-Watcher Star Adventurer 2i"}}"""
+        val kit = json.decodeFromString(GearKit.serializer(), raw)
+        assertEquals(StarTracker.DEFAULT_FOCAL_MM, kit.tracker!!.maxFocalMm)
+        assertEquals(StarTracker.DEFAULT_FOCAL_MM, kit.tracker!!.planningFocalMm)
+        assertEquals(StarTracker.DEFAULT_FOCAL_MM, StarTracker("x", "Y", maxFocalMm = 0).planningFocalMm)
+    }
+
+    @Test
+    fun catalogIncludesTheStarAdventurerGti() {
+        val gti = GearCatalog.trackers.first { it.id == "sw-star-adventurer-gti" }
+        val rotator = GearCatalog.trackers.first { it.id == "msm-rotator" }
+        assertEquals("Sky-Watcher Star Adventurer GTi", gti.name)
+        assertTrue("gti ${gti.planningFocalMm} rotator ${rotator.planningFocalMm}", gti.planningFocalMm > rotator.planningFocalMm)
+    }
+
+    @Test
     fun olderKitWithoutTrackerStillDecodes() {
         val raw = """{"bodies":[],"lenses":[]}"""
         val kit = json.decodeFromString(GearKit.serializer(), raw)

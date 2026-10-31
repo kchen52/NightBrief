@@ -12,7 +12,6 @@ import androidx.compose.ui.test.performTouchInput
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
 import app.nightbrief.gear.GearCatalog
-import app.nightbrief.score.MascotMood
 import app.nightbrief.score.MoonFacts
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
@@ -37,16 +36,12 @@ class AliveHeroTest {
     private val home = Site("home", "Home", 43.65, -79.38, "America/Toronto", bortle = 4)
 
     @Test
-    fun mascotDescriptionMatchesTheVerdict() {
+    fun scoreShowsOnTheHero() {
         val base = clearNight()
-        val cases = listOf(
-            90 to "Owl awake with a telescope: a go night",
-            55 to "Owl squinting at a cloud: a maybe night",
-            20 to "Owl asleep under a blanket: a no-go night",
-        )
+        val cases = listOf(90, 55, 20)
         val step = mutableIntStateOf(0)
         compose.setContent {
-            val (value, _) = cases[step.intValue]
+            val value = cases[step.intValue]
             val report = base.copy(
                 score = base.score!!.copy(score = value),
                 dew = null,
@@ -56,16 +51,10 @@ class AliveHeroTest {
                 NightDetail(report, alternative = null, onOpenAlternative = {})
             }
         }
-        cases.forEachIndexed { index, (value, description) ->
+        cases.forEachIndexed { index, value ->
             step.intValue = index
-            val report = base.copy(
-                score = base.score!!.copy(score = value),
-                dew = null,
-                aurora = null,
-            )
-            assertTrue(MascotMood.of(report).contentDescription(report) == description)
-            compose.onNodeWithContentDescription(description).assertIsDisplayed()
             assertTrue(compose.onAllNodesWithText(value.toString()).fetchSemanticsNodes().isNotEmpty())
+            compose.onNodeWithContentDescription("Owl", substring = true).assertDoesNotExist()
         }
     }
 

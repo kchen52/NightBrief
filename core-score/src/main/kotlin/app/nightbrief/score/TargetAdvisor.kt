@@ -57,9 +57,13 @@ object TargetAdvisor {
         horizonObstructionDeg: (Double) -> Double = { 0.0 },
     ): List<TargetSuggestion> {
         val dark = eph.darkWindow ?: return emptyList()
+        val tracker = kit.tracker
         return catalog
             .filter { bortle <= effectiveMaxBortle(it, kit) }
             .filter { !it.requiresBrightMoon || eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION }
+            // Trails need the sky to drift. A tighter target than the mount can track is not a plan.
+            .filter { tracker == null || !it.untrackedOnly }
+            .filter { tracker == null || it.tracksMoon || it.minFocalMm <= tracker.planningFocalMm }
             .mapNotNull { evaluate(it, eph, dark, bortle, kit, horizonObstructionDeg) }
             .sortedByDescending { rank(it) }
             .take(limit)
@@ -110,9 +114,14 @@ object TargetAdvisor {
 
         val brightMoon = moonUp && eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION
         val declination = if (target.tracksMoon) Ephemeris.moonDeclination(bestTime) else target.position.decDeg
+        // The Moon is a short exposure at its own rate. Don't shorten that framing to the mount's ceiling.
+        val ideal = target.idealFocalMm.toDouble().let { raw ->
+            val cap = kit.tracker?.takeIf { !target.tracksMoon }?.planningFocalMm?.toDouble()
+            if (cap != null) raw.coerceAtMost(cap) else raw
+        }
         val exposure = ExposureCalculator.bestFor(
             kit,
-            idealFocalFullFrameMm = target.idealFocalMm.toDouble(),
+            idealFocalFullFrameMm = ideal,
             minFocalFullFrameMm = target.minFocalMm.toDouble(),
             bortle = bortle,
             brightMoon = brightMoon,
@@ -123,6 +132,14 @@ object TargetAdvisor {
         } else {
             null
         }
+        val trackedName = kit.tracker?.name?.takeIf {
+            exposure?.tracked == true &&
+                exposure.reachesTarget &&
+                !target.tracksMoon &&
+                target.minFocalMm >= 50 &&
+                target.kind != TargetKind.MILKY_WAY &&
+                target.kind != TargetKind.CONSTELLATION
+        }
         return TargetSuggestion(
             target = target,
             window = TimeWindow(usable.first(), usable.last()),
@@ -131,7 +148,7 @@ object TargetAdvisor {
             peakAzimuthDeg = bestAz,
             moonUpDuringWindow = moonUp,
             exposure = exposure,
-            reason = reason(target, eph, bortle, moonUp, terminator, kit),
+            reason = reason(target, eph, bortle, moonUp, terminator, kit, trackedName),
         )
     }
 
@@ -142,6 +159,7 @@ object TargetAdvisor {
         moonUp: Boolean,
         terminatorDeg: Int?,
         kit: GearKit,
+        trackedName: String?,
     ): String {
         val moonPct = (eph.moonIllumination * 100).toInt()
         val phase = eph.moonPhaseName.label
@@ -153,6 +171,8 @@ object TargetAdvisor {
             val filterName = if (kit.hasDualBandFilter) "Dual-band filter" else "LP filter"
             return "$filterName helps under Bortle $bortle skies"
         }
+        // The filter sentence wins: it is why the target is still on the list.
+        if (trackedName != null) return "Tracked on the $trackedName"
         return when {
             target.kind == TargetKind.MOON && terminatorDeg != null ->
                 "$phase ($moonPct%), terminator at $terminatorDeg°"
@@ -177,6 +197,8 @@ object TargetAdvisor {
         if (s.target.kind == TargetKind.MOONLIT) r += 32
         if (s.target.kind == TargetKind.MOON) r += if (s.exposure?.reachesTarget == true) 40 else 24
         if (s.exposure != null && !s.exposure.reachesTarget && !s.target.tracksMoon) r -= 45
+        // A mount that can hold a tight target should surface it ahead of a constellation.
+        if (s.exposure?.tracked == true && s.exposure.reachesTarget && s.target.minFocalMm >= 85) r += 20
         return r
     }
 }

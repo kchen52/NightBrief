@@ -8,7 +8,7 @@ The screens below are the app's Compose UI for a clear August 2024 night at a Bo
 
 | Tonight | This week |
 | --- | --- |
-| ![Tonight: Home scores 91, Go, Excellent, with the owl awake and a telescope. Clear skies on the menu.](docs/screenshots/tonight.png) | ![This week: Monday is the best night](docs/screenshots/week.png) |
+| ![Tonight: Home scores 91, Go, Excellent. Clear skies on the menu.](docs/screenshots/tonight.png) | ![This week: Monday is the best night](docs/screenshots/week.png) |
 
 | Perseids and an ISS pass | Gear |
 | --- | --- |

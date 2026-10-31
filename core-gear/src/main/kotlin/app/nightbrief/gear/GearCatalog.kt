@@ -123,12 +123,23 @@ object GearCatalog {
         Lens("samyang-85-f14", "Samyang / Rokinon AF 85mm f/1.4", 85.0, maxAperture = 1.4),
     )
 
-    /** Star trackers offered in the gear picker. Any tracker lifts the 30 s untracked cap. */
+    /**
+     * Star trackers offered in the gear picker. Any tracker lifts the 30 s untracked cap.
+     * The focal length is the planning ceiling in [StarTracker.planningFocalMm]: a tighter
+     * deep-sky target is left off the night, and star trails are left off whenever one is selected.
+     */
     val trackers: List<StarTracker> = listOf(
-        StarTracker("sw-star-adventurer-2i", "Sky-Watcher Star Adventurer 2i"),
-        StarTracker("ioptron-skyguider-pro", "iOptron SkyGuider Pro"),
-        StarTracker("msm-nomad", "Move Shoot Move Nomad"),
-        StarTracker("benro-polaris", "Benro Polaris"),
+        StarTracker("sw-star-adventurer-gti", "Sky-Watcher Star Adventurer GTi", maxFocalMm = 400),
+        StarTracker("sw-star-adventurer-2i", "Sky-Watcher Star Adventurer 2i", maxFocalMm = 300),
+        StarTracker("sw-star-adventurer-mini", "Sky-Watcher Star Adventurer Mini", maxFocalMm = 100),
+        StarTracker("ioptron-skyguider-pro", "iOptron SkyGuider Pro", maxFocalMm = 300),
+        StarTracker("ioptron-skytracker-pro", "iOptron SkyTracker Pro", maxFocalMm = 200),
+        StarTracker("fornax-lightrack-ii", "Fornax LighTrack II", maxFocalMm = 200),
+        StarTracker("msm-nomad", "Move Shoot Move Nomad", maxFocalMm = 135),
+        StarTracker("msm-rotator", "Move Shoot Move Rotator", maxFocalMm = 50),
+        StarTracker("benro-polaris", "Benro Polaris", maxFocalMm = 135),
+        StarTracker("vixen-polarie-u", "Vixen Polarie U", maxFocalMm = 100),
+        StarTracker("omegon-minitrack-lx4", "Omegon MiniTrack LX4", maxFocalMm = 135),
     )
 
     /** Filters offered in the gear picker. Dual-band also relaxes emission-nebula gating in TargetAdvisor. */

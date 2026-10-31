@@ -89,15 +89,30 @@ data class Lens(
         else "f/${maxAperture.fmt()}"
 }
 
-/** Optional star tracker. Lets subs run past the 30 s untracked cap. */
+/**
+ * Optional star tracker. Lets subs run past the 30 s untracked cap.
+ *
+ * [maxFocalMm] is the longest full-frame focal length the planner will set on a tracked target.
+ * A deep-sky target whose minimum focal length is longer is not offered. Star trails are never
+ * offered while a tracker is in the kit. The default keeps a kit saved before this field as a
+ * portable mount; a non-positive value means the same.
+ */
 @Serializable
 data class StarTracker(
     val id: String,
     val name: String,
+    val maxFocalMm: Int = DEFAULT_FOCAL_MM,
 ) {
     init {
         require(id.isNotBlank()) { "tracker id required" }
         require(name.isNotBlank()) { "tracker name required" }
+    }
+
+    /** Focal length [maxFocalMm] after substituting [DEFAULT_FOCAL_MM] for a missing or invalid value. */
+    val planningFocalMm: Int get() = maxFocalMm.takeIf { it > 0 } ?: DEFAULT_FOCAL_MM
+
+    companion object {
+        const val DEFAULT_FOCAL_MM = 300
     }
 }
 

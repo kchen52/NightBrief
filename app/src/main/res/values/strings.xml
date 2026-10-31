@@ -296,6 +296,7 @@
     <string name="add_tracker">Add tracker</string>
     <string name="search_trackers">Search trackers</string>
     <string name="remove_tracker">Remove tracker</string>
+    <string name="tracker_reach">Plans up to %1$d mm</string>
     <string name="filters_title">Filters</string>
     <string name="no_filters">No filters.</string>
     <string name="add_filter">Add filter</string>

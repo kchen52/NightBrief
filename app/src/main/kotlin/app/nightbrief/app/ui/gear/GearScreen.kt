@@ -187,6 +187,11 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
                         Text(tracker.name, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.tracker_reach, tracker.planningFocalMm),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     IconButton(onClick = { onChange(kit.withTracker(null)) }) {
                         Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_tracker))
@@ -456,7 +461,7 @@ private fun AddTrackerDialog(currentId: String?, onDismiss: () -> Unit, onPick: 
                     items(matches, key = { it.id }) { tracker ->
                         CatalogRow(
                             title = tracker.name,
-                            detail = "",
+                            detail = stringResource(R.string.tracker_reach, tracker.planningFocalMm),
                             owned = tracker.id == currentId,
                             onClick = { onPick(tracker) },
                         )

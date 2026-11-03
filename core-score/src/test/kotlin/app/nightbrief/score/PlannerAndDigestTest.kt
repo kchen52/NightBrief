@@ -4,6 +4,7 @@ import app.nightbrief.astro.TargetKind
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
+import app.nightbrief.weather.ForecastProblem
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastStatus
@@ -91,6 +92,10 @@ class PlannerAndDigestTest {
             SavedForecast.detail(saved.fetchedAt, longPoint.zone),
             DigestComposer.compose(covered, emptyList()).lines.last(),
         )
+        val busy = covered.copy(warnings = listOf(ForecastProblem.BUSY.userText()))
+        val busyLine = DigestComposer.compose(busy, emptyList()).lines.last()
+        assertTrue(busyLine, busyLine.startsWith("Weather service busy"))
+        assertTrue(busyLine, "Offline" !in busyLine)
 
         val past = LocalDate.of(2024, 8, 20)
         val uncovered = NightPlanner.plan(
@@ -216,7 +221,11 @@ class PlannerAndDigestTest {
         assertNotNull(briefing.reportFor("home")!!.score)
         val lp = briefing.reportFor("lp")!!
         assertNull(lp.score)
-        assertTrue(lp.warnings.single().contains("offline"))
+        assertEquals("Couldn't load the forecast", lp.warnings.single())
+        val missing = briefing.outlookFor("lp")!!
+        assertTrue(missing.nights.all { it.forecastMissing })
+        assertEquals("Couldn't load the forecast", missing.headline())
+        assertTrue(briefing.outlookFor("home")!!.nights.none { it.forecastMissing })
         val outlook = briefing.outlookFor("home")!!
         assertEquals(7, outlook.nights.size)
         assertTrue(outlook.nights.none { it.estimated })

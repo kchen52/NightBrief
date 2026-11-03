@@ -16,16 +16,19 @@ import org.junit.Assert.assertTrue
 import java.io.File
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.TimeUnit
 
 class ForecastRepositoryTest {
     private lateinit var server: MockWebServer
     private var openMeteoCode = 200
     private var secondModelCode = 200
     private var sevenTimerCode = 200
+    private var responseDelayMs = 0L
     private val requests = mutableListOf<String>()
 
     private fun resource(name: String) = javaClass.classLoader.getResource(name)!!.readText()
@@ -37,7 +40,7 @@ class ForecastRepositoryTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.path.orEmpty()
                 requests += path
-                return when {
+                val response = when {
                     path.startsWith("/om") && "icon_seamless" in path -> MockResponse().setResponseCode(secondModelCode)
                         .setBody(if (secondModelCode == 200) resource("open_meteo_gem.json") else "{\"error\":true,\"reason\":\"down\"}")
                     path.startsWith("/om") -> MockResponse().setResponseCode(openMeteoCode)
@@ -46,6 +49,7 @@ class ForecastRepositoryTest {
                         .setBody(if (sevenTimerCode == 200) resource("seven_timer_astro.json") else "")
                     else -> MockResponse().setResponseCode(404)
                 }
+                return response.setBodyDelay(responseDelayMs, TimeUnit.MILLISECONDS)
             }
         }
         server.start()
@@ -125,6 +129,66 @@ class ForecastRepositoryTest {
         assertTrue("secondary should not fetch wind, got $icon", !icon.contains("wind_speed_10m"))
         val primary = requests.first { "models=gem_seamless" in it }
         assertTrue("primary should keep the full series, got $primary", primary.contains("dew_point_2m"))
+    }
+
+    @Test
+    fun concurrentForecastsForOneCellShareOneFetch() = runTest {
+        responseDelayMs = 250
+        val results = coroutineScope {
+            val source = repo()
+            listOf(
+                async { source.forecast(43.65, -79.38) },
+                async { source.forecast(43.65, -79.38) },
+            ).awaitAll()
+        }
+        assertTrue(results.all { it.status == ForecastStatus.FRESH || it.status == ForecastStatus.CACHED })
+        val primary = requests.count { it.startsWith("/om") && "icon_seamless" !in it }
+        assertEquals("expected one primary fetch, got $requests", 1, primary)
+    }
+
+    @Test
+    fun http429BacksOffAndDoesNotSayTheBody() = runTest {
+        openMeteoCode = 429
+        val source = repo()
+        val first = runCatching { source.forecast(43.65, -79.38) }.exceptionOrNull()
+        assertTrue(first is WeatherApiException)
+        val busy = first as WeatherApiException
+        assertEquals(ForecastProblem.BUSY, busy.problem)
+        assertEquals("Weather service busy — try again shortly", busy.userText())
+        assertFalse(busy.userText().contains("HTTP"))
+        val after = requests.size
+        val second = runCatching { source.forecast(43.65, -79.38) }.exceptionOrNull()
+        assertEquals(ForecastProblem.BUSY, (second as WeatherApiException).problem)
+        assertEquals("cooldown should not call the network again, requests=$requests", after, requests.size)
+        runCatching { source.forecast(43.65, -79.38, forceRefresh = true) }
+        assertTrue("a forced refresh may try again", requests.size > after)
+    }
+
+    @Test
+    fun http429ServesASavedForecastWithoutCallingItOffline() = runTest {
+        val source = repo()
+        source.forecast(43.65, -79.38)
+        clock.now = clock.now.plus(Duration.ofHours(3))
+        openMeteoCode = 429
+        val stale = source.forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.STALE, stale.status)
+        assertEquals("Weather service busy — try again shortly", stale.warnings.single())
+        assertFalse(stale.warnings.single().contains("Offline"))
+        val after = requests.size
+        clock.now = clock.now.plus(Duration.ofSeconds(10))
+        assertEquals(ForecastStatus.STALE, source.forecast(43.65, -79.38).status)
+        assertEquals(after, requests.size)
+    }
+
+    @Test
+    fun transportFailuresAreOfflineOrTimeout() {
+        val offline = WeatherApiException.transport(java.net.UnknownHostException("api.open-meteo.com"))
+        assertEquals(ForecastProblem.OFFLINE, offline.problem)
+        assertEquals("No connection", offline.userText())
+        val timeout = WeatherApiException.transport(java.net.SocketTimeoutException("read timed out"))
+        assertEquals(ForecastProblem.TIMEOUT, timeout.problem)
+        val wrapped = WeatherApiException.transport(IOException("connect", java.net.ConnectException("refused")))
+        assertEquals(ForecastProblem.OFFLINE, wrapped.problem)
     }
 
     @Test

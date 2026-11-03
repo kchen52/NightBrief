@@ -56,6 +56,7 @@ import app.nightbrief.app.R
 import app.nightbrief.data.LibraryFormatException
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -242,8 +243,9 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
+                val thresholdLabel = stringResource(R.string.alternative_threshold, shownThreshold)
                 Text(
-                    stringResource(R.string.alternative_threshold, shownThreshold),
+                    thresholdLabel,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -256,6 +258,10 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                     },
                     valueRange = 5f..30f,
                     steps = 24,
+                    modifier = Modifier.semantics {
+                        contentDescription = thresholdLabel
+                        stateDescription = shownThreshold.toString()
+                    },
                 )
                 Text(
                     stringResource(R.string.alternative_threshold_hint),
@@ -263,8 +269,9 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
+                val bigNightSlider = stringResource(R.string.big_night_threshold, shownBigNight)
                 Text(
-                    stringResource(R.string.big_night_threshold, shownBigNight),
+                    bigNightSlider,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(
@@ -277,7 +284,12 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                     },
                     valueRange = BigNightAlerts.MIN_THRESHOLD.toFloat()..BigNightAlerts.MAX_THRESHOLD.toFloat(),
                     steps = BigNightAlerts.MAX_THRESHOLD - BigNightAlerts.MIN_THRESHOLD - 1,
-                    modifier = Modifier.testTag("big-night-threshold"),
+                    modifier = Modifier
+                        .testTag("big-night-threshold")
+                        .semantics {
+                            contentDescription = bigNightSlider
+                            stateDescription = shownBigNight.toString()
+                        },
                 )
                 Text(
                     stringResource(R.string.big_night_threshold_hint),

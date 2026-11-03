@@ -11,6 +11,7 @@ import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.IssTle
+import app.nightbrief.weather.WeatherApiException
 import app.nightbrief.weather.KpForecast
 import app.nightbrief.weather.KpSource
 import app.nightbrief.weather.TleSource
@@ -41,6 +42,11 @@ data class OutlookNight(
     val showerLabel: String? = null,
     /** Eclipse or opposition title from [app.nightbrief.astro.SkyEvents] on this date. */
     val skyEventTitle: String? = null,
+    /**
+     * True when this night has no forecast because the fetch failed.
+     * Distinct from a saved forecast that simply does not cover the date.
+     */
+    val forecastMissing: Boolean = false,
 ) {
     val band: Band? get() = score?.let(Band::of)
 }
@@ -49,6 +55,7 @@ data class WeeklyOutlook(val site: Site, val nights: List<OutlookNight>) {
     val best: OutlookNight? get() = nights.filter { it.score != null }.maxByOrNull { it.score!! }
 
     fun headline(locale: Locale = Locale.getDefault()): String {
+        if (nights.isNotEmpty() && nights.all { it.forecastMissing }) return "Couldn't load the forecast"
         val b = best ?: return "No forecast available this week"
         val day = b.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
         return "Best night this week: $day (${b.score})"
@@ -102,7 +109,7 @@ class BriefingService(
         val fetchedByKey = keys.distinct().map { key ->
             async {
                 val site = sites[keys.indexOf(key)]
-                key to runCatching { forecasts.forecast(site.latitude, site.longitude, forceRefresh) }
+                key to fetchForecast(site, forceRefresh)
             }
         }.awaitAll().toMap()
         val fetched = sites.map { site ->
@@ -117,7 +124,7 @@ class BriefingService(
             val fr: ForecastResult? = result.getOrNull()
             val warnings = buildList {
                 fr?.warnings?.let(::addAll)
-                result.exceptionOrNull()?.let { add("Forecast unavailable: ${it.message}") }
+                result.exceptionOrNull()?.let { add(forecastUserText(it)) }
             }
             val start = NightPlanner.tonight(now, site.zone)
             val skyEvents = skyEventsFor(start, outlookDays, site.zone)
@@ -150,6 +157,7 @@ class BriefingService(
                         fullMoon = it.ephemeris.moonPhaseName == MoonPhase.FULL,
                         showerLabel = NightNames.showerLabel(it.meteor),
                         skyEventTitle = NightNames.eventTitle(onDate),
+                        forecastMissing = fr == null,
                     )
                 },
             )
@@ -161,15 +169,28 @@ class BriefingService(
     override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport = coroutineScope {
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
-        val forecastDeferred = async { runCatching { forecasts.forecast(site.latitude, site.longitude) } }
+        val forecastDeferred = async { fetchForecast(site, forceRefresh = false) }
         val kpForecast = kpDeferred.await()
         val issTle = issDeferred.await()
         val fr = forecastDeferred.await()
+        val failure = fr.exceptionOrNull()?.let { forecastUserText(it) }
         NightPlanner.plan(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
-            fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(fr.exceptionOrNull()?.message),
+            fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(failure),
         ).withAurora(kpForecast).withIss(issTle)
     }
+
+    private fun forecastUserText(error: Throwable): String =
+        (error as? WeatherApiException)?.userText() ?: "Couldn't load the forecast"
+
+    private suspend fun fetchForecast(site: Site, forceRefresh: Boolean): Result<ForecastResult> =
+        try {
+            Result.success(forecasts.forecast(site.latitude, site.longitude, forceRefresh))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
 
     private fun skyEventsFor(start: LocalDate, days: Int, zone: ZoneId): List<SkyEvent> {
         val end = start.plusDays((days.coerceAtLeast(1) - 1).toLong())

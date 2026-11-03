@@ -1,7 +1,7 @@
 package app.nightbrief.score
 
 import java.time.LocalDate
-import java.time.format.TextStyle
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** One site scored for tonight, before the Big Night threshold is applied. */
@@ -21,10 +21,9 @@ data class BigNightAlert(
 ) {
     val nightKey: String get() = date.toString()
 
-    fun dateLabel(locale: Locale = Locale.getDefault()): String {
-        val day = date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
-        return "$day $nightKey"
-    }
+    /** Short weekday and day, e.g. "Wed Aug 12". [nightKey] stays the ISO date used for dedupe. */
+    fun dateLabel(locale: Locale = Locale.getDefault()): String =
+        date.format(DateTimeFormatter.ofPattern("EEE MMM d", locale))
 }
 
 /**

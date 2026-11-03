@@ -9,11 +9,15 @@ import app.nightbrief.data.AppState
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.BigNightCandidate
 import app.nightbrief.score.DigestComposer
+import app.nightbrief.sites.Site
 import app.nightbrief.weather.ForecastStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.time.Instant
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -41,6 +45,21 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
         if (due.isEmpty()) return Result.success()
 
+        val dueIds = due.map { it.id }
+        BigNightPosts.beginDigest(dueIds)
+        try {
+            return postDigests(graph, state, due, refresh)
+        } finally {
+            BigNightPosts.endDigest(dueIds)
+        }
+    }
+
+    private suspend fun postDigests(
+        graph: AppGraph,
+        state: AppState,
+        due: List<Site>,
+        refresh: Boolean,
+    ): Result {
         val ready = state.ensureNotificationSlots()
         val briefing = graph.briefings.brief(
             sites = ready.sites.primaryFirst(),
@@ -61,6 +80,17 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 ready.resolvedUnits(),
                 ready.bigNightThreshold,
             )
+            if (ready.bigNightAlertsEnabled) {
+                val score = report.scoreValue
+                val bar = BigNightAlerts.clamp(ready.bigNightThreshold)
+                if (score != null && score >= bar) {
+                    val key = report.date.toString()
+                    graph.settings.update { current ->
+                        if (current.lastBigNightAlerts[site.id] == key) current
+                        else current.copy(lastBigNightAlerts = current.lastBigNightAlerts + (site.id to key))
+                    }
+                }
+            }
             notifier.post(digest, ready.notificationSlots.getValue(site.id), silent = refresh)
             if (report.forecastStatus != ForecastStatus.FRESH) needsRetry += site.id
         }
@@ -125,7 +155,7 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
 
         if (state.bigNightAlertsEnabled) {
             try {
-                postBigNightAlerts(graph, state)
+                postBigNightAlerts(graph)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -136,38 +166,78 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         return Result.success()
     }
 
-    private suspend fun postBigNightAlerts(graph: AppGraph, state: AppState) {
+    private suspend fun postBigNightAlerts(graph: AppGraph) {
+        val current = graph.settings.current()
+        if (bigNightQuiet(current, Instant.now().epochSecond)) return
         val briefing = graph.briefings.brief(
-            sites = state.sites.primaryFirst(),
-            kit = state.gear,
+            sites = current.sites.primaryFirst(),
+            kit = current.gear,
             outlookDays = 1,
             forceRefresh = false,
         )
-        val ready = state.ensureNotificationSlots()
-        val notifier = DigestNotifier(applicationContext)
-        val alerts = BigNightAlerts.select(
-            candidates = briefing.tonight.map {
-                BigNightCandidate(it.site.id, it.site.name, it.date, it.scoreValue)
-            },
-            alreadyAlerted = state.lastBigNightAlerts,
-            enabled = true,
-            threshold = state.bigNightThreshold,
-        )
-        val locale = Locale.getDefault()
-        val newlyAlerted = alerts.associate { alert ->
-            notifier.postBigNight(
-                alert.siteId,
-                alert.siteName,
-                alert.score,
-                alert.dateLabel(locale),
-                ready.notificationSlots.getValue(alert.siteId),
-            )
-            alert.siteId to alert.nightKey
-        }
-        if (newlyAlerted.isNotEmpty()) {
-            graph.settings.update { current ->
-                current.copy(lastBigNightAlerts = current.lastBigNightAlerts + newlyAlerted)
+        BigNightPosts.withLock {
+            val latest = graph.settings.current()
+            if (bigNightQuiet(latest, Instant.now().epochSecond)) return@withLock
+            val ready = latest.ensureNotificationSlots()
+            val notifier = DigestNotifier(applicationContext)
+            val alerts = BigNightAlerts.select(
+                candidates = briefing.tonight.map {
+                    BigNightCandidate(it.site.id, it.site.name, it.date, it.scoreValue)
+                },
+                alreadyAlerted = latest.lastBigNightAlerts,
+                enabled = true,
+                threshold = latest.bigNightThreshold,
+            ).filter { alert -> !BigNightPosts.covers(alert.siteId) }
+            val locale = Locale.getDefault()
+            val newlyAlerted = alerts.associate { alert ->
+                notifier.postBigNight(
+                    alert.siteId,
+                    alert.siteName,
+                    alert.score,
+                    alert.dateLabel(locale),
+                    ready.notificationSlots.getValue(alert.siteId),
+                )
+                alert.siteId to alert.nightKey
+            }
+            if (newlyAlerted.isNotEmpty()) {
+                graph.settings.update { saved ->
+                    saved.copy(lastBigNightAlerts = saved.lastBigNightAlerts + newlyAlerted)
+                }
             }
         }
     }
 }
+
+/**
+ * A digest and a Big Night alert share one decision.
+ * While a digest is being built for a site, prefetch will not post a second notification for it.
+ */
+internal object BigNightPosts {
+    private val lock = Mutex()
+    private val digests = mutableSetOf<String>()
+
+    suspend fun beginDigest(ids: Collection<String>) {
+        lock.withLock { digests.addAll(ids) }
+    }
+
+    suspend fun endDigest(ids: Collection<String>) {
+        lock.withLock { digests.removeAll(ids.toSet()) }
+    }
+
+    /** [covers] is only meaningful inside [withLock]. */
+    suspend fun <T> withLock(block: suspend () -> T): T = lock.withLock { block() }
+
+    fun covers(siteId: String): Boolean = siteId in digests
+}
+
+/**
+ * Holds the separate Big Night alert back for an hour after onboarding.
+ * Null means the settings file predates the timestamp, so existing installs are not quieted.
+ */
+internal fun bigNightQuiet(state: AppState, nowEpochSec: Long): Boolean {
+    val completed = state.onboardingCompletedAtEpochSec ?: return false
+    val age = nowEpochSec - completed
+    return age in 0 until BIG_NIGHT_QUIET_SECONDS
+}
+
+internal const val BIG_NIGHT_QUIET_SECONDS = 60L * 60L

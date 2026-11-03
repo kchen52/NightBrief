@@ -22,6 +22,10 @@
     <string name="make_primary">Make primary</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
+    <string name="move_up_named">Move %1$s up</string>
+    <string name="move_down_named">Move %1$s down</string>
+    <string name="edit_named">Edit %1$s</string>
+    <string name="delete_named">Delete %1$s</string>
     <string name="score_out_of">/ 100</string>
     <string name="error_generic">Something went wrong</string>
     <string name="widget_setup">Set up NightBrief</string>
@@ -54,12 +58,14 @@
     <string name="week_estimated">est.</string>
     <string name="week_no_darkness">No darkness</string>
     <string name="week_beyond_forecast">Beyond forecast</string>
+    <string name="week_forecast_unavailable">Couldn\'t load the forecast</string>
     <string name="week_moon">%1$s %2$s moon</string>
     <string name="week_night_summary">%1$s · %2$s</string>
 
     <string name="alternative_banner">%1$d at %2$s (+%3$d)</string>
     <string name="alternative_banner_why">%1$d at %2$s (+%3$d) — %4$s</string>
     <string name="banner_stale">Offline — forecast saved %1$s</string>
+    <string name="banner_saved_reason">%1$s. Forecast saved %2$s</string>
     <string name="banner_stale_untimed">Offline — showing the last saved forecast</string>
     <string name="banner_forecast_unavailable">Forecast unavailable</string>
     <string name="banner_beyond_horizon">This night is beyond the forecast horizon — showing sky data only</string>

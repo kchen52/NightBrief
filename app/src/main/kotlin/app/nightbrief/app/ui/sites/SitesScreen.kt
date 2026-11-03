@@ -48,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,10 +80,12 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
             )
         },
         floatingActionButton = {
+            val addSite = stringResource(R.string.add_site)
             ExtendedFloatingActionButton(
                 onClick = { onEdit(null) },
-                icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text(stringResource(R.string.add_site)) },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text(addSite) },
+                modifier = Modifier.semantics { contentDescription = addSite },
             )
         },
     ) { inner ->
@@ -115,15 +119,17 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                     }
                     Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.moveSite(index, index - 1) }, enabled = index > 0) {
-                            Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up))
+                            Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up_named, site.name))
                         }
                         IconButton(onClick = { vm.moveSite(index, index + 1) }, enabled = index < book.sites.lastIndex) {
-                            Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down))
+                            Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down_named, site.name))
                         }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { onEdit(site.id) }) { Icon(Icons.Filled.Edit, stringResource(R.string.edit)) }
+                        IconButton(onClick = { onEdit(site.id) }) {
+                            Icon(Icons.Filled.Edit, stringResource(R.string.edit_named, site.name))
+                        }
                         IconButton(onClick = { pendingDelete = site }, enabled = book.sites.size > 1) {
-                            Icon(Icons.Filled.Delete, stringResource(R.string.delete))
+                            Icon(Icons.Filled.Delete, stringResource(R.string.delete_named, site.name))
                         }
                     }
                 }

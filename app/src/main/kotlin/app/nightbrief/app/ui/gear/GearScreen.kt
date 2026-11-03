@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -50,9 +51,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import app.nightbrief.app.R
-import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import app.nightbrief.app.R
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -63,6 +64,7 @@ import app.nightbrief.gear.CameraBody
 import app.nightbrief.gear.ExposureCalculator
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearFilter
+import app.nightbrief.gear.matchesGearQuery
 import app.nightbrief.gear.GearKit
 import app.nightbrief.gear.Lens
 import app.nightbrief.gear.StarTracker
@@ -293,20 +295,22 @@ private fun BodyRow(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            RadioButton(selected = selected, onClick = onSelect)
-            Column(
+            Row(
                 Modifier
                     .weight(1f)
-                    .clickable(onClick = onSelect)
-                    .semantics { role = Role.RadioButton }
-                    .padding(vertical = 8.dp),
+                    .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
+                    .semantics(mergeDescendants = true) { contentDescription = body.name },
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(body.name, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    bodySpec(body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                RadioButton(selected = selected, onClick = null)
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    Text(body.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        bodySpec(body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
         }
@@ -383,7 +387,7 @@ private fun AddBodyDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         onBackToList = { custom = false },
         onDismiss = onDismiss,
         list = {
-            val matches = GearCatalog.bodies.filter { it.name.matchesCatalogQuery(query) }
+            val matches = GearCatalog.bodies.filter { GearCatalog.bodyMatches(it, query) }
             if (matches.isEmpty()) {
                 item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
@@ -415,7 +419,7 @@ private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
         onBackToList = { custom = false },
         onDismiss = onDismiss,
         list = {
-            val matches = GearCatalog.lenses.filter { it.name.matchesCatalogQuery(query) }
+            val matches = GearCatalog.lenses.filter { it.name.matchesGearQuery(query) }
             if (matches.isEmpty()) {
                 item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
@@ -454,7 +458,7 @@ private fun AddTrackerDialog(currentId: String?, onDismiss: () -> Unit, onPick: 
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val matches = GearCatalog.trackers.filter { it.name.matchesCatalogQuery(query) }
+                    val matches = GearCatalog.trackers.filter { it.name.matchesGearQuery(query) }
                     if (matches.isEmpty()) {
                         item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
@@ -494,7 +498,7 @@ private fun AddFilterDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val matches = GearCatalog.filters.filter { it.name.matchesCatalogQuery(query) }
+                    val matches = GearCatalog.filters.filter { it.name.matchesGearQuery(query) }
                     if (matches.isEmpty()) {
                         item { Text(stringResource(R.string.no_matches), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
@@ -633,6 +637,7 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
     var maxFocal by remember { mutableStateOf("") }
     var aperture by remember { mutableStateOf("") }
     var longEnd by remember { mutableStateOf("") }
+    var maxTouched by remember { mutableStateOf(false) }
     var longEndTouched by remember { mutableStateOf(false) }
     var submitted by remember { mutableStateOf(false) }
     val error = lensError(name, minFocal, maxFocal, aperture, longEnd)
@@ -646,8 +651,24 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        NumberField(stringResource(R.string.min_focal), minFocal, { minFocal = it }, submitted && minFocal.positiveOrNull() == null)
-        NumberField(stringResource(R.string.max_focal), maxFocal, { maxFocal = it }, submitted && maxFocal.positiveOrNull() == null)
+        NumberField(
+            stringResource(R.string.min_focal),
+            minFocal,
+            {
+                minFocal = it
+                if (!maxTouched) maxFocal = it
+            },
+            submitted && minFocal.positiveOrNull() == null,
+        )
+        NumberField(
+            stringResource(R.string.max_focal),
+            maxFocal,
+            {
+                maxTouched = true
+                maxFocal = it
+            },
+            submitted && effectiveMaxFocal(minFocal, maxFocal).positiveOrNull() == null,
+        )
         NumberField(
             label = stringResource(R.string.max_aperture),
             value = aperture,
@@ -671,19 +692,23 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (submitted && error != null) {
-            Text(stringResource(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        }
+        Text(
+            text = if (submitted && error != null) stringResource(error) else "",
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+            minLines = 1,
+        )
         Button(
             onClick = {
                 submitted = true
                 if (lensError(name, minFocal, maxFocal, aperture, longEnd) != null) return@Button
+                val max = effectiveMaxFocal(minFocal, maxFocal)
                 onAdd(
                     Lens(
                         id = newId("custom-lens"),
                         name = name.trim(),
                         minFocalMm = minFocal.positiveOrNull()!!,
-                        maxFocalMm = maxFocal.positiveOrNull()!!,
+                        maxFocalMm = max.positiveOrNull()!!,
                         maxAperture = aperture.positiveOrNull()!!,
                         maxApertureAtLongEnd = longEnd.positiveOrNull()!!,
                     ),
@@ -715,9 +740,13 @@ private fun bodyError(name: String, width: String, height: String, megapixels: S
     else -> null
 }
 
+/** A blank long end is the minimum, so a prime can be saved from one focal length. */
+internal fun effectiveMaxFocal(minFocal: String, maxFocal: String): String =
+    if (maxFocal.isBlank()) minFocal else maxFocal
+
 internal fun lensError(name: String, minFocal: String, maxFocal: String, aperture: String, longEnd: String): Int? {
     val minF = minFocal.positiveOrNull()
-    val maxF = maxFocal.positiveOrNull()
+    val maxF = effectiveMaxFocal(minFocal, maxFocal).positiveOrNull()
     val wide = aperture.positiveOrNull()
     val tele = longEnd.positiveOrNull()
     return when {
@@ -732,17 +761,6 @@ internal fun lensError(name: String, minFocal: String, maxFocal: String, apertur
         else -> null
     }
 }
-
-/** Hyphen and dash are the same search, so "16-300" finds "16–300". */
-private fun String.matchesCatalogQuery(query: String): Boolean {
-    val needle = query.trim().foldDashes()
-    if (needle.isEmpty()) return true
-    return foldDashes().contains(needle, ignoreCase = true)
-}
-
-private fun String.foldDashes(): String = map { ch ->
-    if (ch == '\u2013' || ch == '\u2014') '-' else ch
-}.joinToString("")
 
 private fun String.positiveOrNull(): Double? =
     trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 && it.isFinite() }

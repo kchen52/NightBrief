@@ -244,6 +244,7 @@ class AppViewModel(
         mutate {
             it.copy(
                 onboardingComplete = true,
+                onboardingCompletedAtEpochSec = java.time.Instant.now().epochSecond,
                 sites = it.sites.add(draft.toSite(), makePrimary = true),
                 gear = onboardingGear.value ?: it.gear,
                 digestTime = digestTime,

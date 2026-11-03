@@ -86,8 +86,15 @@ object DigestComposer {
             lines += DewCopy.lowLine(dew, units)
         }
         if (report.forecastStatus == ForecastStatus.STALE) {
-            lines += report.forecastFetchedAt?.let { SavedForecast.detail(it, zone) }
-                ?: "Offline — showing the last saved forecast"
+            val reason = report.warnings.firstOrNull()?.takeIf { it.isNotBlank() }
+            val savedAt = report.forecastFetchedAt
+            lines += when {
+                reason != null && savedAt != null ->
+                    "$reason. Forecast saved ${SavedForecast.clock(savedAt, zone)}"
+                reason != null -> reason
+                savedAt != null -> SavedForecast.detail(savedAt, zone)
+                else -> "Offline — showing the last saved forecast"
+            }
         }
 
         return Digest(

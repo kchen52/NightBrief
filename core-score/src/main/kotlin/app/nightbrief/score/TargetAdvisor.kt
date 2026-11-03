@@ -173,13 +173,17 @@ object TargetAdvisor {
         }
         // The filter sentence wins: it is why the target is still on the list.
         if (trackedName != null) return "Tracked on the $trackedName"
+        val coreUp = target.id == "mw-core" && eph.milkyWay != null
         return when {
             target.kind == TargetKind.MOON && terminatorDeg != null ->
                 "$phase ($moonPct%), terminator at $terminatorDeg°"
             target.kind == TargetKind.MOONLIT ->
                 "$phase ($moonPct%) lights the foreground"
-            target.kind == TargetKind.MILKY_WAY && !moonUp -> "Moon-free core with Bortle $bortle skies"
-            target.kind == TargetKind.MILKY_WAY -> "Core is up, but a $moonPct% Moon will brighten the sky"
+            target.id == "cygnus" && !moonUp -> "Northern Milky Way with Bortle $bortle skies"
+            target.id == "cygnus" -> "Northern Milky Way is up, but a $moonPct% Moon will brighten the sky"
+            coreUp && !moonUp -> "Moon-free core with Bortle $bortle skies"
+            coreUp -> "Core is up, but a $moonPct% Moon will brighten the sky"
+            target.kind == TargetKind.MILKY_WAY -> "Well placed tonight"
             target.maxMoonIllumination >= 1.0 && eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION ->
                 "Holds up well under a $moonPct% Moon"
             target.maxBortle >= 7 && bortle >= 6 -> "Bright enough to punch through Bortle $bortle skies"

@@ -162,15 +162,16 @@ fun NightDetail(
 @Composable
 internal fun StaleForecastBanner(report: NightReport, modifier: Modifier = Modifier) {
     val savedAt = report.forecastFetchedAt
-    Banner(
-        if (savedAt != null) {
+    val reason = report.warnings.firstOrNull()?.takeIf { it.isNotBlank() }
+    val text = when {
+        reason != null && savedAt != null ->
+            stringResource(R.string.banner_saved_reason, reason, SavedForecast.clock(savedAt, report.site.zone))
+        reason != null -> reason
+        savedAt != null ->
             stringResource(R.string.banner_stale, SavedForecast.clock(savedAt, report.site.zone))
-        } else {
-            stringResource(R.string.banner_stale_untimed)
-        },
-        NightColors.Fair,
-        modifier,
-    )
+        else -> stringResource(R.string.banner_stale_untimed)
+    }
+    Banner(text, NightColors.Fair, modifier)
 }
 
 @Composable

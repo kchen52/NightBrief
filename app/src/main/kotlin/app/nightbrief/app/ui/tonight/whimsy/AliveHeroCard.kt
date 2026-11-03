@@ -40,10 +40,8 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
@@ -212,7 +210,6 @@ private fun MoonTarget(
         modifier
             .semantics {
                 contentDescription = description
-                role = Role.Button
                 onLongClick(label = longClickLabel) {
                     click()
                     true

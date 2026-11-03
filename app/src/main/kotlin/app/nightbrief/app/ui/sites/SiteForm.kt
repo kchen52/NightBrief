@@ -3,6 +3,7 @@ package app.nightbrief.app.ui.sites
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -346,15 +347,39 @@ fun SiteForm(
         if (showDigestOverride || showPrimaryToggle) {
             SectionCard(stringResource(R.string.section_digest)) {
                 if (showPrimaryToggle) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = draft.makePrimary, onCheckedChange = { onChange(draft.copy(makePrimary = it)) })
-                        Text(stringResource(R.string.primary_leads_digest))
+                    val primaryLabel = stringResource(R.string.primary_leads_digest)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = draft.makePrimary,
+                                role = Role.Checkbox,
+                                onValueChange = { onChange(draft.copy(makePrimary = it)) },
+                            )
+                            .semantics(mergeDescendants = true) { contentDescription = primaryLabel },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = draft.makePrimary, onCheckedChange = null)
+                        Text(primaryLabel)
                     }
                 }
                 if (showDigestOverride) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    val ownDigest = stringResource(R.string.own_digest_time)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = draft.digestTimeOverride != null,
+                                role = Role.Switch,
+                                onValueChange = { on ->
+                                    if (on) showTime = true else onChange(draft.copy(digestTimeOverride = null))
+                                },
+                            )
+                            .semantics(mergeDescendants = true) { contentDescription = ownDigest },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.own_digest_time), style = MaterialTheme.typography.bodyLarge)
+                            Text(ownDigest, style = MaterialTheme.typography.bodyLarge)
                             Text(
                                 draft.digestTimeOverride?.let { stringResource(R.string.digest_at_time, it) }
                                     ?: if (draft.makePrimary) stringResource(R.string.digest_uses_global, globalDigestTime)
@@ -365,7 +390,7 @@ fun SiteForm(
                         }
                         Switch(
                             checked = draft.digestTimeOverride != null,
-                            onCheckedChange = { on -> if (on) showTime = true else onChange(draft.copy(digestTimeOverride = null)) },
+                            onCheckedChange = null,
                         )
                     }
                     if (draft.digestTimeOverride != null) {

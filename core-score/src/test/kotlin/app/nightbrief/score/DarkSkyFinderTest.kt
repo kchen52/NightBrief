@@ -2,6 +2,8 @@ package app.nightbrief.score
 
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.sites.BortleLookup
+import app.nightbrief.sites.GridOpenWater
+import app.nightbrief.sites.OpenWater
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.HourlyWeather
@@ -9,8 +11,10 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
+import java.util.zip.GZIPInputStream
 
 class DarkSkyFinderTest {
     private val home = Site("home", "Home", 43.6532, -79.3832, "America/Toronto", bortle = 8)
@@ -118,5 +122,88 @@ class DarkSkyFinderTest {
         val briefings = FakeBriefings()
         DarkSkyFinder.search(primary(), kit, lookup, briefings, maxToScore = 2)
         assertEquals(2, briefings.plans)
+    }
+
+    @Test
+    fun skipsOpenWaterAndScoresTheNextDarkestLand() = runTest {
+        // East of home is the darker sky, and it is also the lake.
+        val lookup = BortleLookup { _, lon -> if (lon > home.longitude) 2 else 4 }
+        val water = OpenWater { _, lon -> lon > home.longitude }
+        val briefings = FakeBriefings()
+        val found = DarkSkyFinder.search(primary(), kit, lookup, briefings, water = water)
+        assertTrue("expected land candidates, got none", found.isNotEmpty())
+        assertTrue(
+            "scored longitudes ${found.map { it.site.longitude }}",
+            found.all { it.site.longitude <= home.longitude },
+        )
+        assertTrue("bortles were ${found.map { it.bortle }}", found.all { it.bortle == 4 })
+        assertEquals(found.size, briefings.plans)
+    }
+
+    @Test
+    fun waterLookupFailureSkipsThatSampleOnly() = runTest {
+        val lookup = BortleLookup { _, _ -> 3 }
+        val water = OpenWater { lat, _ ->
+            if (lat > home.latitude) throw IllegalStateException("mask")
+            false
+        }
+        val briefings = FakeBriefings()
+        val found = DarkSkyFinder.search(primary(), kit, lookup, briefings, water = water)
+        assertTrue("expected survivors south of home, got none", found.isNotEmpty())
+        for (candidate in found) {
+            assertTrue(
+                "northern failure leaked: ${candidate.site.latitude}",
+                candidate.site.latitude <= home.latitude,
+            )
+        }
+    }
+
+    @Test
+    fun torontoSearchDropsLakeOntario() = runTest {
+        val water = GridOpenWater {
+            GZIPInputStream(asset("water_mask.wmsk.gzip").inputStream().buffered())
+        }
+        val offshore = listOf(
+            30.0 to 90.0,
+            30.0 to 135.0,
+            30.0 to 180.0,
+            45.0 to 90.0,
+            45.0 to 135.0,
+        )
+        val samples = DarkSkyFinder.samplePoints(home)
+        for ((distanceKm, bearingDeg) in offshore) {
+            val sample = samples.first { it.distanceKm == distanceKm && it.bearingDeg == bearingDeg }
+            assertTrue(
+                "expected open water at $distanceKm km bearing $bearingDeg (${sample.latitude}, ${sample.longitude})",
+                water.isOpenWater(sample.latitude, sample.longitude),
+            )
+        }
+        val lookup = BortleLookup { _, _ -> 3 }
+        val found = DarkSkyFinder.search(primary(), kit, lookup, FakeBriefings(), water = water)
+        assertTrue("expected land candidates, got none", found.isNotEmpty())
+        for (candidate in found) {
+            assertTrue(
+                "recommended ${candidate.site.latitude}, ${candidate.site.longitude}",
+                !water.isOpenWater(candidate.site.latitude, candidate.site.longitude),
+            )
+        }
+        val offshorePoints = offshore.map { (distanceKm, bearingDeg) ->
+            samples.first { it.distanceKm == distanceKm && it.bearingDeg == bearingDeg }
+        }
+        for (candidate in found) {
+            val hit = offshorePoints.any {
+                kotlin.math.abs(it.latitude - candidate.site.latitude) < 1e-6 &&
+                    kotlin.math.abs(it.longitude - candidate.site.longitude) < 1e-6
+            }
+            assertTrue("Lake Ontario sample was scored: ${candidate.site.name}", !hit)
+        }
+    }
+
+    private fun asset(name: String): File {
+        val start = File(System.getProperty("user.dir"))
+        return generateSequence(start) { it.parentFile }
+            .map { File(it, "data/src/main/assets/$name") }
+            .firstOrNull { it.isFile }
+            ?: error("missing data/src/main/assets/$name (started at ${start.absolutePath})")
     }
 }

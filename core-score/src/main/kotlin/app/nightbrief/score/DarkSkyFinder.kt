@@ -3,6 +3,7 @@ package app.nightbrief.score
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.BortleLookup
 import app.nightbrief.sites.BortleSource
+import app.nightbrief.sites.OpenWater
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.RoadAccess
 import app.nightbrief.weather.RoadAccessSource
@@ -69,6 +70,11 @@ object DarkSkyFinder {
      * When [roads] is non-null each surviving candidate is annotated with its paved-road
      * access in parallel with its forecast. A road failure leaves [RoadAccess.UNKNOWN]
      * and never skips the candidate.
+     *
+     * When [water] is non-null, open water (ocean or lake) is dropped before the
+     * darkest-[maxToScore] cut, so a lake does not take a forecast slot from land.
+     * A throw from [water] skips that sample only, same as a grid failure.
+     * A mask that cannot be read returns false and the sample stays.
      */
     suspend fun search(
         primary: NightReport,
@@ -81,6 +87,7 @@ object DarkSkyFinder {
         bearingsPerRing: Int = BEARINGS_PER_RING,
         maxToScore: Int = MAX_CANDIDATES_TO_SCORE,
         roads: RoadAccessSource? = null,
+        water: OpenWater? = null,
     ): List<DarkSkyCandidate> = coroutineScope {
         val samples = samplePoints(primary.site, radiusKm, ringsKm, bearingsPerRing)
         if (samples.isEmpty()) return@coroutineScope emptyList()
@@ -90,8 +97,13 @@ object DarkSkyFinder {
                 async {
                     try {
                         val bortle = lookup.lookup(sample.latitude, sample.longitude)
-                        if (bortle == null || bortle >= primaryBortle) null
-                        else sample to bortle
+                        if (bortle == null || bortle >= primaryBortle) {
+                            null
+                        } else if (water?.isOpenWater(sample.latitude, sample.longitude) == true) {
+                            null
+                        } else {
+                            sample to bortle
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {

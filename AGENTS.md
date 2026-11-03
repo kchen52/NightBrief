@@ -76,7 +76,7 @@ Unknown Bortle scores as class 5 (`Site.effectiveBortle`). `SiteForm` writes a l
 
 `WeatherModel.forLocation` uses `gem_seamless` when latitude ≥ 41.6 and longitude is in −141.1..−52.5. That is a box, not a country. High latitude for aurora is geographic |latitude| ≥ 55°. It is not the GEM box.
 
-Ephemeris is planning-grade (`Bodies`, Astronomical Almanac low precision). `core-astro/src/test/kotlin/app/nightbrief/astro/NightEphemerisTest.kt` is checked against Skyfield 1.55 + DE421 (tolerances 4 min, 6 min for lunar rise/set). Do not "correct" ΔT, precession, or refraction unless the task is to change that model. To refresh values, use a Python venv with `skyfield`, load `de421.bsp`, and update the expected instants in that test. There is no generator script in the repo. `tools/requirements.txt` is numpy and rasterio only, not Skyfield.
+Ephemeris is planning-grade (`Bodies`, Astronomical Almanac low precision). `core-astro/src/test/kotlin/app/nightbrief/astro/NightEphemerisTest.kt` is checked against Skyfield 1.55 + DE421 (tolerances 4 min, 6 min for lunar rise/set). Do not "correct" ΔT, precession, or refraction unless the task is to change that model. To refresh values, use a Python venv with `skyfield`, load `de421.bsp`, and update the expected instants in that test. There is no generator script in the repo. `tools/requirements.txt` is numpy, rasterio, and pyshp (the water mask). It is not Skyfield.
 
 ## Time and persistence
 
@@ -88,11 +88,12 @@ Ephemeris is planning-grade (`Bodies`, Astronomical Almanac low precision). `cor
 - Forecast cache: one JSON file per ~1 km cell, written via a temp file. Younger than 60 minutes is served without a network call unless refresh is forced. The morning digest always forces a refresh. If that fetch throws, the last file is served at any age and the copy says when it was saved. Nights past the last saved hour stay beyond the forecast. Ephemeris is recomputed on device.
 - ISS elements cache for 12 hours, and up to 7 days when a later fetch fails.
 - Bortle lookup does blocking I/O and can take about a second. Call it on `Dispatchers.IO`. Do not cache the grids in memory. The site form waits about 400 ms after coordinates settle before looking up.
+- Darker-sky search drops open water before scoring (`OpenWater`, `water_mask.wmsk.gzip`). That mask is inflated once per process. Do not stream it like the Bortle grids, and do not cache those grids to match it. A mask that cannot be read reports land so the search still returns.
 - There is one digest `PendingIntent` (request code 1001). The receiver re-arms the next instant after it fires. Do not add a second alarm slot unless the task is to fix that.
 
 ## Bortle grids and licences
 
-The atlas is CC BY-NC 4.0. A paid tier, ads, or an in-app purchase cannot ship `bortle_na.nblp.gzip` and `bortle_world.nblp.gzip`. Do not add a purchase flow on top of these files.
+The atlas is CC BY-NC 4.0. A paid tier, ads, or an in-app purchase cannot ship `bortle_na.nblp.gzip` and `bortle_world.nblp.gzip`. Do not add a purchase flow on top of these files. The open-water mask is Natural Earth, public domain, and a paid build can keep `water_mask.wmsk.gzip`.
 
 Asset names end in `.gzip`, not `.gz`. AGP's asset merger gunzips `*.gz` and drops the suffix. `:data` and `:app` both set `noCompress += "gzip"`. Leave the committed files gzip-compressed. Do not commit uncompressed `.nblp`.
 

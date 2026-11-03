@@ -1,5 +1,6 @@
 package app.nightbrief.astro
 
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -128,7 +129,9 @@ object SkyEvents {
             val date = years
                 .map { y -> LocalDate.of(y, shower.peakMonth, shower.peakDay) }
                 .firstOrNull { it in inRange } ?: return@mapNotNull null
-            val illumination = Bodies.moonIllumination(AstroTime.daysSinceJ2000(noons.getValue(date))).first
+            // Same night as the week view: local midnight, not noon. Illumination is a function of time.
+            val night = noons.getValue(date).plus(Duration.ofHours(12))
+            val illumination = Bodies.moonIllumination(AstroTime.daysSinceJ2000(night)).first
             val moon = "${(illumination * 100).roundToInt()}% moon"
             SkyEvent(
                 noons.getValue(date),

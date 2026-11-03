@@ -322,7 +322,7 @@ private fun BodyRow(
             }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
         }
-        NicknameField(body.nickname.orEmpty(), onNickname)
+        NicknameEditor(body.nickname, onNickname)
     }
 }
 
@@ -348,7 +348,17 @@ private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit, onNickn
             }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
         }
-        NicknameField(lens.nickname.orEmpty(), onNickname)
+        NicknameEditor(lens.nickname, onNickname)
+    }
+}
+
+@Composable
+private fun NicknameEditor(nickname: String?, onValue: (String) -> Unit) {
+    var editing by remember(nickname) { mutableStateOf(!nickname.isNullOrBlank()) }
+    if (editing) {
+        NicknameField(nickname.orEmpty(), onValue)
+    } else {
+        TextButton(onClick = { editing = true }) { Text(stringResource(R.string.add_nickname)) }
     }
 }
 
@@ -479,9 +489,48 @@ private fun AddTrackerDialog(currentId: String?, onDismiss: () -> Unit, onPick: 
                         )
                     }
                 }
-                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.close)) }
+                var custom by remember { mutableStateOf(false) }
+                if (custom) CustomTrackerForm(onAdd = onPick)
+                Row(Modifier.align(Alignment.End)) {
+                    TextButton(onClick = { custom = !custom }) {
+                        Text(stringResource(if (custom) R.string.close else R.string.custom_ellipsis))
+                    }
+                    if (!custom) {
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun CustomTrackerForm(onAdd: (StarTracker) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var focal by remember { mutableStateOf("300") }
+    val focalMm = focal.toIntOrNull()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(R.string.tracker_name)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = focal,
+            onValueChange = { focal = it },
+            label = { Text(stringResource(R.string.tracker_focal)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            onClick = {
+                onAdd(StarTracker(newId("custom-tracker"), name.trim(), focalMm ?: StarTracker.DEFAULT_FOCAL_MM))
+            },
+            enabled = name.isNotBlank() && focalMm != null && focalMm > 0,
+            modifier = Modifier.align(Alignment.End),
+        ) { Text(stringResource(R.string.custom_tracker)) }
     }
 }
 

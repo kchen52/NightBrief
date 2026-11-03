@@ -207,16 +207,31 @@ internal fun DarkerSkyRow(
         ScorePill(candidate.report.scoreValue)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
+            val distance = stringResource(
+                R.string.darker_sky_bortle_distance,
+                candidate.bortle,
+                candidate.distanceKm.toInt(),
+                DigestComposer.compass(bearing),
+            )
             Text(
-                stringResource(
-                    R.string.darker_sky_bortle_distance,
-                    candidate.bortle,
-                    candidate.distanceKm.toInt(),
-                    DigestComposer.compass(bearing),
-                ),
+                candidate.placeName ?: distance,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            if (candidate.placeName != null) {
+                Text(
+                    distance,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (candidate.report.scoreValue == null) {
+                Text(
+                    stringResource(R.string.darker_sky_no_forecast),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             candidate.delta?.let { delta ->
                 Text(
                     stringResource(R.string.darker_sky_delta, delta),

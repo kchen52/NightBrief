@@ -44,7 +44,7 @@
     <string name="onboarding_digest_time">Digest time: %1$s</string>
     <string name="onboarding_notify_body">Allow notifications so the digest can reach you. On Android 13 and later the system asks first.</string>
     <string name="allow_notifications">Allow notifications</string>
-    <string name="notifications_on">Notifications on</string>
+    <string name="notifications_on">✓ Notifications on</string>
 
     <string name="tonight_empty">Pull fresh data with the refresh button</string>
     <string-array name="refresh_lines">
@@ -122,7 +122,7 @@
     <string name="timeline_seeing">Seeing</string>
     <string name="timeline_transp">Transp.</string>
     <string name="timeline_wind">Wind</string>
-    <string name="timeline_footnote">Shaded hours are full darkness. Scale: 1 best, 8 worst; wind in %1$s.</string>
+    <string name="timeline_footnote">Seeing and transparency read higher as better. 7Timer 1 is best and 8 is worst; wind in %1$s.</string>
     <string name="section_targets">Suggested targets</string>
     <string name="why">Why</string>
     <string name="hide">Hide</string>
@@ -145,6 +145,14 @@
     <string name="night_vision_summary">Red on black, so your eyes stay adapted to the dark.</string>
     <string name="night_vision_on">Night vision on</string>
     <string name="night_vision_off">Night vision off</string>
+    <string name="settings_tonight">Your settings tonight: %1$s</string>
+    <string name="quality_excellent">Excellent</string>
+    <string name="quality_good">Good</string>
+    <string name="quality_fair">Fair</string>
+    <string name="quality_marginal">Marginal</string>
+    <string name="quality_poor">Poor</string>
+    <string name="quality_bad">Bad</string>
+    <string name="timeline_swipe">Swipe for later hours</string>
     <string name="units_title">Units</string>
     <string name="units_metric">km/h, °C</string>
     <string name="units_imperial">mph, °F</string>
@@ -302,6 +310,10 @@
     <string name="tracker_title">Star tracker</string>
     <string name="no_tracker">No tracker — untracked, capped at 30 s.</string>
     <string name="add_tracker">Add tracker</string>
+    <string name="custom_tracker">Custom tracker</string>
+    <string name="tracker_name">Tracker name</string>
+    <string name="tracker_focal">Longest focal length (mm)</string>
+    <string name="add_nickname">Add a nickname</string>
     <string name="search_trackers">Search trackers</string>
     <string name="remove_tracker">Remove tracker</string>
     <string name="tracker_reach">Plans up to %1$d mm</string>
@@ -330,6 +342,7 @@
     <string name="darker_sky_saved">Saved</string>
     <string name="darker_sky_show_map">Show on map</string>
     <string name="darker_sky_bortle_distance">Bortle %1$d · %2$d km %3$s</string>
+    <string name="darker_sky_no_forecast">Forecast unavailable</string>
     <string name="darker_sky_delta">+%1$d tonight</string>
     <string name="darker_sky_filter_all">All</string>
     <string name="darker_sky_filter_drive_up">Drive-up</string>
@@ -354,6 +367,12 @@
     <string name="event_shower">Meteor shower</string>
     <string name="sky_passport">Sky passport</string>
     <string name="passport_constellations">Constellations</string>
+    <string name="passport_how">Log a session after you shoot. Stamps and constellation figures come from those nights.</string>
+    <string name="week_name_big_one">Clears the Big Night bar</string>
+    <string name="week_name_ghost">Full moon and clear skies</string>
+    <string name="sky_while_loading">Sunset, the Moon, and darkness are on the device. The score waits for the forecast.</string>
+    <string name="map_tiles_loading">Loading map tiles…</string>
+    <string name="place_distance">%1$d km away</string>
     <string name="passport_stamps">Stamps</string>
     <string name="passport_new_stamp">New stamp: %1$s</string>
     <string name="passport_earned_on">Earned %1$s</string>

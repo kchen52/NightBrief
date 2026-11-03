@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalFocusManager
@@ -65,7 +66,9 @@ import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.weather.PlaceMatch
 import app.nightbrief.weather.PlaceSearch
 import app.nightbrief.weather.PlaceSearchResult
+import app.nightbrief.weather.distanceKmFrom
 import app.nightbrief.weather.nearestFirst
+import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.osmdroid.config.Configuration
@@ -119,6 +122,8 @@ fun MapPickerDialog(
     var searchFailed by remember { mutableStateOf(false) }
     var searchedQuery by remember { mutableStateOf<String?>(null) }
     val keyboardDismissals = remember { mutableIntStateOf(0) }
+    var tilesLoading by remember { mutableStateOf(true) }
+    var bias by remember { mutableStateOf(picked) }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val mapView = remember {
@@ -128,6 +133,7 @@ fun MapPickerDialog(
             setMultiTouchControls(true)
             controller.setZoom(if (picked != null) 10.0 else 4.0)
             controller.setCenter(picked ?: GeoPoint(50.0, -85.0))
+            overlayManager.tilesOverlay.setLoadingBackgroundColor(0xFF000000.toInt())
         }
     }
     val marker = remember { Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) } }
@@ -161,8 +167,21 @@ fun MapPickerDialog(
                 override fun longPressHelper(p: GeoPoint): Boolean = singleTapConfirmedHelper(p)
             }),
         )
+        val tiles = object : org.osmdroid.events.MapListener {
+            override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean {
+                tilesLoading = false
+                return false
+            }
+
+            override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
+                tilesLoading = false
+                return false
+            }
+        }
+        mapView.addMapListener(tiles)
         mapView.onResume()
         onDispose {
+            mapView.removeMapListener(tiles)
             mapView.onPause()
             mapView.onDetach()
         }
@@ -172,6 +191,26 @@ fun MapPickerDialog(
         if (keyboardDismissals.intValue == 0) return@LaunchedEffect
         focusManager.clearFocus()
         keyboard?.hide()
+    }
+
+    LaunchedEffect(Unit) {
+        if (picked != null) return@LaunchedEffect
+        val city = ZoneId.systemDefault().id.substringAfterLast('/').replace('_', ' ').trim()
+        if (city.length < PlaceSearch.MIN_QUERY_LENGTH) return@LaunchedEffect
+        val found = try {
+            searchPlaces(city)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return@LaunchedEffect
+        }
+        val place = found.places.minByOrNull { if (it.name.equals(city, ignoreCase = true)) 0 else 1 }
+            ?: return@LaunchedEffect
+        if (picked != null || query.isNotBlank()) return@LaunchedEffect
+        val point = GeoPoint(place.latitude, place.longitude)
+        bias = point
+        mapView.controller.setZoom(8.0)
+        mapView.controller.setCenter(point)
     }
 
     LaunchedEffect(query) {
@@ -197,7 +236,7 @@ fun MapPickerDialog(
         } catch (_: Exception) {
             PlaceSearchResult(failed = true)
         }
-        val pin = picked
+        val pin = picked ?: bias
         results = if (pin != null) outcome.places.nearestFirst(pin.latitude, pin.longitude) else outcome.places
         searchFailed = outcome.failed
         searchedQuery = trimmed
@@ -274,6 +313,7 @@ fun MapPickerDialog(
                         results = results,
                         searching = searching,
                         failed = searchFailed,
+                        near = picked ?: bias,
                         modifier = Modifier.weight(1f, fill = false),
                         onPick = { place ->
                             keyboardDismissals.intValue++
@@ -327,6 +367,14 @@ fun MapPickerDialog(
                             modifier = Modifier.fillMaxSize().clipToBounds(),
                             update = { map -> (map.parent as? ViewGroup)?.clipChildren = true },
                         )
+                        if (tilesLoading) {
+                            Text(
+                                stringResource(R.string.map_tiles_loading),
+                                modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                 }
             }
@@ -342,6 +390,7 @@ private fun PlaceResults(
     results: List<PlaceMatch>,
     searching: Boolean,
     failed: Boolean,
+    near: GeoPoint?,
     onPick: (PlaceMatch) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -379,14 +428,15 @@ private fun PlaceResults(
                             .clickable(role = Role.Button) { onPick(place) }
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                     ) {
-                        Text(place.name, style = MaterialTheme.typography.bodyLarge)
-                        place.detail()?.let {
-                            Text(
-                                it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        val away = near?.let { center ->
+                            stringResource(R.string.place_distance, place.distanceKmFrom(center.latitude, center.longitude).toInt())
                         }
+                        Text(place.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            listOfNotNull(place.detail(), away).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

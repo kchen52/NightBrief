@@ -103,6 +103,30 @@ class PlaceSearchTest {
     }
 
     @Test
+    fun reverseReadsTheNearestNamedPlace() = runTest {
+        server.enqueue(MockResponse().setBody(BANFF))
+        val place = search().reverse(51.18, -115.57, language = "en")
+        assertEquals("Banff", place!!.name)
+        val path = server.takeRequest().path.orEmpty()
+        assertTrue(path, path.contains("/v1/reverse"))
+        assertTrue(path, path.contains("latitude=51.18"))
+        assertTrue(path, path.contains("count=1"))
+        assertTrue(path, path.contains("language=en"))
+    }
+
+    @Test
+    fun reverseFailureReturnsNull() = runTest {
+        server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
+        assertNull(search().reverse(51.18, -115.57))
+    }
+
+    @Test
+    fun distanceFromTheSamePointIsZero() {
+        val banff = PlaceMatch("Banff", 51.1784, -115.5708)
+        assertEquals(0.0, banff.distanceKmFrom(51.1784, -115.5708), 0.01)
+    }
+
+    @Test
     fun cityStateDropsTheRepeatedRegion() {
         val berlin = PlaceMatch("Berlin", 52.52, 13.405, region = "Berlin", country = "Germany")
         assertEquals("Germany", berlin.detail())

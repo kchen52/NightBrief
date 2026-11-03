@@ -65,7 +65,7 @@ class DewTest {
             "Dew likely from 23:00, frost from 02:00 — bring a heater",
             DewCopy.riskLine(outlook) { clock.format(it) },
         )
-        assertEquals("Dress for −4 °C", DewCopy.lowLine(outlook))
+        assertEquals("Dress for −4 °C, the overnight low", DewCopy.lowLine(outlook))
     }
 
     @Test
@@ -76,7 +76,7 @@ class DewTest {
         assertFalse(dry.frost)
         assertTrue(dry.spreadKnown)
         assertEquals(-6.0, dry.overnightLowC, 0.001)
-        assertEquals("Dress for −6 °C", DewCopy.lowLine(dry))
+        assertEquals("Dress for −6 °C, the overnight low", DewCopy.lowLine(dry))
         assertNull(DewCopy.riskLine(dry) { clock.format(it) })
 
         val noDewPoint = Dew.assess(
@@ -86,7 +86,7 @@ class DewTest {
         )!!
         assertFalse(noDewPoint.spreadKnown)
         assertFalse(noDewPoint.risk)
-        assertEquals("Dress for −3 °C", DewCopy.lowLine(noDewPoint))
+        assertEquals("Dress for −3 °C, the overnight low", DewCopy.lowLine(noDewPoint))
         assertTrue(DewCopy.detail(noDewPoint).contains("no dew point"))
     }
 
@@ -104,15 +104,18 @@ class DewTest {
     fun imperialDressLineUsesFahrenheitAndLeavesTheScoreAlone() {
         val hour = Instant.parse("2024-08-11T03:00:00Z")
         val outlook = assess(hour, temperature = -4.0, dewPoint = -5.0)
-        assertEquals("Dress for 25 °F", DewCopy.lowLine(outlook, UnitSystem.IMPERIAL))
+        assertEquals("Dress for 25 °F, the overnight low", DewCopy.lowLine(outlook, UnitSystem.IMPERIAL))
         assertTrue(DewCopy.detail(outlook, UnitSystem.IMPERIAL).contains("within 4 °F"))
-        assertEquals("Dress for −4 °C", DewCopy.lowLine(outlook))
+        assertEquals("Dress for −4 °C, the overnight low", DewCopy.lowLine(outlook))
 
         val report = NightPlanner.plan(toronto, date, null, kit).copy(dew = outlook)
         val metric = DigestComposer.compose(report, emptyList())
         val imperial = DigestComposer.compose(report, emptyList(), units = UnitSystem.IMPERIAL)
         assertEquals(metric.score, imperial.score)
-        assertEquals("Dress for 25 °F", imperial.lines.last())
+        assertEquals(
+            DewCopy.lowLine(outlook, UnitSystem.IMPERIAL) { clock.format(it) },
+            imperial.lines.last(),
+        )
     }
 
     @Test
@@ -166,7 +169,10 @@ class DewTest {
         val digest = DigestComposer.compose(dewy, emptyList())
         assertFalse(digest.summary.contains("heater"))
         assertTrue(digest.lines.any { it == DewCopy.riskLine(dewy.dew!!) { clock.format(it) } })
-        assertEquals("Dress for −8 °C", digest.lines.last())
+        assertEquals(
+            DewCopy.lowLine(dewy.dew!!, UnitSystem.METRIC) { clock.format(it) },
+            digest.lines.last(),
+        )
     }
 
     @Test

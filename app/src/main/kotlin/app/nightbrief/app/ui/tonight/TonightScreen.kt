@@ -46,14 +46,18 @@ import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Banner
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.passport.NewStampNotice
 import app.nightbrief.app.ui.theme.NightColors
+import app.nightbrief.astro.NightEphemeris
 import app.nightbrief.score.ConstellationStreaks
 import app.nightbrief.score.Passport
 import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.SiteComparison
+import app.nightbrief.sites.Site
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,13 +114,16 @@ fun TonightScreen(
                 LinearProgressIndicator(Modifier.fillMaxWidth())
                 RefreshStatusLine(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             }
-            SiteStrip(
-                sites = book.primaryFirst().map {
-                    SiteChip(it.id, it.name, briefing?.reportFor(it.id)?.scoreValue, it.id == book.primaryId)
-                },
-                selectedId = siteId,
-                onSelect = vm::selectSite,
-            )
+            val chips = book.primaryFirst()
+            if (chips.size > 1) {
+                SiteStrip(
+                    sites = chips.map {
+                        SiteChip(it.id, it.name, briefing?.reportFor(it.id)?.scoreValue, it.id == book.primaryId)
+                    },
+                    selectedId = siteId,
+                    onSelect = vm::selectSite,
+                )
+            }
             ui.error?.let { Banner(it, NightColors.Poor, Modifier.padding(horizontal = 16.dp)) }
             val stamps = remember(current.sessions) { Passport.evaluate(current.sessions) }
             NewStampNotice(
@@ -127,8 +134,13 @@ fun TonightScreen(
             )
 
             if (briefing == null || report == null) {
-                Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-                    if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))
+                val site = siteId?.let { book[it] }
+                if (ui.loading && site != null) {
+                    LoadingSky(site)
+                } else {
+                    Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
+                        if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))
+                    }
                 }
             } else {
                 val others = briefing.tonight.filter { it.site.id != report.site.id }
@@ -201,3 +213,26 @@ internal fun RefreshStatusLine(modifier: Modifier = Modifier) {
 }
 
 private const val REFRESH_LINE_PERIOD_MS = 2_000L
+
+/** Ephemeris is on device, so sunset and darkness can show before the forecast returns. */
+@Composable
+private fun LoadingSky(site: Site) {
+    val eph = remember(site.id, site.latitude, site.longitude, site.zoneId) {
+        NightEphemeris.compute(LocalDate.now(site.zone), site.zone, site.latitude, site.longitude)
+    }
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            stringResource(R.string.sky_while_loading),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text("${stringResource(R.string.sunset)} ${Format.time(eph.sunset, site.zone)}")
+        Text("${stringResource(R.string.sunrise)} ${Format.time(eph.sunrise, site.zone)}")
+        eph.darkWindow?.let {
+            Text("${stringResource(R.string.dark)} ${Format.window(it, site.zone)}")
+        }
+    }
+}

@@ -11,6 +11,9 @@ import app.nightbrief.gear.ExposureSuggestion
 import app.nightbrief.gear.GearKit
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 data class TargetSuggestion(
@@ -81,6 +84,7 @@ object TargetAdvisor {
         val lon = eph.longitudeDeg
         val usable = mutableListOf<Instant>()
         var moonUp = false
+        var moonUpAtBest = false
         var bestTime: Instant? = null
         var bestAlt = Double.NEGATIVE_INFINITY
         var bestAz = 0.0
@@ -101,11 +105,13 @@ object TargetAdvisor {
             val floor = maxOf(target.minAltitudeDeg, horizonObstructionDeg(skyAz))
             if (skyAlt >= floor && moonOk) {
                 usable += t
-                if (moon.altitudeDeg > 0 && moon.illumination > NightEphemeris.NEGLIGIBLE_MOON) moonUp = true
+                val moonBright = moon.altitudeDeg > 0 && moon.illumination > NightEphemeris.NEGLIGIBLE_MOON
+                if (moonBright) moonUp = true
                 if (skyAlt > bestAlt) {
                     bestAlt = skyAlt
                     bestAz = skyAz
                     bestTime = t
+                    moonUpAtBest = moonBright
                 }
             }
             t = t.plus(STEP)
@@ -148,7 +154,7 @@ object TargetAdvisor {
             peakAzimuthDeg = bestAz,
             moonUpDuringWindow = moonUp,
             exposure = exposure,
-            reason = reason(target, eph, bortle, moonUp, terminator, kit, trackedName),
+            reason = reason(target, eph, bortle, moonUp, moonUpAtBest, terminator, kit, trackedName),
         )
     }
 
@@ -157,6 +163,7 @@ object TargetAdvisor {
         eph: NightEphemeris,
         bortle: Int,
         moonUp: Boolean,
+        moonUpAtBest: Boolean,
         terminatorDeg: Int?,
         kit: GearKit,
         trackedName: String?,
@@ -174,15 +181,18 @@ object TargetAdvisor {
         // The filter sentence wins: it is why the target is still on the list.
         if (trackedName != null) return "Tracked on the $trackedName"
         val coreUp = target.id == "mw-core" && eph.milkyWay != null
+        val moon = moonCaveat(moonUp, moonUpAtBest, moonPct, eph.moonset, eph.zone)
         return when {
             target.kind == TargetKind.MOON && terminatorDeg != null ->
                 "$phase ($moonPct%), terminator at $terminatorDeg°"
             target.kind == TargetKind.MOONLIT ->
                 "$phase ($moonPct%) lights the foreground"
-            target.id == "cygnus" && !moonUp -> "Northern Milky Way with Bortle $bortle skies"
-            target.id == "cygnus" -> "Northern Milky Way is up, but a $moonPct% Moon will brighten the sky"
-            coreUp && !moonUp -> "Moon-free core with Bortle $bortle skies"
-            coreUp -> "Core is up, but a $moonPct% Moon will brighten the sky"
+            target.id == "cygnus" && moon == null -> "Northern Milky Way with Bortle $bortle skies"
+            target.id == "cygnus" && moon?.startsWith("Moon sets") == true -> "Northern Milky Way is up. $moon"
+            target.id == "cygnus" -> "Northern Milky Way is up, but $moon"
+            coreUp && moon == null -> "Moon-free core with Bortle $bortle skies"
+            coreUp && moon?.startsWith("Moon sets") == true -> "Core is up. $moon"
+            coreUp -> "Core is up, but $moon"
             target.kind == TargetKind.MILKY_WAY -> "Well placed tonight"
             target.maxMoonIllumination >= 1.0 && eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION ->
                 "Holds up well under a $moonPct% Moon"
@@ -190,6 +200,25 @@ object TargetAdvisor {
             !moonUp -> "Well placed in a moon-free sky"
             else -> "Well placed tonight"
         }
+    }
+
+    /**
+     * Null when the Moon is not in the usable window. When it has set before the target is highest,
+     * the sentence says when to start instead of claiming the Moon will brighten that moment.
+     */
+    internal fun moonCaveat(
+        moonUpDuringWindow: Boolean,
+        moonUpAtBest: Boolean,
+        percent: Int,
+        moonset: Instant?,
+        zone: ZoneId,
+    ): String? {
+        if (!moonUpDuringWindow) return null
+        if (!moonUpAtBest && moonset != null) {
+            val label = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT).withZone(zone).format(moonset)
+            return "Moon sets $label — shoot after that"
+        }
+        return "a $percent% Moon will brighten the sky"
     }
 
     private fun rank(s: TargetSuggestion): Double {

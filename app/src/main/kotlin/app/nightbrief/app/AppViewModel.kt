@@ -178,9 +178,13 @@ class AppViewModel(
                     roads = graph.roadAccess,
                     water = graph.openWater,
                 )
+                val named = found.map { candidate ->
+                    val place = graph.placeSearch.reverse(candidate.site.latitude, candidate.site.longitude)
+                    if (place == null) candidate else candidate.copy(placeName = place.name)
+                }
                 val book = state.value?.sites ?: s.sites
                 _darkerSky.value = DarkerSkyUiState(
-                    candidates = found,
+                    candidates = named,
                     searchedSiteId = siteId,
                     accessFilter = filter,
                     savedIds = savedDarkSkyIds(book, found),

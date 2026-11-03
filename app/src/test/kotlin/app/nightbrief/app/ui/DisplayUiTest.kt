@@ -98,9 +98,12 @@ class DisplayUiTest {
             }
         }
         assertEquals(Color.Black, background)
-        assertTrue(onBackground.red > onBackground.green && onBackground.red > onBackground.blue)
-        assertTrue(excellent.red > excellent.green && excellent.red > excellent.blue)
-        assertTrue(excellent.green < 0.9f)
+        assertEquals(0f, onBackground.green, 0.001f)
+        assertEquals(0f, onBackground.blue, 0.001f)
+        assertEquals(0f, excellent.green, 0.001f)
+        assertEquals(0f, excellent.blue, 0.001f)
+        assertTrue(onBackground.red > 0.5f)
+        assertTrue(excellent.red > 0.5f)
         assertEquals(Color(0xFF8AB4FF), standardPrimary)
     }
 
@@ -184,7 +187,9 @@ class DisplayUiTest {
             }
         }
         compose.onNodeWithText("wind in mph", substring = true).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Dress for 25 °F").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Dress for 25 °F, the overnight low", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText("km/h", substring = true).assertDoesNotExist()
     }
 

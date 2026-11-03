@@ -33,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -60,7 +62,10 @@ import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.app.ui.gear.GearEditor
 import app.nightbrief.app.ui.sites.SiteForm
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.theme.NightColors
+import app.nightbrief.score.UnitSystem
+import android.text.format.DateFormat
 import java.time.LocalTime
 import java.util.Locale
 
@@ -202,8 +207,25 @@ fun OnboardingScreen(vm: AppViewModel) {
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        val twentyFour = DateFormat.is24HourFormat(LocalContext.current)
                         TextButton(onClick = { showTime = true }) {
-                            Text(stringResource(R.string.onboarding_digest_time, digestTime))
+                            Text(stringResource(R.string.onboarding_digest_time, Format.clockTime(digestTime, twentyFour)))
+                        }
+                        Text(stringResource(R.string.units_title), style = MaterialTheme.typography.titleMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val units = s.resolvedUnits()
+                            FilterChip(
+                                selected = units == UnitSystem.METRIC,
+                                onClick = { vm.setUnits(UnitSystem.METRIC) },
+                                label = { Text(stringResource(R.string.units_metric)) },
+                                modifier = Modifier.testTag("units-metric"),
+                            )
+                            FilterChip(
+                                selected = units == UnitSystem.IMPERIAL,
+                                onClick = { vm.setUnits(UnitSystem.IMPERIAL) },
+                                label = { Text(stringResource(R.string.units_imperial)) },
+                                modifier = Modifier.testTag("units-imperial"),
+                            )
                         }
                         Text(
                             stringResource(R.string.onboarding_notify_body),

@@ -3,11 +3,13 @@ package app.nightbrief.app
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,7 +30,18 @@ class MainActivity : ComponentActivity() {
         applyTonightIntent(intent, restoringState = savedInstanceState != null)
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
-            NightBriefTheme(nightVision = state?.nightVision == true) {
+            val nightVision = state?.nightVision == true
+            SideEffect {
+                window.attributes = window.attributes.apply {
+                    screenBrightness = if (nightVision) NIGHT_VISION_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                }
+                val scrim = if (nightVision) Color.BLACK else Color.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.dark(scrim),
+                    navigationBarStyle = SystemBarStyle.dark(scrim),
+                )
+            }
+            NightBriefTheme(nightVision = nightVision) {
                 NightBriefNavHost(vm, openTonightSignal = openTonight.intValue)
             }
         }
@@ -50,6 +63,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Widget tap. Opens Tonight on the primary site, including when the task is already showing another tab. */
         const val EXTRA_OPEN_TONIGHT = "app.nightbrief.extra.OPEN_TONIGHT"
+
+        /** Low enough to keep dark adaptation, high enough that pure red text stays readable. */
+        private const val NIGHT_VISION_BRIGHTNESS = 0.05f
     }
 }
 

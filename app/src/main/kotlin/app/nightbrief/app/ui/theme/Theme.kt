@@ -13,8 +13,8 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Colours the night UI actually paints with. [Standard] is the blue night theme.
- * [NightVision] is red on black so a bright screen does not wipe out dark adaptation.
- * Score bands stay distinguishable, but every swatch is red.
+ * [NightVision] is deep red on black so a bright screen does not wipe out dark adaptation.
+ * Every swatch has green and blue at zero. Score bands stay distinguishable by how bright the red is.
  */
 data class NightPalette(
     val background: Color,
@@ -97,25 +97,25 @@ data class NightPalette(
 
         val NightVision = NightPalette(
             background = Color(0xFF000000),
-            surface = Color(0xFF140808),
-            surfaceHigh = Color(0xFF2A1010),
-            primary = Color(0xFFFF5A5A),
-            amber = Color(0xFFFF7A6A),
-            textMuted = Color(0xFFC47A7A),
-            excellent = Color(0xFFFFC2C2),
-            good = Color(0xFFFF8A8A),
-            fair = Color(0xFFFF5C5C),
-            marginal = Color(0xFFE23B3B),
-            poor = Color(0xFFB42323),
-            onBackground = Color(0xFFFFE4E4),
+            surface = Color(0xFF140000),
+            surfaceHigh = Color(0xFF2A0000),
+            primary = Color(0xFFFF0000),
+            amber = Color(0xFFCC0000),
+            textMuted = Color(0xFF990000),
+            excellent = Color(0xFFFF0000),
+            good = Color(0xFFDD0000),
+            fair = Color(0xFFBB0000),
+            marginal = Color(0xFF880000),
+            poor = Color(0xFF550000),
+            onBackground = Color(0xFFFF0000),
             onPrimary = Color(0xFF1A0000),
-            primaryContainer = Color(0xFF5C1212),
-            onPrimaryContainer = Color(0xFFFFD6D6),
+            primaryContainer = Color(0xFF3A0000),
+            onPrimaryContainer = Color(0xFFFF0000),
             onSecondary = Color(0xFF1A0000),
-            secondaryContainer = Color(0xFF4A1814),
-            onSecondaryContainer = Color(0xFFFFD0C8),
-            outline = Color(0xFF6A3030),
-            outlineVariant = Color(0xFF3A1818),
+            secondaryContainer = Color(0xFF2A0000),
+            onSecondaryContainer = Color(0xFFFF0000),
+            outline = Color(0xFF440000),
+            outlineVariant = Color(0xFF220000),
         )
     }
 }

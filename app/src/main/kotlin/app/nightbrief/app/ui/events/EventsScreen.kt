@@ -1,5 +1,6 @@
 package app.nightbrief.app.ui.events
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -54,7 +55,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventsScreen(vm: AppViewModel, onBack: () -> Unit) {
+fun EventsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNight: (LocalDate) -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val book = state?.sites ?: return
     val site = book.primary ?: return
@@ -73,12 +74,17 @@ fun EventsScreen(vm: AppViewModel, onBack: () -> Unit) {
         },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
     ) { inner ->
-        EventsList(events = events, zone = zone, modifier = Modifier.padding(inner))
+        EventsList(events = events, zone = zone, onOpenNight = onOpenNight, modifier = Modifier.padding(inner))
     }
 }
 
 @Composable
-fun EventsList(events: List<SkyEvent>, zone: ZoneId, modifier: Modifier = Modifier) {
+fun EventsList(
+    events: List<SkyEvent>,
+    zone: ZoneId,
+    onOpenNight: (LocalDate) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val months = remember(events, zone) {
         events.groupBy { YearMonth.from(it.instant.atZone(zone).toLocalDate()) }.toSortedMap()
     }
@@ -97,16 +103,21 @@ fun EventsList(events: List<SkyEvent>, zone: ZoneId, modifier: Modifier = Modifi
                 )
             }
             items(monthEvents, key = { it.instant.toString() + it.title }) { event ->
-                EventRow(event, zone)
+                EventRow(event, zone, onOpenNight = onOpenNight)
             }
         }
     }
 }
 
 @Composable
-internal fun EventRow(event: SkyEvent, zone: ZoneId, modifier: Modifier = Modifier) {
+internal fun EventRow(
+    event: SkyEvent,
+    zone: ZoneId,
+    onOpenNight: (LocalDate) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val date = event.instant.atZone(zone).toLocalDate()
-    SectionCard(modifier = modifier) {
+    SectionCard(modifier = modifier.clickable { onOpenNight(date) }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(64.dp)) {
                 Text(

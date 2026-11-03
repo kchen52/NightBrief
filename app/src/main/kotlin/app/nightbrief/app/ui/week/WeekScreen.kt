@@ -88,13 +88,16 @@ fun WeekScreen(
         ) {
             if (ui.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             item {
-                SiteStrip(
-                    sites = book.primaryFirst().map {
-                        SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
-                    },
-                    selectedId = siteId,
-                    onSelect = vm::selectSite,
-                )
+                val chips = book.primaryFirst()
+                if (chips.size > 1) {
+                    SiteStrip(
+                        sites = chips.map {
+                            SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
+                        },
+                        selectedId = siteId,
+                        onSelect = vm::selectSite,
+                    )
+                }
             }
             val tonight = report
             if (tonight != null && tonight.forecastStatus == ForecastStatus.STALE) {
@@ -194,12 +197,26 @@ internal fun NightRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    nightNameReason(nightName)?.let { reason ->
+                        Text(
+                            reason,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.width(12.dp))
             ScorePill(night.score)
         }
     }
+}
+
+@Composable
+private fun nightNameReason(name: String): String? = when {
+    name == "The Big One" -> stringResource(R.string.week_name_big_one)
+    name.startsWith("Ghost Moon") -> stringResource(R.string.week_name_ghost)
+    else -> null
 }
 
 private fun moonEmoji(illumination: Double): String = when {

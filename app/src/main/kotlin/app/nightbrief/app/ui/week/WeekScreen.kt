@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.rememberWindowForm
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.ScorePill
 import app.nightbrief.app.ui.common.SectionCard
@@ -61,6 +66,7 @@ fun WeekScreen(
     onOpenEvents: () -> Unit,
     contentPadding: PaddingValues,
 ) {
+    val window = rememberWindowForm()
     val state by vm.state.collectAsStateWithLifecycle()
     val ui by vm.briefing.collectAsStateWithLifecycle()
     val selected by vm.selectedSiteId.collectAsStateWithLifecycle()
@@ -81,56 +87,116 @@ fun WeekScreen(
             )
         },
     ) { inner ->
-        LazyColumn(
-            Modifier.padding(inner).fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 16.dp),
-        ) {
-            if (ui.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-            item {
-                val chips = book.primaryFirst()
-                if (chips.size > 1) {
-                    SiteStrip(
-                        sites = chips.map {
-                            SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
-                        },
-                        selectedId = siteId,
-                        onSelect = vm::selectSite,
-                    )
+        if (window.weekColumns > 1) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(window.weekColumns),
+                modifier = Modifier.padding(inner).fillMaxSize().testTag("week-grid"),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            ) {
+                if (ui.loading) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 }
-            }
-            val tonight = report
-            if (tonight != null && tonight.forecastStatus == ForecastStatus.STALE) {
-                item {
-                    StaleForecastBanner(tonight, Modifier.padding(horizontal = 16.dp))
-                }
-            }
-            if (outlook != null) {
-                val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
-                item {
-                    SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            stringResource(R.string.week_footnote),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    val chips = book.primaryFirst()
+                    if (chips.size > 1) {
+                        SiteStrip(
+                            sites = chips.map {
+                                SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
+                            },
+                            selectedId = siteId,
+                            onSelect = vm::selectSite,
                         )
                     }
                 }
-                items(outlook.nights, key = { it.date.toString() }) { night ->
-                    NightRow(
-                        night = night,
-                        isBest = night == outlook.best,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        onClick = { onOpenNight(siteId, night.date) },
-                        nightName = nightNames[night.date],
-                    )
+                val tonight = report
+                if (tonight != null && tonight.forecastStatus == ForecastStatus.STALE) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        StaleForecastBanner(tonight)
+                    }
                 }
+                if (outlook != null) {
+                    val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        SectionCard {
+                            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                stringResource(R.string.week_footnote),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    gridItems(outlook.nights, key = { it.date.toString() }) { night ->
+                        NightRow(
+                            night = night,
+                            isBest = night == outlook.best,
+                            modifier = Modifier,
+                            onClick = { onOpenNight(siteId, night.date) },
+                            nightName = nightNames[night.date],
+                        )
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        OutlinedButton(
+                            onClick = onOpenEvents,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.sky_events_button)) }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                Modifier.padding(inner).fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+            ) {
+                if (ui.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 item {
-                    OutlinedButton(
-                        onClick = onOpenEvents,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    ) { Text(stringResource(R.string.sky_events_button)) }
+                    val chips = book.primaryFirst()
+                    if (chips.size > 1) {
+                        SiteStrip(
+                            sites = chips.map {
+                                SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
+                            },
+                            selectedId = siteId,
+                            onSelect = vm::selectSite,
+                        )
+                    }
+                }
+                val tonight = report
+                if (tonight != null && tonight.forecastStatus == ForecastStatus.STALE) {
+                    item {
+                        StaleForecastBanner(tonight, Modifier.padding(horizontal = 16.dp))
+                    }
+                }
+                if (outlook != null) {
+                    val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
+                    item {
+                        SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                stringResource(R.string.week_footnote),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    items(outlook.nights, key = { it.date.toString() }) { night ->
+                        NightRow(
+                            night = night,
+                            isBest = night == outlook.best,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            onClick = { onOpenNight(siteId, night.date) },
+                            nightName = nightNames[night.date],
+                        )
+                    }
+                    item {
+                        OutlinedButton(
+                            onClick = onOpenEvents,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        ) { Text(stringResource(R.string.sky_events_button)) }
+                    }
                 }
             }
         }

@@ -24,6 +24,7 @@ wearTiles = "1.4.1"
 protoLayout = "1.2.1"
 playServicesWearable = "18.2.0"
 guava = "33.3.1-android"
+window = "1.3.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -46,6 +47,7 @@ androidx-wear-protolayout = { module = "androidx.wear.protolayout:protolayout", 
 androidx-wear-protolayout-material = { module = "androidx.wear.protolayout:protolayout-material", version.ref = "protoLayout" }
 play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "playServicesWearable" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+androidx-window = { module = "androidx.window:window", version.ref = "window" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "datastore" }
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidxTestCore" }

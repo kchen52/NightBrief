@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.osmdroid)
+    implementation(libs.androidx.window)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.play.services.wearable)
     debugImplementation(libs.compose.ui.tooling)

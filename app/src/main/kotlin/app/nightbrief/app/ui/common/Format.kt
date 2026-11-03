@@ -14,11 +14,22 @@ import kotlin.math.roundToInt
 
 object Format {
     private val shortTime: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-    private val hourOnly: DateTimeFormatter = DateTimeFormatter.ofPattern("HH", Locale.getDefault())
     private val dayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
 
     fun time(t: Instant?, zone: ZoneId): String = t?.let { shortTime.withZone(zone).format(it) } ?: "—"
-    fun hour(t: Instant, zone: ZoneId): String = hourOnly.withZone(zone).format(t)
+
+    /** Hour label for the grid. [twentyFourHour] follows the device clock, so it matches [time]. */
+    fun hour(t: Instant, zone: ZoneId, twentyFourHour: Boolean): String {
+        val pattern = if (twentyFourHour) "HH" else "h a"
+        return DateTimeFormatter.ofPattern(pattern, Locale.getDefault()).withZone(zone).format(t)
+    }
+
+    /** Stored `HH:mm` shown the way the device clock shows a time. */
+    fun clockTime(hhmm: String, twentyFourHour: Boolean): String {
+        val parsed = runCatching { java.time.LocalTime.parse(hhmm) }.getOrNull() ?: return hhmm
+        val pattern = if (twentyFourHour) "HH:mm" else "h:mm a"
+        return DateTimeFormatter.ofPattern(pattern, Locale.getDefault()).format(parsed)
+    }
     fun window(w: TimeWindow?, zone: ZoneId): String = w?.let { "${time(it.start, zone)} – ${time(it.end, zone)}" } ?: "—"
 
     fun duration(d: Duration): String {

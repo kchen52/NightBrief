@@ -83,7 +83,7 @@ object DigestComposer {
         }
         report.dew?.let { dew ->
             DewCopy.riskLine(dew, ::fmt)?.let { lines += it }
-            lines += DewCopy.lowLine(dew, units)
+            lines += DewCopy.lowLine(dew, units, ::fmt)
         }
         if (report.forecastStatus == ForecastStatus.STALE) {
             val reason = report.warnings.firstOrNull()?.takeIf { it.isNotBlank() }

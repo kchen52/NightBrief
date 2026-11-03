@@ -34,6 +34,8 @@ data class DarkSkyCandidate(
     val delta: Int?,
     /** Paved-road accessibility. UNKNOWN when no lookup ran or it failed; never blocks scoring. */
     val access: RoadAccess = RoadAccess.UNKNOWN,
+    /** Nearest named place from reverse geocoding. Null when that lookup did not run or failed. */
+    val placeName: String? = null,
 )
 
 /** One ring sample before the grid lookup runs. */

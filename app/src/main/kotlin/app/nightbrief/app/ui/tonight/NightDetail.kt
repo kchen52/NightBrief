@@ -1,5 +1,7 @@
 package app.nightbrief.app.ui.tonight
 
+import android.content.res.Configuration
+import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -55,6 +57,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -119,6 +123,7 @@ fun NightDetail(
     units: UnitSystem = UnitSystem.METRIC,
     clock: Clock = Clock.systemUTC(),
 ) {
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         StatusBanners(report)
         alternative?.let { alt ->
@@ -138,8 +143,19 @@ fun NightDetail(
                 },
             )
         }
-        HeroCard(report, clock)
-        SkyCard(report)
+        if (landscape) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    HeroCard(report, clock)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    SkyCard(report)
+                }
+            }
+        } else {
+            HeroCard(report, clock)
+            SkyCard(report)
+        }
         report.dew?.let { DewCard(it, report.site.zone, units) }
         report.aurora?.let { AuroraCard(it) }
         report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
@@ -261,6 +277,14 @@ private fun HeroCard(report: NightReport, clock: Clock) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        report.suggestions.firstNotNullOfOrNull { it.exposure }?.let { exposure ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.settings_tonight, exposure.summary),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
@@ -426,7 +450,7 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem) {
             Spacer(Modifier.height(6.dp))
         }
         EmphasizedText(
-            DewCopy.lowLine(dew, units),
+            DewCopy.lowLine(dew, units) { Format.time(it, zone) },
             style = if (dew.risk) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
             fontWeight = if (dew.risk) FontWeight.Normal else FontWeight.SemiBold,
         )
@@ -627,11 +651,13 @@ private fun BreakdownCard(report: NightReport) {
                     drawStopIndicator = {},
                 )
                 Text(
-                    "${f.points.roundToInt()}/${f.maxPoints}",
+                    stringResource(qualityRes(f.points / f.maxPoints)),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.End,
-                    modifier = Modifier.width(52.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(76.dp),
                 )
             }
         }
@@ -656,6 +682,12 @@ private data class TimelineRow(
 private fun TimelineCard(report: NightReport, units: UnitSystem) {
     val zone = report.site.zone
     val colors = NightColors.palette
+    val twentyFourHour = DateFormat.is24HourFormat(LocalContext.current)
+    val hours = report.timeline.filter { it.isDark }.ifEmpty { report.timeline }
+    val good = stringResource(R.string.quality_good)
+    val fair = stringResource(R.string.quality_fair)
+    val poor = stringResource(R.string.quality_poor)
+    val bad = stringResource(R.string.quality_bad)
     fun layer(percent: Int?): String = percent?.let { "$it%" } ?: "–"
     fun layerColor(percent: Int?): Color? = percent?.let { colors.forScore(100 - it) }
     val rows = listOf(
@@ -670,8 +702,8 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
         TimelineRow(stringResource(R.string.timeline_mw), { h -> if (h.galacticCenterAltitudeDeg > 0) Format.degrees(h.galacticCenterAltitudeDeg) else "↓" }, { h ->
             if (h.isDark && h.galacticCenterAltitudeDeg >= 10) colors.primary else null
         }),
-        TimelineRow(stringResource(R.string.timeline_seeing), { h -> h.seeingIndex?.let { "$it/8" } ?: "–" }, { h -> h.seeingIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow(stringResource(R.string.timeline_transp), { h -> h.transparencyIndex?.let { "$it/8" } ?: "–" }, { h -> h.transparencyIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
+        TimelineRow(stringResource(R.string.timeline_seeing), { h -> h.seeingIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.seeingIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
+        TimelineRow(stringResource(R.string.timeline_transp), { h -> h.transparencyIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.transparencyIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
         TimelineRow(
             stringResource(R.string.timeline_wind),
             { h -> h.windKmh?.let(units::formatWind) ?: "–" },
@@ -698,17 +730,17 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
             }
             Spacer(Modifier.width(8.dp))
             Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
-                report.timeline.forEach { h ->
+                hours.forEach { h ->
                     Column(
                         Modifier
-                            .width(48.dp)
+                            .width(56.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (h.isDark) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(Modifier.timelineHead(), contentAlignment = Alignment.Center) {
                             Text(
-                                Format.hour(h.time, zone),
+                                Format.hour(h.time, zone, twentyFourHour),
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 softWrap = false,
@@ -743,6 +775,14 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
                     fontWeight = FontWeight.SemiBold,
                 )
             }
+        }
+        if (hours.size > 4) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.timeline_swipe),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Spacer(Modifier.height(8.dp))
         EmphasizedText(
@@ -863,4 +903,21 @@ private fun kindIcon(kind: TargetKind): ImageVector = when (kind) {
     TargetKind.CONSTELLATION -> Icons.Filled.AutoAwesome
     TargetKind.MOON -> Icons.Filled.Nightlight
     TargetKind.MOONLIT -> Icons.Filled.Landscape
+}
+
+/** Higher is better, on the same words as the night's band. The bar still shows the factor's share of its weight. */
+private fun qualityRes(fraction: Double): Int = when {
+    fraction >= 0.85 -> R.string.quality_excellent
+    fraction >= 0.70 -> R.string.quality_good
+    fraction >= 0.50 -> R.string.quality_fair
+    fraction >= 0.30 -> R.string.quality_marginal
+    else -> R.string.quality_poor
+}
+
+/** 7Timer is 1 best and 8 worst. The cell uses the same direction as the other rows. */
+private fun seeingWord(index: Int, good: String, fair: String, poor: String, bad: String): String = when (index) {
+    1, 2 -> good
+    3, 4 -> fair
+    5, 6 -> poor
+    else -> bad
 }

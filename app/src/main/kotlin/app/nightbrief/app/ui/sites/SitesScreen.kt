@@ -174,6 +174,15 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
     var draft by rememberSaveable(siteId, stateSaver = SiteDraftSaver) {
         mutableStateOf(existing?.let { SiteDraft.from(it, it.id == s.sites.primaryId) } ?: SiteDraft())
     }
+    var showErrors by rememberSaveable { mutableStateOf(false) }
+    val saveSite = {
+        if (!draft.isValid) {
+            showErrors = true
+        } else {
+            vm.saveSite(draft)
+            onDone()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -181,6 +190,9 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 title = { Text(stringResource(if (existing == null) R.string.add_site else R.string.edit_site)) },
                 navigationIcon = {
                     IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                },
+                actions = {
+                    TextButton(onClick = saveSite) { Text(stringResource(R.string.save_site)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -194,7 +206,6 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            var showErrors by rememberSaveable { mutableStateOf(false) }
             if (showErrors) {
                 draft.errors.firstOrNull()?.let {
                     Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
@@ -211,14 +222,7 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 globalDigestTime = s.digestTime,
             )
             Button(
-                onClick = {
-                    if (!draft.isValid) {
-                        showErrors = true
-                    } else {
-                        vm.saveSite(draft)
-                        onDone()
-                    }
-                },
+                onClick = saveSite,
                 modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth().height(52.dp),
             ) { Text(stringResource(R.string.save_site)) }
         }

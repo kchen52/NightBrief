@@ -2,9 +2,11 @@ package app.nightbrief.app.ui.sites
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -309,6 +311,8 @@ fun SiteForm(
             if (enabled) {
                 val names = stringArrayResource(R.array.horizon_directions)
                 Spacer(Modifier.height(8.dp))
+                HorizonPreview(draft.horizon.altitudes())
+                Spacer(Modifier.height(8.dp))
                 draft.horizon.altitudes().forEachIndexed { index, altitude ->
                     val degrees = (altitude ?: 0.0).roundToInt().coerceIn(0, 90)
                     val direction = stringResource(R.string.horizon_direction, names[index])
@@ -404,6 +408,32 @@ fun SiteForm(
         ) {
             showTime = false
             onChange(draft.copy(digestTimeOverride = it.toString()))
+        }
+    }
+}
+
+/** Eight horizon altitudes, north at the top. A longer spoke is a more open direction. */
+@Composable
+private fun HorizonPreview(altitudes: List<Double?>) {
+    val color = MaterialTheme.colorScheme.primary
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(96.dp)) {
+            val radius = size.minDimension / 2f
+            drawCircle(color.copy(alpha = 0.35f), radius * 0.92f, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+            altitudes.forEachIndexed { index, altitude ->
+                val open = 1.0 - (altitude ?: 0.0).coerceIn(0.0, 90.0) / 90.0
+                val angle = Math.toRadians(-90.0 + index * 45.0)
+                val length = (radius * 0.92f * open).toFloat()
+                drawLine(
+                    color,
+                    center,
+                    androidx.compose.ui.geometry.Offset(
+                        center.x + kotlin.math.cos(angle).toFloat() * length,
+                        center.y + kotlin.math.sin(angle).toFloat() * length,
+                    ),
+                    strokeWidth = 3f,
+                )
+            }
         }
     }
 }

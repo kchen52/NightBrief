@@ -61,6 +61,7 @@ data class PlaceSearchResult(
 class PlaceSearch(
     private val http: OkHttpClient = defaultHttpClient(),
     private val baseUrl: String = DEFAULT_BASE_URL,
+    private val reverseBaseUrl: String = baseUrl.substringBeforeLast('/') + "/reverse",
 ) {
     suspend fun search(
         name: String,
@@ -80,6 +81,32 @@ class PlaceSearch(
             throw e
         } catch (_: Exception) {
             PlaceSearchResult(failed = true)
+        }
+    }
+
+    /**
+     * Nearest named place to a coordinate. Null when the geocoder cannot answer.
+     * A failure does not throw, except [CancellationException].
+     */
+    suspend fun reverse(
+        latitude: Double,
+        longitude: Double,
+        language: String = Locale.getDefault().language.ifBlank { "en" },
+    ): PlaceMatch? {
+        if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return null
+        return try {
+            val url = reverseBaseUrl.toHttpUrl().newBuilder()
+                .addQueryParameter("latitude", latitude.toString())
+                .addQueryParameter("longitude", longitude.toString())
+                .addQueryParameter("count", "1")
+                .addQueryParameter("language", language.ifBlank { "en" })
+                .addQueryParameter("format", "json")
+                .build()
+            parse(http.getString(url.toString())).firstOrNull()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -131,6 +158,9 @@ class PlaceSearch(
  * Open-Meteo geocoding has no bias coordinate, so the map orders hits by distance from a pin.
  * Without a pin the caller keeps the service order.
  */
+fun PlaceMatch.distanceKmFrom(latitude: Double, longitude: Double): Double =
+    haversineKm(latitude, longitude, this.latitude, this.longitude)
+
 fun List<PlaceMatch>.nearestFirst(latitude: Double, longitude: Double): List<PlaceMatch> {
     if (size < 2) return this
     return sortedBy { haversineKm(latitude, longitude, it.latitude, it.longitude) }

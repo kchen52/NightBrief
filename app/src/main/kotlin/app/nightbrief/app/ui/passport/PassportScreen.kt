@@ -89,6 +89,14 @@ fun PassportScreen(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                if (stamps.none { it.earned }) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.passport_how),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 progress.figures.forEach { figure ->
                     Text(

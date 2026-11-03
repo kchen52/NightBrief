@@ -17,6 +17,8 @@ data class DewOutlook(
     val frostFrom: Instant?,
     /** Lowest temperature among sunset-to-sunrise hours that reported one, in °C. */
     val overnightLowC: Double,
+    /** When [overnightLowC] was forecast. Null on an outlook built before this field. */
+    val overnightLowAt: Instant? = null,
     /** True when at least one dark hour had both a temperature and a dew point. */
     val spreadKnown: Boolean,
 ) {
@@ -48,10 +50,12 @@ object Dew {
             val dewPoint = reading.dewPointC ?: return@filter false
             reading.temperatureC - dewPoint <= SPREAD_C
         }
+        val coldest = overnight.minBy { it.temperatureC }
         return DewOutlook(
             from = flagged.firstOrNull()?.time,
             frostFrom = flagged.firstOrNull { it.temperatureC <= FROST_C }?.time,
-            overnightLowC = overnight.minOf { it.temperatureC },
+            overnightLowC = coldest.temperatureC,
+            overnightLowAt = coldest.time,
             spreadKnown = dark.any { it.dewPointC != null },
         )
     }
@@ -77,8 +81,18 @@ object DewCopy {
         }
     }
 
-    fun lowLine(dew: DewOutlook, units: UnitSystem = UnitSystem.METRIC): String =
-        "Dress for ${units.formatTemperature(dew.overnightLowC)}"
+    /**
+     * The overnight low, named as such. [fmt] adds the hour it was forecast when the outlook has one.
+     */
+    fun lowLine(
+        dew: DewOutlook,
+        units: UnitSystem = UnitSystem.METRIC,
+        fmt: ((Instant) -> String)? = null,
+    ): String {
+        val temp = units.formatTemperature(dew.overnightLowC)
+        val whenLow = dew.overnightLowAt?.let { fmt?.invoke(it) }?.takeIf { it.isNotBlank() }
+        return if (whenLow != null) "Dress for $temp, the overnight low at $whenLow" else "Dress for $temp, the overnight low"
+    }
 
     fun detail(dew: DewOutlook, units: UnitSystem = UnitSystem.METRIC): String {
         val spread = units.dewSpread()

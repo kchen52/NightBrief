@@ -182,7 +182,14 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 PassportRoute(vm, onBack = { navController.popBackStack() })
             }
             composable(Routes.Events) {
-                EventsScreen(vm, onBack = { navController.popBackStack() })
+                EventsScreen(
+                    vm,
+                    onBack = { navController.popBackStack() },
+                    onOpenNight = { date ->
+                        val siteId = vm.selectedSiteId.value ?: vm.state.value?.sites?.primaryId
+                        if (siteId != null) navController.navigate(Routes.night(siteId, date))
+                    },
+                )
             }
             composable(
                 route = Routes.SiteEdit,

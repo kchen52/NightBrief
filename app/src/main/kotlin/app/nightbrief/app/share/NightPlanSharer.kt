@@ -21,6 +21,9 @@ import java.io.IOException
  *
  * Returns null when the PNG cannot be written; the caller then does nothing.
  * The image and the caption use [NightPlanCard], so the site pin is not included.
+ *
+ * The stream is attached as `text/uri-list`. An `image/png` clip on the chooser itself
+ * is opened by the system print preview instead of the share sheet.
  */
 object NightPlanSharer {
     private const val FILE_NAME = "night-plan.png"
@@ -29,7 +32,6 @@ object NightPlanSharer {
         val send = sendIntent(context, report) ?: return null
         return Intent.createChooser(send, context.getString(R.string.share_night_plan)).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            clipData = send.clipData
             if (context !is Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
@@ -42,7 +44,7 @@ object NightPlanSharer {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_TEXT, card.caption)
-            clipData = ClipData.newUri(context.contentResolver, card.siteName, uri)
+            clipData = ClipData.newRawUri(card.siteName, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }

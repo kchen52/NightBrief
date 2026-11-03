@@ -47,6 +47,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import app.nightbrief.app.R
@@ -160,13 +161,19 @@ fun SiteStrip(
                 ),
                 border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
             ) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.padding(12.dp).fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         if (chip.isPrimary) {
                             Icon(Icons.Filled.Star, contentDescription = stringResource(R.string.primary_site), tint = NightColors.Amber, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                         }
-                        Text(chip.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                        Text(
+                            chip.name,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(

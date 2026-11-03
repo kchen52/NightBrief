@@ -39,11 +39,16 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -85,9 +90,9 @@ private fun findDialogWindow(view: View): Window? {
  * Full-screen OpenStreetMap picker. Tap to drop a pin, or type a place name.
  * [searchPlaces] is the Open-Meteo fuzzy geocoder; a failure leaves the pin to a tap.
  *
- * The confirm control sits under the map, inside the safe drawing area. A wrap-content
- * dialog clips that control once the label grows from "tap the map" to the coordinates,
- * so the window is forced to the full screen and the map yields height to the button.
+ * The confirm control sits above the map. A dialog measured to the full display is cropped
+ * at the bottom edge, which used to hide the button; the map takes that leftover height.
+ * Map tiles draw outside the view, so the map slot is clipped and cannot cover the search field.
  *
  * [onPick]'s place name is set only when the pin came from a search hit. A later map
  * tap clears it, so a nudged pin does not rename the site.
@@ -112,6 +117,9 @@ fun MapPickerDialog(
     var searching by remember { mutableStateOf(false) }
     var searchFailed by remember { mutableStateOf(false) }
     var searchedQuery by remember { mutableStateOf<String?>(null) }
+    val keyboardDismissals = remember { mutableIntStateOf(0) }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val mapView = remember {
         Configuration.getInstance().userAgentValue = view.context.packageName
         MapView(view.context).apply {
@@ -144,6 +152,7 @@ fun MapPickerDialog(
             MapEventsOverlay(object : MapEventsReceiver {
                 override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
                     chosenName = null
+                    keyboardDismissals.intValue++
                     placePin(p, recenter = false)
                     return true
                 }
@@ -156,6 +165,12 @@ fun MapPickerDialog(
             mapView.onPause()
             mapView.onDetach()
         }
+    }
+
+    LaunchedEffect(keyboardDismissals.intValue) {
+        if (keyboardDismissals.intValue == 0) return@LaunchedEffect
+        focusManager.clearFocus()
+        keyboard?.hide()
     }
 
     LaunchedEffect(query) {
@@ -220,7 +235,54 @@ fun MapPickerDialog(
                         },
                     )
                 },
-                bottomBar = {
+            ) { inner ->
+                Column(Modifier.padding(inner).fillMaxSize()) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text(stringResource(R.string.search_place)) },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        trailingIcon = {
+                            when {
+                                searching -> CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                query.isNotEmpty() -> IconButton(
+                                    onClick = {
+                                        query = ""
+                                        settledQuery = null
+                                        chosenName = null
+                                        results = emptyList()
+                                        searchFailed = false
+                                        searchedQuery = null
+                                    },
+                                ) {
+                                    Icon(Icons.Filled.Close, stringResource(R.string.clear_place_search))
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .testTag("place-search"),
+                    )
+                    PlaceResults(
+                        query = query,
+                        settledQuery = settledQuery,
+                        searchedQuery = searchedQuery,
+                        results = results,
+                        searching = searching,
+                        failed = searchFailed,
+                        modifier = Modifier.weight(1f, fill = false),
+                        onPick = { place ->
+                            keyboardDismissals.intValue++
+                            settledQuery = place.name
+                            chosenName = place.name
+                            query = place.name
+                            results = emptyList()
+                            searchFailed = false
+                            placePin(GeoPoint(place.latitude, place.longitude), recenter = true)
+                        },
+                    )
                     Column(
                         Modifier
                             .fillMaxWidth()
@@ -251,55 +313,18 @@ fun MapPickerDialog(
                             )
                         }
                     }
-                },
-            ) { inner ->
-                Column(Modifier.padding(inner).fillMaxSize()) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        label = { Text(stringResource(R.string.search_place)) },
-                        singleLine = true,
-                        leadingIcon = { Icon(Icons.Filled.Search, null) },
-                        trailingIcon = {
-                            when {
-                                searching -> CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                query.isNotEmpty() -> IconButton(
-                                    onClick = {
-                                        query = ""
-                                        settledQuery = null
-                                        chosenName = null
-                                        results = emptyList()
-                                        searchFailed = false
-                                        searchedQuery = null
-                                    },
-                                ) {
-                                    Icon(Icons.Filled.Close, stringResource(R.string.clear_place_search))
-                                }
-                            }
-                        },
-                        modifier = Modifier
+                    Box(
+                        Modifier
+                            .weight(1f)
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                    )
-                    PlaceResults(
-                        query = query,
-                        settledQuery = settledQuery,
-                        searchedQuery = searchedQuery,
-                        results = results,
-                        searching = searching,
-                        failed = searchFailed,
-                        modifier = Modifier.weight(1f, fill = false),
-                        onPick = { place ->
-                            settledQuery = place.name
-                            chosenName = place.name
-                            query = place.name
-                            results = emptyList()
-                            searchFailed = false
-                            placePin(GeoPoint(place.latitude, place.longitude), recenter = true)
-                        },
-                    )
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                            .clipToBounds()
+                            .testTag("site-map"),
+                    ) {
+                        AndroidView(
+                            factory = { mapView },
+                            modifier = Modifier.fillMaxSize().clipToBounds(),
+                            update = { map -> (map.parent as? ViewGroup)?.clipChildren = true },
+                        )
                     }
                 }
             }

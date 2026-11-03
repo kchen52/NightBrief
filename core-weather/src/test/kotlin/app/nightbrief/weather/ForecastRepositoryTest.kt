@@ -1,5 +1,8 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -7,8 +10,10 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import java.io.File
 import org.junit.Before
 import org.junit.Test
 import java.time.Clock
@@ -181,6 +186,34 @@ class ForecastRepositoryTest {
         assertEquals(ForecastStatus.STALE, result.status)
         assertEquals(5, result.forecast.at(Instant.ofEpochSecond(1790866800))!!.seeing)
         dir.deleteRecursively()
+    }
+
+    @Test
+    fun concurrentWritesLeaveAReadableForecast() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("fc-race").toFile()
+        val cache = FileForecastCache(dir)
+        val results = coroutineScope {
+            (1..8).map { async { repo(cache).forecast(43.65, -79.38) } }.awaitAll()
+        }
+        assertTrue(
+            "every caller should keep the forecast, got ${results.map { it.status }}",
+            results.all { it.status == ForecastStatus.FRESH && it.forecast.hours.size == 24 },
+        )
+        val stored = File(dir, "fc_43.65_-79.38.json")
+        assertTrue("cache file missing", stored.isFile)
+        assertFalse("temp file left behind", File(dir, "fc_43.65_-79.38.json.tmp").exists())
+        val again = repo(cache).forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.CACHED, again.status)
+        dir.deleteRecursively()
+    }
+
+    @Test
+    fun anUnwritableCacheStillReturnsTheForecast() = runTest {
+        val blocker = kotlin.io.path.createTempFile("not-a-dir").toFile()
+        val result = repo(FileForecastCache(blocker)).forecast(43.65, -79.38)
+        assertEquals(ForecastStatus.FRESH, result.status)
+        assertEquals(24, result.forecast.hours.size)
+        blocker.delete()
     }
 
     @Test

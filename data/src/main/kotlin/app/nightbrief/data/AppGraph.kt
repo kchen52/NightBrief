@@ -6,6 +6,8 @@ import app.nightbrief.score.BriefingService
 import app.nightbrief.score.BriefingSource
 import app.nightbrief.sites.BortleLookup
 import app.nightbrief.sites.CompositeBortleLookup
+import app.nightbrief.sites.GridOpenWater
+import app.nightbrief.sites.OpenWater
 import app.nightbrief.sites.StreamingGridBortleLookup
 import app.nightbrief.weather.CachingKpSource
 import app.nightbrief.weather.CachingTleSource
@@ -77,6 +79,13 @@ class AppGraph private constructor(context: Context) {
         private set
 
     /**
+     * Ocean and lakes for darker-sky search. Null only when the mask asset is not packaged.
+     * The first lookup inflates the gzip (about 3 MB) and keeps the bits; call it off the
+     * main thread. A mask that cannot be read reports land, so the search still returns.
+     */
+    val openWater: OpenWater? = openWaterMask(context, WATER_MASK_ASSET)
+
+    /**
      * North America grid, then the world fallback. Null only when neither asset is packaged.
      *
      * Lookup does blocking I/O (up to about a second) and must be called off the main thread.
@@ -88,6 +97,13 @@ class AppGraph private constructor(context: Context) {
         streamingBortle(context, BORTLE_NA_ASSET),
         streamingBortle(context, BORTLE_WORLD_ASSET),
     ).let { lookups -> if (lookups.isEmpty()) null else CompositeBortleLookup(lookups) }
+
+    private fun openWaterMask(context: Context, asset: String): OpenWater? {
+        if (!assetExists(context, asset)) return null
+        return GridOpenWater {
+            BufferedInputStream(GZIPInputStream(context.assets.open(asset)))
+        }
+    }
 
     private fun streamingBortle(context: Context, asset: String): BortleLookup? {
         if (!assetExists(context, asset)) return null
@@ -132,6 +148,9 @@ class AppGraph private constructor(context: Context) {
         const val BORTLE_NA_ASSET = "bortle_na.nblp.gzip"
         /** World grid, gzip bytes. The `.gzip` suffix keeps the asset merger from unpacking it. */
         const val BORTLE_WORLD_ASSET = "bortle_world.nblp.gzip"
+
+        /** Open-water bit grid, gzip bytes. The `.gzip` suffix keeps the asset merger from unpacking it. */
+        const val WATER_MASK_ASSET = "water_mask.wmsk.gzip"
 
         @Volatile
         private var instance: AppGraph? = null

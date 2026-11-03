@@ -149,7 +149,9 @@ class AppViewModel(
 
     /**
      * Samples the bundled Bortle grid in rings around [siteId] and scores the darkest
-     * spots for tonight. One bad grid cell or candidate forecast skips that candidate only.
+     * land spots for tonight. Open water is dropped before scoring. One bad grid cell
+     * or candidate forecast skips that candidate only. A water mask that cannot be
+     * read leaves the sample in.
      */
     fun searchDarkerSky(siteId: String) {
         val s = state.value ?: return
@@ -168,7 +170,14 @@ class AppViewModel(
                     )
                     return@launch
                 }
-                val found = DarkSkyFinder.search(report, s.gear, lookup, graph.briefings, roads = graph.roadAccess)
+                val found = DarkSkyFinder.search(
+                    report,
+                    s.gear,
+                    lookup,
+                    graph.briefings,
+                    roads = graph.roadAccess,
+                    water = graph.openWater,
+                )
                 val book = state.value?.sites ?: s.sites
                 _darkerSky.value = DarkerSkyUiState(
                     candidates = found,

@@ -25,10 +25,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        intent.getStringExtra(DigestNotifier.EXTRA_SITE_ID)?.let { id ->
-            vm.selectSite(id)
-            if (savedInstanceState == null) openTonight.intValue++
-        }
+        applyTonightIntent(intent, restoringState = savedInstanceState != null)
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             NightBriefTheme(nightVision = state?.nightVision == true) {
@@ -40,8 +37,28 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val id = intent.getStringExtra(DigestNotifier.EXTRA_SITE_ID) ?: return
-        vm.selectSite(id)
+        applyTonightIntent(intent, restoringState = false)
+    }
+
+    private fun applyTonightIntent(intent: Intent, restoringState: Boolean) {
+        if (!shouldOpenTonight(intent, restoringState)) return
+        val siteId = intent.getStringExtra(DigestNotifier.EXTRA_SITE_ID)
+        if (siteId != null) vm.selectSite(siteId) else vm.selectSite(null)
         openTonight.intValue++
     }
+
+    companion object {
+        /** Widget tap. Opens Tonight on the primary site, including when the task is already showing another tab. */
+        const val EXTRA_OPEN_TONIGHT = "app.nightbrief.extra.OPEN_TONIGHT"
+    }
+}
+
+/**
+ * True when this launch should show Tonight.
+ * A widget tap does, even if the activity is restoring the Sites back stack.
+ * A digest does on a fresh start; restoring an existing task keeps the screen the user left.
+ */
+internal fun shouldOpenTonight(intent: Intent, restoringState: Boolean): Boolean {
+    if (intent.getBooleanExtra(MainActivity.EXTRA_OPEN_TONIGHT, false)) return true
+    return intent.getStringExtra(DigestNotifier.EXTRA_SITE_ID) != null && !restoringState
 }

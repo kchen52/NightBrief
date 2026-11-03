@@ -18,8 +18,10 @@ import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
+import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.PlaceSearchResult
 import app.nightbrief.work.DigestScheduler
+import app.nightbrief.work.WidgetRefresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -167,7 +169,13 @@ class AppViewModel(
                     return@launch
                 }
                 val found = DarkSkyFinder.search(report, s.gear, lookup, graph.briefings, roads = graph.roadAccess)
-                _darkerSky.value = DarkerSkyUiState(candidates = found, searchedSiteId = siteId, accessFilter = filter)
+                val book = state.value?.sites ?: s.sites
+                _darkerSky.value = DarkerSkyUiState(
+                    candidates = found,
+                    searchedSiteId = siteId,
+                    accessFilter = filter,
+                    savedIds = savedDarkSkyIds(book, found),
+                )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -190,14 +198,17 @@ class AppViewModel(
         _darkerSky.value = DarkerSkyUiState()
     }
 
-    /** Saves a darker-sky candidate as a regular site (fresh id, not primary). */
+    /**
+     * Saves a darker-sky candidate as a regular site (fresh id, not primary).
+     * A site already within [SAME_DARK_SKY_KM] is left as it is.
+     */
     fun saveDarkerSky(candidate: DarkSkyCandidate) {
-        val site = candidate.site.copy(
-            id = java.util.UUID.randomUUID().toString(),
-            name = candidate.site.name,
-        )
-        mutate { it.copy(sites = it.sites.add(site)) }
         _darkerSky.update { it.copy(savedIds = it.savedIds + candidate.site.id) }
+        val id = java.util.UUID.randomUUID().toString()
+        mutate { current ->
+            if (candidate.site.id in savedDarkSkyIds(current.sites, listOf(candidate))) current
+            else current.copy(sites = current.sites.add(candidate.site.copy(id = id)))
+        }
     }
 
     fun updateOnboardingSite(draft: SiteDraft) {
@@ -333,8 +344,23 @@ class AppViewModel(
 
     private fun mutate(transform: (AppState) -> AppState) {
         viewModelScope.launch {
+            val previousSites = graph.settings.current().sites
             val newState = graph.settings.update(transform)
             DigestScheduler.reschedule(getApplication(), newState)
+            if (previousSites != newState.sites) WidgetRefresh.request(getApplication())
         }
     }
 }
+
+/** A saved site this close is the same darker-sky recommendation, even after a restart gives it a new id. */
+internal const val SAME_DARK_SKY_KM = 1.0
+
+/** Candidate ids that [book] already contains as a saved site. Identity is the location, not the candidate id. */
+internal fun savedDarkSkyIds(book: SiteBook, candidates: List<DarkSkyCandidate>): Set<String> =
+    candidates.mapNotNull { candidate ->
+        val spot = candidate.site
+        val already = book.sites.any {
+            DarkSkyFinder.distanceKm(it.latitude, it.longitude, spot.latitude, spot.longitude) < SAME_DARK_SKY_KM
+        }
+        if (already) candidate.site.id else null
+    }.toSet()

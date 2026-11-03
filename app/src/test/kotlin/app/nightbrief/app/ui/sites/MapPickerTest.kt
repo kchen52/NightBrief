@@ -17,6 +17,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -28,6 +29,7 @@ import app.nightbrief.weather.PlaceMatch
 import app.nightbrief.weather.PlaceSearchResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,6 +61,16 @@ class MapPickerTest {
         val button = compose.onNodeWithText(label)
         button.assertIsDisplayed()
         assertFullyVisible(button)
+        val search = compose.onNodeWithTag("place-search").getBoundsInRoot()
+        val map = compose.onNodeWithTag("site-map").getBoundsInRoot()
+        assertTrue(
+            "map top ${map.top.value} covered search bottom ${search.bottom.value}",
+            map.top.value + 0.5f >= search.bottom.value,
+        )
+        assertTrue(
+            "confirm button bottom ${button.getBoundsInRoot().bottom.value} is below the map",
+            button.getBoundsInRoot().bottom.value <= map.top.value + 0.5f,
+        )
         compose.onNodeWithText("Map data © OpenStreetMap contributors").assertIsDisplayed()
         compose.onNodeWithText("Place names by Open-Meteo and GeoNames").assertIsDisplayed()
         compose.onNodeWithText("Search for a place").assertIsDisplayed()

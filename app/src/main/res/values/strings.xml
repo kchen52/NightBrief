@@ -291,6 +291,7 @@
     <string name="gear_error_aperture">Maximum aperture must be a positive f-number</string>
     <string name="gear_error_tele">Aperture at the long end must be a positive f-number</string>
     <string name="gear_error_tele_faster">The long end can\'t be faster than the wide end</string>
+    <string name="gear_error_prime_aperture">A prime uses one aperture. Make both f-numbers match.</string>
     <string name="tracker_title">Star tracker</string>
     <string name="no_tracker">No tracker — untracked, capped at 30 s.</string>
     <string name="add_tracker">Add tracker</string>

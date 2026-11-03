@@ -60,6 +60,12 @@ class NightBriefWidget : GlanceAppWidget() {
     }
 }
 
+/** Opens Tonight. [Intent.FLAG_ACTIVITY_CLEAR_TOP] delivers this to the existing task instead of leaving the last tab up. */
+internal fun widgetOpenIntent(context: Context): Intent =
+    Intent(context, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        .putExtra(MainActivity.EXTRA_OPEN_TONIGHT, true)
+
 internal sealed interface WidgetContent {
     data object Setup : WidgetContent
     data class Night(
@@ -78,11 +84,7 @@ internal fun NightBriefWidgetContent(content: WidgetContent) {
         modifier = GlanceModifier
             .fillMaxSize()
             .background(ColorProvider(Color(0xFF12141C)))
-            .clickable(
-                actionStartActivity(
-                    Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                ),
-            )
+            .clickable(actionStartActivity(widgetOpenIntent(context)))
             .padding(12.dp),
     ) {
         when (content) {

@@ -65,12 +65,22 @@ class NightPlanSharerTest {
         assertNotNull(decoded)
         assertEquals(NightPlanImage.WIDTH, decoded.width)
 
+        assertEquals("text/uri-list", send.clipData!!.description.getMimeType(0))
+
         val chooser = NightPlanSharer.chooserIntent(context, report)
         assertNotNull(chooser)
         chooser!!
         assertEquals(Intent.ACTION_CHOOSER, chooser.action)
         assertEquals(context.getString(app.nightbrief.app.R.string.share_night_plan), chooser.getStringExtra(Intent.EXTRA_TITLE))
         assertTrue(chooser.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+        val inner = chooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+        assertEquals(Intent.ACTION_SEND, inner?.action)
+        assertEquals("image/png", inner?.type)
+        assertEquals(
+            "image clip on the chooser opens the print preview",
+            "text/uri-list",
+            chooser.clipData?.description?.getMimeType(0),
+        )
     }
 
     @Test

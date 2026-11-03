@@ -715,7 +715,7 @@ private fun bodyError(name: String, width: String, height: String, megapixels: S
     else -> null
 }
 
-private fun lensError(name: String, minFocal: String, maxFocal: String, aperture: String, longEnd: String): Int? {
+internal fun lensError(name: String, minFocal: String, maxFocal: String, aperture: String, longEnd: String): Int? {
     val minF = minFocal.positiveOrNull()
     val maxF = maxFocal.positiveOrNull()
     val wide = aperture.positiveOrNull()
@@ -728,6 +728,7 @@ private fun lensError(name: String, minFocal: String, maxFocal: String, aperture
         wide == null -> R.string.gear_error_aperture
         tele == null -> R.string.gear_error_tele
         tele < wide -> R.string.gear_error_tele_faster
+        minF == maxF && tele != wide -> R.string.gear_error_prime_aperture
         else -> null
     }
 }

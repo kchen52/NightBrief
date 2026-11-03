@@ -1,11 +1,15 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.IOException
 import java.time.Clock
 import java.time.Duration
 import java.util.Locale
@@ -24,9 +28,16 @@ class InMemoryForecastCache : ForecastCache {
     }
 }
 
-/** Stores one JSON file per location so the last good forecast survives process death and offline use. */
+/**
+ * Stores one JSON file per location so the last good forecast survives process death and offline use.
+ *
+ * Puts share one temp file per key, so they take a lock. A failed rename writes the text already
+ * in memory. [IOException] means the directory could not be created or the file could not be written;
+ * the caller still has the forecast and should not treat that as a failed fetch.
+ */
 class FileForecastCache(private val directory: File) : ForecastCache {
     private val json = Json { ignoreUnknownKeys = true }
+    private val writeLock = Mutex()
 
     override suspend fun get(key: String): Forecast? = withContext(Dispatchers.IO) {
         val file = File(directory, "$key.json")
@@ -34,13 +45,21 @@ class FileForecastCache(private val directory: File) : ForecastCache {
         runCatching { json.decodeFromString(Forecast.serializer(), file.readText()) }.getOrNull()
     }
 
-    override suspend fun put(key: String, forecast: Forecast) = withContext(Dispatchers.IO) {
-        directory.mkdirs()
-        val tmp = File(directory, "$key.json.tmp")
-        tmp.writeText(json.encodeToString(Forecast.serializer(), forecast))
-        if (!tmp.renameTo(File(directory, "$key.json"))) {
-            File(directory, "$key.json").writeText(tmp.readText())
-            tmp.delete()
+    override suspend fun put(key: String, forecast: Forecast) {
+        val text = json.encodeToString(Forecast.serializer(), forecast)
+        writeLock.withLock {
+            withContext(Dispatchers.IO) {
+                if (!directory.isDirectory && !directory.mkdirs()) {
+                    throw IOException("could not create forecast cache directory ${directory.path}")
+                }
+                val dest = File(directory, "$key.json")
+                val tmp = File(directory, "$key.json.tmp")
+                tmp.writeText(text)
+                if (!tmp.renameTo(dest)) {
+                    dest.writeText(text)
+                    tmp.delete()
+                }
+            }
         }
     }
 }
@@ -70,6 +89,7 @@ interface ForecastSource {
  * One file per location. A file younger than [maxCacheAge] is served with no network call
  * unless refresh is forced. After that the network is tried and a success replaces the file.
  * A failed fetch serves the last file at any age as [ForecastStatus.STALE]. No file still throws.
+ * A forecast that was fetched but could not be written to disk is still returned as [ForecastStatus.FRESH].
  */
 class ForecastRepository(
     private val openMeteo: OpenMeteoClient = OpenMeteoClient(),
@@ -88,7 +108,13 @@ class ForecastRepository(
         }
         return try {
             val (forecast, warnings) = fetch(latitude, longitude)
-            cache.put(key, forecast)
+            try {
+                cache.put(key, forecast)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: IOException) {
+                // The night is already in hand. A disk failure must not blank Tonight.
+            }
             ForecastResult(forecast, ForecastStatus.FRESH, warnings)
         } catch (e: WeatherApiException) {
             if (cached != null) {

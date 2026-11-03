@@ -1,6 +1,8 @@
 package app.nightbrief.weather
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -12,6 +14,7 @@ import java.io.File
 import java.io.IOException
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -88,7 +91,10 @@ interface ForecastSource {
 /**
  * One file per location. A file younger than [maxCacheAge] is served with no network call
  * unless refresh is forced. After that the network is tried and a success replaces the file.
+ * Calls for the same cache cell share one in-flight fetch.
  * A failed fetch serves the last file at any age as [ForecastStatus.STALE]. No file still throws.
+ * HTTP 429 records a short cooldown: until it passes, a later call serves that file (or throws
+ * [ForecastProblem.BUSY]) and does not hit the network again, unless refresh is forced.
  * A forecast that was fetched but could not be written to disk is still returned as [ForecastStatus.FRESH].
  */
 class ForecastRepository(
@@ -97,7 +103,10 @@ class ForecastRepository(
     private val cache: ForecastCache = InMemoryForecastCache(),
     private val clock: Clock = Clock.systemUTC(),
     private val maxCacheAge: Duration = Duration.ofMinutes(60),
+    private val busyCooldown: Duration = Duration.ofSeconds(30),
 ) : ForecastSource {
+    private val flights = ConcurrentHashMap<String, Deferred<ForecastResult>>()
+    private val busyUntil = ConcurrentHashMap<String, Instant>()
 
     override suspend fun forecast(latitude: Double, longitude: Double, forceRefresh: Boolean): ForecastResult {
         val key = cacheKey(latitude, longitude)
@@ -106,22 +115,53 @@ class ForecastRepository(
         if (!forceRefresh && cached != null && age != null && age < maxCacheAge) {
             return ForecastResult(cached, ForecastStatus.CACHED)
         }
-        return try {
-            val (forecast, warnings) = fetch(latitude, longitude)
-            try {
-                cache.put(key, forecast)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: IOException) {
-                // The night is already in hand. A disk failure must not blank Tonight.
-            }
-            ForecastResult(forecast, ForecastStatus.FRESH, warnings)
-        } catch (e: WeatherApiException) {
+        val quietUntil = busyUntil[key]
+        if (!forceRefresh && quietUntil != null && clock.instant().isBefore(quietUntil)) {
             if (cached != null) {
-                ForecastResult(cached, ForecastStatus.STALE, listOf("Using cached forecast: ${e.message}"))
-            } else {
-                throw e
+                return ForecastResult(cached, ForecastStatus.STALE, listOf(ForecastProblem.BUSY.userText()))
             }
+            throw WeatherApiException("HTTP 429", problem = ForecastProblem.BUSY)
+        }
+
+        val created = CompletableDeferred<ForecastResult>()
+        val inFlight = flights.putIfAbsent(key, created)
+        if (inFlight != null) return inFlight.await()
+        return try {
+            val result = load(latitude, longitude, key, cached)
+            created.complete(result)
+            result
+        } catch (e: Throwable) {
+            created.completeExceptionally(e)
+            throw e
+        } finally {
+            flights.remove(key, created)
+        }
+    }
+
+    private suspend fun load(
+        latitude: Double,
+        longitude: Double,
+        key: String,
+        cached: Forecast?,
+    ): ForecastResult = try {
+        val (forecast, warnings) = fetch(latitude, longitude)
+        try {
+            cache.put(key, forecast)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: IOException) {
+            // The night is already in hand. A disk failure must not blank Tonight.
+        }
+        busyUntil.remove(key)
+        ForecastResult(forecast, ForecastStatus.FRESH, warnings)
+    } catch (e: WeatherApiException) {
+        if (e.problem == ForecastProblem.BUSY) {
+            busyUntil[key] = clock.instant().plus(busyCooldown)
+        }
+        if (cached != null) {
+            ForecastResult(cached, ForecastStatus.STALE, listOf(e.userText()))
+        } else {
+            throw e
         }
     }
 
@@ -140,8 +180,7 @@ class ForecastRepository(
         }
         val weather = openMeteo.fetch(latitude, longitude)
         val points = astro.await()
-        val warnings = points.exceptionOrNull()?.let { listOf("Seeing/transparency unavailable (7Timer): ${it.message}") }
-            .orEmpty()
+        val warnings = points.exceptionOrNull()?.let { listOf("Seeing and transparency unavailable") }.orEmpty()
         // A failed second model leaves cloudCoverSecondary null; the briefing still succeeds.
         val merged = second.await().getOrNull()?.let { weather.withSecondary(it) } ?: weather
         merged.withSevenTimer(points.getOrDefault(emptyList())) to warnings

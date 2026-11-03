@@ -12,7 +12,62 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class WeatherApiException(message: String, cause: Throwable? = null) : IOException(message, cause)
+/**
+ * Why a forecast fetch failed, in terms the UI can show.
+ * The exception message stays technical. [userText] is the sentence on screen.
+ */
+enum class ForecastProblem {
+    /** DNS or a connection that never opened. */
+    OFFLINE,
+    /** The service asked us to slow down (HTTP 429). */
+    BUSY,
+    /** The call exceeded its deadline. */
+    TIMEOUT,
+    /** Any other HTTP or parse failure. */
+    UNAVAILABLE,
+    ;
+
+    fun userText(): String = when (this) {
+        OFFLINE -> "No connection"
+        BUSY -> "Weather service busy — try again shortly"
+        TIMEOUT -> "The weather service timed out"
+        UNAVAILABLE -> "Couldn't load the forecast"
+    }
+
+    companion object {
+        fun of(error: Throwable): ForecastProblem {
+            var current: Throwable? = error
+            while (current != null) {
+                when (current) {
+                    is java.net.UnknownHostException,
+                    is java.net.ConnectException,
+                    is java.net.NoRouteToHostException,
+                    is java.net.PortUnreachableException,
+                    -> return OFFLINE
+                    is java.net.SocketTimeoutException -> return TIMEOUT
+                }
+                val message = current.message
+                if (message != null && message.contains("timeout", ignoreCase = true)) return TIMEOUT
+                current = current.cause
+            }
+            return UNAVAILABLE
+        }
+    }
+}
+
+class WeatherApiException(
+    message: String,
+    cause: Throwable? = null,
+    val problem: ForecastProblem = ForecastProblem.UNAVAILABLE,
+) : IOException(message, cause) {
+    /** Plain status for Tonight, Week, and the digest. Not the raw exception text. */
+    fun userText(): String = problem.userText()
+
+    companion object {
+        fun transport(error: IOException): WeatherApiException =
+            WeatherApiException(error.message ?: "request failed", error, ForecastProblem.of(error))
+    }
+}
 
 fun defaultHttpClient(timing: NetworkTimingListener? = null): OkHttpClient = OkHttpClient.Builder()
     .connectTimeout(15, TimeUnit.SECONDS)
@@ -52,7 +107,9 @@ internal suspend fun OkHttpClient.getString(url: String): String =
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                cont.resumeWithException(WeatherApiException("request failed: ${e.message}", e))
+                cont.resumeWithException(
+                    if (e is WeatherApiException) e else WeatherApiException.transport(e),
+                )
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -61,7 +118,10 @@ internal suspend fun OkHttpClient.getString(url: String): String =
                     if (it.isSuccessful) {
                         cont.resume(body)
                     } else {
-                        cont.resumeWithException(WeatherApiException("HTTP ${it.code} from ${call.request().url.host}: ${body.take(200)}"))
+                        val problem = if (it.code == 429) ForecastProblem.BUSY else ForecastProblem.UNAVAILABLE
+                        cont.resumeWithException(
+                            WeatherApiException("HTTP ${it.code} from ${call.request().url.host}", problem = problem),
+                        )
                     }
                 }
             }

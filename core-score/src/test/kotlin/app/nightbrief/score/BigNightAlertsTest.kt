@@ -93,6 +93,6 @@ class BigNightAlertsTest {
     @Test
     fun dateLabelUsesTheLocaleWeekdayAndIsoDate() {
         val label = BigNightAlert("home", "Home", 90, tonight).dateLabel(Locale.US)
-        assertEquals("Wednesday 2026-08-12", label)
+        assertEquals("Wed Aug 12", label)
     }
 }

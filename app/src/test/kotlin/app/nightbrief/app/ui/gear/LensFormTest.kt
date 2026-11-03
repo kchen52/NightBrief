@@ -23,4 +23,16 @@ class LensFormTest {
     fun aZoomMayBeSlowerAtTheLongEnd() {
         assertNull(lensError("Zoom", "16", "35", "2.8", "4"))
     }
+
+    @Test
+    fun aPrimeCanOmitTheLongFocalLength() {
+        assertNull(lensError("QA Prime", "50", "", "1.8", "1.8"))
+        assertEquals("50", effectiveMaxFocal("50", ""))
+        assertEquals("35", effectiveMaxFocal("24", "35"))
+    }
+
+    @Test
+    fun aBlankMaxFocalStillRejectsABadMinimum() {
+        assertEquals(R.string.gear_error_min_focal, lensError("QA Prime", "", "", "1.8", "1.8"))
+    }
 }

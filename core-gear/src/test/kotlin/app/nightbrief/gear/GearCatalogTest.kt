@@ -1,6 +1,7 @@
 package app.nightbrief.gear
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -30,6 +31,13 @@ class GearCatalogTest {
         assertTrue("bodies ${GearCatalog.bodies.size}", GearCatalog.bodies.size >= 45)
         assertTrue("lenses ${GearCatalog.lenses.size}", GearCatalog.lenses.size >= 60)
         assertTrue(GearCatalog.bodies.any { it.name == "Sony α6700" })
+        assertTrue(GearCatalog.bodyMatches(GearCatalog.bodies.first { it.id == "sony-a7iv" }, "a7 IV"))
+        assertTrue(GearCatalog.bodyMatches(GearCatalog.bodies.first { it.id == "sony-a7iii" }, "Sony a7 III"))
+        assertTrue(GearCatalog.bodyMatches(GearCatalog.bodies.first { it.id == "sony-a7iv" }, "ILCE-7M4"))
+        assertTrue("16-300".let { query ->
+            GearCatalog.lenses.any { it.name.matchesGearQuery(query) && it.id == "sigma-16-300-f35-dcos" }
+        })
+        assertFalse(GearCatalog.bodyMatches(GearCatalog.bodies.first { it.id == "sony-a6700" }, "ILCE-7M4"))
         assertTrue(GearCatalog.lenses.any { it.name.startsWith("Tamron 35–150") })
     }
 }

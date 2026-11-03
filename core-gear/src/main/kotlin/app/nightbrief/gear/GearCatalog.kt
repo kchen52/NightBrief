@@ -156,4 +156,45 @@ object GearCatalog {
         lenses = listOf(sigma10to18),
         primaryBodyId = canonR7.id,
     )
+
+    /** True when [query] matches the catalog name or a model alias such as ILCE-7M4. */
+    fun bodyMatches(body: CameraBody, query: String): Boolean {
+        if (body.name.matchesGearQuery(query)) return true
+        val needle = query.foldGearQuery()
+        if (needle.isEmpty()) return true
+        return bodyAliases[body.id].orEmpty().any { it.foldGearQuery().contains(needle) }
+    }
 }
+
+/**
+ * Case, spaces, hyphens, and Greek alpha fold together, so "a7 IV" matches "Sony α7 IV"
+ * and "16-300" matches "16–300".
+ */
+fun String.matchesGearQuery(query: String): Boolean {
+    val needle = query.foldGearQuery()
+    if (needle.isEmpty()) return true
+    return foldGearQuery().contains(needle)
+}
+
+private fun String.foldGearQuery(): String = buildString {
+    for (ch in this@foldGearQuery.trim().lowercase()) {
+        when (ch) {
+            '\u03b1' -> append('a')
+            '-', '\u2013', '\u2014', '_', ' ' -> Unit
+            else -> append(ch)
+        }
+    }
+}
+
+private val bodyAliases: Map<String, List<String>> = mapOf(
+    "sony-a7iii" to listOf("ILCE-7M3", "a7m3"),
+    "sony-a7iv" to listOf("ILCE-7M4", "a7m4"),
+    "sony-a7siii" to listOf("ILCE-7SM3"),
+    "sony-a1" to listOf("ILCE-1"),
+    "sony-a7rv" to listOf("ILCE-7RM5"),
+    "sony-a7c" to listOf("ILCE-7C"),
+    "sony-a7cii" to listOf("ILCE-7CM2"),
+    "sony-a6700" to listOf("ILCE-6700"),
+    "sony-a6600" to listOf("ILCE-6600"),
+    "sony-a6400" to listOf("ILCE-6400"),
+)

@@ -14,6 +14,11 @@ import java.util.Locale
 @Serializable
 data class AppState(
     val onboardingComplete: Boolean = false,
+    /**
+     * Epoch seconds when onboarding finished. Null on files written before this field,
+     * which are not inside the first-session Big Night quiet window.
+     */
+    val onboardingCompletedAtEpochSec: Long? = null,
     val sites: SiteBook = SiteBook(),
     val gear: GearKit = GearCatalog.exampleKit,
     /** Global digest time for the primary site ("HH:mm"). */

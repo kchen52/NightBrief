@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -17,7 +18,10 @@ import androidx.work.WorkManager
 import androidx.work.impl.utils.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.gear.GearScreen
 import app.nightbrief.app.ui.settings.SettingsScreen
+import app.nightbrief.app.ui.sites.SiteEditorScreen
+import app.nightbrief.app.ui.sites.SitesScreen
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.PlannedNightScreen
 import app.nightbrief.data.AppGraph
@@ -104,6 +108,60 @@ class TalkBackLabelTest {
             compose.onAllNodes(hasContentDescription("Share night plan")).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithContentDescription("Share night plan").assertIsDisplayed()
+    }
+
+    @Test
+    fun sitesControlsIncludeTheSiteName() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { SitesScreen(vm, onEdit = {}, contentPadding = PaddingValues()) }
+        }
+        compose.onNodeWithContentDescription("Add site").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Edit Home").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Delete Home").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move Home up").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move Home down").assertIsDisplayed()
+    }
+
+    @Test
+    fun gearBodyRadioUsesTheBodyName() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { GearScreen(vm, PaddingValues()) }
+        }
+        compose.onNodeWithContentDescription("Canon EOS R7").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Remove Canon EOS R7").assertIsDisplayed()
+    }
+
+    @Test
+    fun siteFormTogglesAreNamed() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { SiteEditorScreen(vm, siteId = null, onDone = {}) }
+        }
+        compose.onNodeWithContentDescription("Primary site (leads the morning digest)")
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithContentDescription("Own digest time").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsSlidersExposeTheirValue() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { SettingsScreen(vm, onBack = {}) }
+        }
+        compose.onNode(
+            hasContentDescription("Mention another site when it's at least 15 points better") and
+                hasStateDescription("15"),
+        ).performScrollTo().assertIsDisplayed()
+        compose.onNode(
+            hasContentDescription("Big Night at 85 or above") and hasStateDescription("85"),
+        ).performScrollTo().assertIsDisplayed()
     }
 
     private fun initWorkManager(app: Application) {

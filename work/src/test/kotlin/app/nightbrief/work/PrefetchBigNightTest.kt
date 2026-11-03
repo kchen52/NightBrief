@@ -40,9 +40,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
+import androidx.work.workDataOf
 import java.time.Instant
 import java.time.LocalDate
-import java.time.format.TextStyle
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
@@ -83,9 +84,9 @@ class PrefetchBigNightTest {
             "Big Night at Home",
             status.notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
         )
-        val day = night.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+        val day = night.format(DateTimeFormatter.ofPattern("EEE MMM d", Locale.getDefault()))
         assertEquals(
-            "Tonight scores ${BigNightAlerts.threshold}. $day $night",
+            "Tonight scores ${BigNightAlerts.threshold}. $day",
             status.notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
         )
         assertEquals(night.toString(), graph.settings.current().lastBigNightAlerts[site.id])
@@ -106,6 +107,37 @@ class PrefetchBigNightTest {
         assertEquals(ListenableWorker.Result.success(), result)
         assertEquals(1, notifications(context).activeNotifications.size)
         assertEquals(night.toString(), graph.settings.current().lastBigNightAlerts[site.id])
+    }
+
+    @Test
+    fun digestForABigNightSuppressesTheSeparateAlert() = runBlocking {
+        val context = context()
+        val graph = prepare(context, score = 90)
+        val digest = TestListenableWorkerBuilder<DigestWorker>(context)
+            .setInputData(workDataOf(DigestWorker.KEY_SITE_IDS to arrayOf(site.id)))
+            .build()
+            .doWork()
+        assertEquals(ListenableWorker.Result.success(), digest)
+        val posted = notifications(context).activeNotifications
+        assertEquals(1, posted.size)
+        assertEquals(DigestNotifier.CHANNEL_DIGEST, posted.single().notification.channelId)
+        assertEquals(night.toString(), graph.settings.current().lastBigNightAlerts[site.id])
+
+        val prefetch = TestListenableWorkerBuilder<PrefetchWorker>(context).build().doWork()
+        assertEquals(ListenableWorker.Result.success(), prefetch)
+        assertEquals(1, notifications(context).activeNotifications.size)
+        assertEquals(DigestNotifier.CHANNEL_DIGEST, notifications(context).activeNotifications.single().notification.channelId)
+    }
+
+    @Test
+    fun theFirstHourAfterOnboardingPostsNoBigNight() = runBlocking {
+        val context = context()
+        val graph = prepare(context, score = 90)
+        graph.settings.update { it.copy(onboardingCompletedAtEpochSec = Instant.now().epochSecond) }
+        val result = TestListenableWorkerBuilder<PrefetchWorker>(context).build().doWork()
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertEquals(0, notifications(context).activeNotifications.size)
+        assertTrue(graph.settings.current().lastBigNightAlerts.isEmpty())
     }
 
     @Test

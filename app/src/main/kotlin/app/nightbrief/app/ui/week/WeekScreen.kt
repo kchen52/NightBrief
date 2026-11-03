@@ -174,6 +174,7 @@ internal fun NightRow(
                 )
                 val label = when {
                     night.darkness == Darkness.NONE -> stringResource(R.string.week_no_darkness)
+                    night.forecastMissing -> stringResource(R.string.week_forecast_unavailable)
                     night.coverage == ForecastCoverage.NONE -> stringResource(R.string.week_beyond_forecast)
                     else -> night.band?.label ?: ""
                 }

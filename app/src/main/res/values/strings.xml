@@ -122,7 +122,7 @@
     <string name="timeline_seeing">Seeing</string>
     <string name="timeline_transp">Transp.</string>
     <string name="timeline_wind">Wind</string>
-    <string name="timeline_footnote">Seeing and transparency read higher as better. 7Timer 1 is best and 8 is worst. Wind in %1$s.</string>
+    <string name="timeline_footnote">Seeing and transparency read higher as better. 7Timer 1 is best and 8 is worst; wind in %1$s.</string>
     <string name="section_targets">Suggested targets</string>
     <string name="why">Why</string>
     <string name="hide">Hide</string>

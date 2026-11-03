@@ -44,6 +44,7 @@
     <string name="onboarding_digest_time">Digest time: %1$s</string>
     <string name="onboarding_notify_body">Allow notifications so the digest can reach you. On Android 13 and later the system asks first.</string>
     <string name="allow_notifications">Allow notifications</string>
+    <string name="notifications_on">Notifications on</string>
 
     <string name="tonight_empty">Pull fresh data with the refresh button</string>
     <string-array name="refresh_lines">
@@ -204,7 +205,6 @@
     <string name="time_zone_summary">Time zone: %1$s · </string>
     <string name="edit_zone">Edit</string>
     <string name="edit_time_zone">Edit time zone</string>
-    <string name="zone_lookup_failed">Couldn\'t look up time zone — using device zone</string>
     <string name="location_fix_failed">Couldn\'t get a location fix</string>
     <string name="location_denied">Location permission denied — enter coordinates or use the map</string>
     <string name="section_darkness">Sky darkness</string>
@@ -256,6 +256,7 @@
     <string name="use_coordinates">Use %1$s</string>
     <string name="tap_map">Tap the map to choose a spot</string>
     <string name="site_error_name">Give the site a name</string>
+    <string name="site_error_location">Set a location</string>
     <string name="site_error_latitude">Latitude must be between -90 and 90</string>
     <string name="site_error_longitude">Longitude must be between -180 and 180</string>
     <string name="site_error_zone">Unknown time zone</string>

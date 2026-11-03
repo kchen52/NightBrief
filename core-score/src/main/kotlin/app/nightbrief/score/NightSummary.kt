@@ -2,6 +2,7 @@ package app.nightbrief.score
 
 import app.nightbrief.astro.NightEphemeris
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * One sentence for a Go night, naming the measured conditions behind the score.
@@ -25,6 +26,22 @@ object NightSummary {
         } else {
             "Conditions line up well enough to go."
         }
+    }
+
+    /**
+     * The factor that gave up the most points on a No-go night, as `Limited by cloud cover (1/35).`
+     *
+     * Null on Go and Maybe, and when there is no dark window to score. An estimated limiter is
+     * named and then called an estimate, so a proxy is not stated as a measurement.
+     */
+    fun limiting(score: NightScore): String? {
+        if (score.verdict != Verdict.NO_GO || score.hours.isEmpty()) return null
+        val worst = score.factors.maxByOrNull { it.maxPoints - it.points } ?: return null
+        if (worst.maxPoints - worst.points < 1.0) return null
+        val earned = worst.points.roundToInt()
+        val label = worst.factor.label.lowercase(Locale.ROOT)
+        val line = "Limited by $label ($earned/${worst.maxPoints})."
+        return if (worst.estimated) "$line That part is estimated." else line
     }
 
     private fun phrase(factor: FactorScore, ephemeris: NightEphemeris?): String? {

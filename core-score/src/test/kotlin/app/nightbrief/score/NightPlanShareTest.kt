@@ -53,6 +53,7 @@ class NightPlanShareTest {
         assertTrue(card.caption, card.caption.endsWith("NightBrief"))
         assertFalse(card.caption, card.caption.contains(longPoint.latitude.toString()))
         assertFalse(card.caption, card.caption.contains(longPoint.longitude.toString()))
+        assertFalse(card.caption, card.caption.contains("°"))
         assertFalse(card.place, card.place.contains(longPoint.latitude.toString()))
     }
 

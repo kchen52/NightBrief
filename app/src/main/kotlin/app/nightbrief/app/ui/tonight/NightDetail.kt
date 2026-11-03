@@ -103,6 +103,7 @@ import app.nightbrief.score.TargetSuggestion
 import app.nightbrief.score.TimelineHour
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.NightPlanCard
+import app.nightbrief.score.Verdict
 import app.nightbrief.score.WidgetCopy
 import app.nightbrief.weather.ForecastStatus
 import java.time.Clock
@@ -231,6 +232,16 @@ private fun HeroCard(report: NightReport, clock: Clock) {
                 } else {
                     Text(stringResource(R.string.no_score_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+        }
+        if (score != null && score.verdict == Verdict.NO_GO) {
+            NightSummary.limiting(score)?.let { line ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
         report.flavorLine?.let { line ->

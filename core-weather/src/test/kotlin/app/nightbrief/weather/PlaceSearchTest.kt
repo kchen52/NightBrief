@@ -94,6 +94,15 @@ class PlaceSearchTest {
     }
 
     @Test
+    fun nearestFirstPutsThePinClosestHitFirst() {
+        val texas = PlaceMatch("Cypress", 29.97, -95.70, region = "Texas", country = "United States")
+        val mountain = PlaceMatch("Cypress Mountain", 49.40, -123.20, region = "British Columbia", country = "Canada")
+        val ordered = listOf(texas, mountain).nearestFirst(49.3, -123.1)
+        assertEquals("Cypress Mountain", ordered.first().name)
+        assertEquals("Cypress", ordered.last().name)
+    }
+
+    @Test
     fun cityStateDropsTheRepeatedRegion() {
         val berlin = PlaceMatch("Berlin", 52.52, 13.405, region = "Berlin", country = "Germany")
         assertEquals("Germany", berlin.detail())

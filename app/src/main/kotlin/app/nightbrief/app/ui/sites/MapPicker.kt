@@ -65,6 +65,7 @@ import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.weather.PlaceMatch
 import app.nightbrief.weather.PlaceSearch
 import app.nightbrief.weather.PlaceSearchResult
+import app.nightbrief.weather.nearestFirst
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.osmdroid.config.Configuration
@@ -196,7 +197,8 @@ fun MapPickerDialog(
         } catch (_: Exception) {
             PlaceSearchResult(failed = true)
         }
-        results = outcome.places
+        val pin = picked
+        results = if (pin != null) outcome.places.nearestFirst(pin.latitude, pin.longitude) else outcome.places
         searchFailed = outcome.failed
         searchedQuery = trimmed
         searching = false

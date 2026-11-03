@@ -101,6 +101,28 @@ class ExposureCalculatorTest {
     }
 
     @Test
+    fun fasterWideLensBeatsACropZoomOnAFullFrameBody() {
+        val body = GearCatalog.bodies.first { it.id == "nikon-z6ii" }
+        val laowa = GearCatalog.lenses.first { it.id == "laowa-15-f2" }
+        val kit = GearKit(
+            bodies = listOf(body),
+            lenses = listOf(GearCatalog.sigma10to18, laowa),
+            primaryBodyId = body.id,
+        )
+        val picked = ExposureCalculator.bestFor(kit, 35.0, 14.0, bortle = 4, brightMoon = false)!!
+        assertEquals(laowa.id, picked.lens.id)
+        assertEquals(null, picked.formatWarning)
+
+        val onlyCrop = ExposureCalculator.bestFor(
+            kit.copy(lenses = listOf(GearCatalog.sigma10to18)),
+            35.0, 14.0, bortle = 4, brightMoon = false,
+        )!!
+        assertEquals(GearCatalog.sigma10to18.id, onlyCrop.lens.id)
+        assertEquals("APS-C lens on a Full frame body.", onlyCrop.formatWarning)
+        assertTrue(onlyCrop.summary.endsWith("APS-C lens on a Full frame body."))
+    }
+
+    @Test
     fun emptyKitHasNoSuggestion() {
         assertEquals(null, ExposureCalculator.bestFor(GearKit(), 24.0, 12.0, 4, false))
     }

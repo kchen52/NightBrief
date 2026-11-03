@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,9 +77,9 @@ fun OnboardingScreen(vm: AppViewModel) {
     val draft by vm.onboardingSite.collectAsStateWithLifecycle()
     val gear by vm.onboardingGear.collectAsStateWithLifecycle()
     var step by rememberSaveable { mutableIntStateOf(0) }
+    var siteAttempted by rememberSaveable { mutableStateOf(false) }
     var digestTime by rememberSaveable { mutableStateOf(s.digestTime.ifBlank { "08:00" }) }
     var showTime by remember { mutableStateOf(false) }
-    var askedNotification by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     var notificationsGranted by remember { mutableStateOf(notificationsAllowed(context)) }
     val scroll = rememberScrollState()
@@ -101,18 +102,6 @@ fun OnboardingScreen(vm: AppViewModel) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(step) {
-        if (step == STEP_NOTIFICATIONS && !askedNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationsGranted = notificationsAllowed(context)
-            if (!notificationsGranted) {
-                askedNotification = true
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
-    val canAdvance = step != STEP_SITE || draft.isValid
-
     Scaffold(
         modifier = Modifier.imePadding(),
         bottomBar = {
@@ -121,9 +110,17 @@ fun OnboardingScreen(vm: AppViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { step -= 1 }, enabled = step > STEP_WELCOME) { Text(stringResource(R.string.back)) }
+                if (step > STEP_WELCOME) {
+                    TextButton(onClick = { step -= 1 }) { Text(stringResource(R.string.back)) }
+                } else {
+                    Spacer(Modifier.width(1.dp))
+                }
                 if (step < STEP_NOTIFICATIONS) {
-                    Button(onClick = { step += 1 }, enabled = canAdvance) { Text(stringResource(R.string.next)) }
+                    Button(
+                        onClick = {
+                            if (step == STEP_SITE && !draft.isValid) siteAttempted = true else step += 1
+                        },
+                    ) { Text(stringResource(R.string.next)) }
                 } else {
                     Button(onClick = { vm.completeOnboarding(digestTime) }) { Text(stringResource(R.string.finish)) }
                 }
@@ -168,6 +165,11 @@ fun OnboardingScreen(vm: AppViewModel) {
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (siteAttempted && !draft.isValid) {
+                            draft.errors.firstOrNull()?.let {
+                                Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                         SiteForm(
                             draft = draft,
                             onChange = vm::updateOnboardingSite,
@@ -178,11 +180,6 @@ fun OnboardingScreen(vm: AppViewModel) {
                             showDigestOverride = false,
                             globalDigestTime = s.digestTime,
                         )
-                        if (!draft.isValid) {
-                            draft.errors.firstOrNull()?.let {
-                                Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
                     }
                     STEP_GEAR -> {
                         Text(stringResource(R.string.onboarding_gear_title), style = MaterialTheme.typography.headlineMedium)
@@ -218,7 +215,13 @@ fun OnboardingScreen(vm: AppViewModel) {
                                 onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
                                 enabled = !notificationsGranted,
                                 modifier = Modifier.fillMaxWidth().testTag("allow-notifications"),
-                            ) { Text(stringResource(R.string.allow_notifications)) }
+                            ) {
+                                Text(
+                                    stringResource(
+                                        if (notificationsGranted) R.string.notifications_on else R.string.allow_notifications,
+                                    ),
+                                )
+                            }
                         }
                     }
                 }

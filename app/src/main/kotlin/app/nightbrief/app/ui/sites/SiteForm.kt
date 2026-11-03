@@ -88,13 +88,12 @@ fun SiteForm(
     var editingZone by rememberSaveable(draft.id) { mutableStateOf(false) }
     var lookingUpDarkness by remember { mutableStateOf(false) }
     var noSkyCoverage by remember { mutableStateOf(false) }
-    var zoneLookupFailed by remember { mutableStateOf(false) }
     val latestDraft by rememberUpdatedState(draft)
     val latestOnChange by rememberUpdatedState(onChange)
 
     fun setCoordinates(lat: Double, lon: Double, placeName: String? = null) {
         val current = latestDraft
-        val name = if (current.name.isBlank() && !placeName.isNullOrBlank()) placeName.trim() else current.name
+        val name = current.nameAfterPlacePick(placeName)
         latestOnChange(
             current.copy(
                 name = name,
@@ -123,7 +122,6 @@ fun SiteForm(
         if (lat == null || lon == null) {
             lookingUpDarkness = false
             noSkyCoverage = false
-            zoneLookupFailed = false
             return@LaunchedEffect
         }
         delay(COORDINATE_LOOKUP_DEBOUNCE_MS)
@@ -149,15 +147,10 @@ fun SiteForm(
                 if (!current.coordinatesDifferFromSaved(lat, lon)) {
                     val savedZone = current.savedZoneId
                     if (savedZone != null && next.zoneId != savedZone) next = next.copy(zoneId = savedZone)
-                    zoneLookupFailed = false
+                } else if (lookupZone && zone != null) {
+                    next = next.copy(zoneId = zone)
                 } else if (lookupZone) {
-                    if (zone != null) {
-                        next = next.copy(zoneId = zone)
-                        zoneLookupFailed = false
-                    } else {
-                        next = next.copy(zoneId = ZoneId.systemDefault().id)
-                        zoneLookupFailed = true
-                    }
+                    next = next.copy(zoneId = ZoneId.systemDefault().id)
                 }
             }
             lookingUpDarkness = false
@@ -170,7 +163,7 @@ fun SiteForm(
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         OutlinedTextField(
             value = draft.name,
-            onValueChange = { onChange(draft.copy(name = it)) },
+            onValueChange = { onChange(draft.copy(name = it, nameEdited = true)) },
             label = { Text(stringResource(R.string.site_name)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -222,21 +215,18 @@ fun SiteForm(
                     modifier = Modifier.weight(1f),
                 )
             }
+            if (draft.lat != null && draft.lon != null) {
             Spacer(Modifier.height(8.dp))
             if (editingZone) {
                 OutlinedTextField(
                     value = draft.zoneId,
-                    onValueChange = {
-                        zoneLookupFailed = false
-                        onChange(draft.copy(zoneId = it, zoneEdited = true))
-                    },
+                    onValueChange = { onChange(draft.copy(zoneId = it, zoneEdited = true)) },
                     label = { Text(stringResource(R.string.time_zone)) },
                     isError = !draft.zoneValid,
                     supportingText = { Text(stringResource(R.string.time_zone_hint)) },
                     singleLine = true,
                     trailingIcon = {
                         TextButton(onClick = {
-                            zoneLookupFailed = false
                             onChange(draft.copy(zoneId = ZoneId.systemDefault().id, zoneEdited = true))
                         }) { Text(stringResource(R.string.device_zone)) }
                     },
@@ -255,16 +245,10 @@ fun SiteForm(
                     },
                 )
             }
-            if (zoneLookupFailed) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(R.string.zone_lookup_failed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
 
+        if (draft.lat != null && draft.lon != null) {
         SectionCard(stringResource(R.string.section_darkness)) {
             val bortle = draft.bortle ?: 5
             val cls = BortleClass.of(bortle)
@@ -299,6 +283,7 @@ fun SiteForm(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
         }
 
         SectionCard(stringResource(R.string.section_horizon)) {

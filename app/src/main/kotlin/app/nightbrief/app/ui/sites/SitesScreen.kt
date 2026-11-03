@@ -194,6 +194,12 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            var showErrors by rememberSaveable { mutableStateOf(false) }
+            if (showErrors) {
+                draft.errors.firstOrNull()?.let {
+                    Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
+                }
+            }
             SiteForm(
                 draft = draft,
                 onChange = { draft = it },
@@ -204,15 +210,15 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
                 showDigestOverride = true,
                 globalDigestTime = s.digestTime,
             )
-            draft.errors.firstOrNull()?.let {
-                Text(stringResource(it), color = NightColors.Marginal, style = MaterialTheme.typography.bodySmall)
-            }
             Button(
                 onClick = {
-                    vm.saveSite(draft)
-                    onDone()
+                    if (!draft.isValid) {
+                        showErrors = true
+                    } else {
+                        vm.saveSite(draft)
+                        onDone()
+                    }
                 },
-                enabled = draft.isValid,
                 modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth().height(52.dp),
             ) { Text(stringResource(R.string.save_site)) }
         }

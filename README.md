@@ -153,7 +153,7 @@ export ANDROID_HOME=~/android-sdk
 
 JVM modules (`core-*`) use the `test` task. Android modules use `testDebugUnitTest`.
 
-Paparazzi golden screenshots live in `app/src/test/snapshots` and `wear/src/test/snapshots`. `TonightScreenshotTest` covers a scored night, the stale-forecast banner, and the Perseids and ISS cards. `ReadmeScreenshotTest` is the phone frames in `docs/screenshots`, including the red night-vision Tonight frame (the meteor frame there is cropped to the cards). `WearScreenshotTest` is the round-watch frames (`wear-go`, `wear-nogo`, `wear-setup`). Record and check them with:
+Paparazzi golden screenshots live in `app/src/test/snapshots` and `wear/src/test/snapshots`. `TonightScreenshotTest` covers a scored night, the stale-forecast banner, and the Perseids and ISS cards. `FoldableScreenshotTest` is the unfolded inner display (Tonight with the stacked hero, and the two-column week). `ReadmeScreenshotTest` is the phone frames in `docs/screenshots`, including the red night-vision Tonight frame (the meteor frame there is cropped to the cards). `WearScreenshotTest` is the round-watch frames (`wear-go`, `wear-nogo`, `wear-setup`). Record and check them with:
 
 ```bash
 ./gradlew :app:recordPaparazziDebug --tests 'app.nightbrief.app.ui.*ScreenshotTest'

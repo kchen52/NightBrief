@@ -1,7 +1,6 @@
 package app.nightbrief.app.ui
 
 import androidx.compose.foundation.background
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,7 +27,7 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,6 +79,7 @@ private val topDestinations = listOf(
 
 @Composable
 fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
+    val form = rememberWindowForm()
     val state by vm.state.collectAsStateWithLifecycle()
     val current = state
     if (current == null) {
@@ -100,7 +100,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     val showBar = route == null || route in topDestinations.map { it.route }
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val rail = showBar && form.navigation == WindowForm.Navigation.Rail
 
     LaunchedEffect(openTonightSignal) {
         if (openTonightSignal > 0) {
@@ -113,8 +113,8 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (showBar && !landscape) {
-                NavigationBar {
+            if (showBar && !rail) {
+                NavigationBar(Modifier.testTag("nav-bar")) {
                     topDestinations.forEach { dest ->
                         NavigationBarItem(
                             selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
@@ -128,8 +128,8 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
         },
     ) { innerPadding ->
         Row(Modifier.fillMaxSize()) {
-        if (showBar && landscape) {
-            NavigationRail {
+        if (rail) {
+            NavigationRail(Modifier.testTag("nav-rail")) {
                 topDestinations.forEach { dest ->
                     NavigationRailItem(
                         selected = route == dest.route || (route == null && dest.route == Routes.Tonight),

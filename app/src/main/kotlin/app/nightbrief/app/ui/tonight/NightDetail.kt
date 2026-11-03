@@ -1,13 +1,14 @@
 package app.nightbrief.app.ui.tonight
 
-import android.content.res.Configuration
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,8 +58,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -73,11 +74,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
+import app.nightbrief.app.ui.FoldColumns
+import app.nightbrief.app.ui.WindowForm
 import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.EmphasizedText
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.LabeledValue
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.rememberWindowForm
 import app.nightbrief.app.ui.tonight.whimsy.AliveHeroCard
 import app.nightbrief.app.ui.tonight.whimsy.CountingScoreGauge
 import app.nightbrief.app.ui.tonight.whimsy.MeteorSparkle
@@ -123,7 +127,7 @@ fun NightDetail(
     units: UnitSystem = UnitSystem.METRIC,
     clock: Clock = Clock.systemUTC(),
 ) {
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val form = rememberWindowForm()
     Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         StatusBanners(report)
         alternative?.let { alt ->
@@ -143,36 +147,67 @@ fun NightDetail(
                 },
             )
         }
-        if (landscape) {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    HeroCard(report, clock)
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    SkyCard(report)
-                }
+        when (form.detail) {
+            WindowForm.Detail.Stacked -> {
+                HeroCard(report, clock)
+                SkyCard(report)
+                ConditionCards(report, units)
+                ScoreCards(report, units)
             }
-        } else {
-            HeroCard(report, clock)
-            SkyCard(report)
-        }
-        report.dew?.let { DewCard(it, report.site.zone, units) }
-        report.aurora?.let { AuroraCard(it) }
-        report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
-        if (report.issPasses.isNotEmpty()) IssCard(report)
-        MilkyWayCard(report)
-        report.score?.let { BreakdownCard(report) }
-        TimelineCard(report, units)
-        ModelAgreement.assess(report)?.let { ConfidenceCard(it) }
-        if (report.suggestions.isNotEmpty()) {
-            SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus) {
-                report.suggestions.forEachIndexed { i, s ->
-                    if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    SuggestionRow(s, report)
+            WindowForm.Detail.Lead -> {
+                Row(
+                    Modifier.fillMaxWidth().testTag("night-header"),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        HeroCard(report, clock)
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        SkyCard(report)
+                    }
                 }
+                ConditionCards(report, units)
+                ScoreCards(report, units)
+            }
+            WindowForm.Detail.Panes -> {
+                FoldColumns(
+                    fold = form.fold,
+                    left = {
+                        HeroCard(report, clock)
+                        ScoreCards(report, units)
+                    },
+                    right = {
+                        SkyCard(report)
+                        ConditionCards(report, units)
+                    },
+                )
             }
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun ColumnScope.ConditionCards(report: NightReport, units: UnitSystem) {
+    report.dew?.let { DewCard(it, report.site.zone, units) }
+    report.aurora?.let { AuroraCard(it) }
+    report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
+    if (report.issPasses.isNotEmpty()) IssCard(report)
+    MilkyWayCard(report)
+}
+
+@Composable
+private fun ColumnScope.ScoreCards(report: NightReport, units: UnitSystem) {
+    report.score?.let { BreakdownCard(report) }
+    TimelineCard(report, units)
+    ModelAgreement.assess(report)?.let { ConfidenceCard(it) }
+    if (report.suggestions.isNotEmpty()) {
+        SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus) {
+            report.suggestions.forEachIndexed { i, s ->
+                if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                SuggestionRow(s, report)
+            }
+        }
     }
 }
 
@@ -210,43 +245,23 @@ private fun StatusBanners(report: NightReport) {
 private fun HeroCard(report: NightReport, clock: Clock) {
     val score = report.score
     AliveHeroCard(report, clock = clock) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CountingScoreGauge(score?.score)
-            Spacer(Modifier.width(18.dp))
-            Column(Modifier.weight(1f)) {
-                Text(report.site.name, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "${Format.dayName(report.date)}, ${Format.dayMonth(report.date)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(10.dp))
-                if (score != null) {
-                    val color = NightColors.forScore(score.score)
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("${score.verdict.label} · ${score.band.label}", fontWeight = FontWeight.SemiBold) },
-                        colors = AssistChipDefaults.assistChipColors(labelColor = color),
-                        border = AssistChipDefaults.assistChipBorder(true, borderColor = color.copy(alpha = 0.5f)),
-                    )
-                    score.bestWindow?.takeIf { NightPlanCard.showsBestWindow(score) }?.let {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.Schedule,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = color,
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            EmphasizedText(
-                                stringResource(R.string.best_window, Format.window(it, report.site.zone), score.bestWindowScore),
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
-                    }
-                } else {
-                    Text(stringResource(R.string.no_score_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // The gauge is 148dp. Beside it, the copy needs another line of width.
+        // A fold column is narrower than that, so the gauge sits above the copy.
+        BoxWithConstraints {
+            if (maxWidth >= HeroSideBySideMin) {
+                Row(Modifier.testTag("hero-row"), verticalAlignment = Alignment.CenterVertically) {
+                    CountingScoreGauge(score?.score)
+                    Spacer(Modifier.width(18.dp))
+                    Column(Modifier.weight(1f)) { HeroCopy(report) }
+                }
+            } else {
+                Column(
+                    Modifier.testTag("hero-stacked"),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CountingScoreGauge(score?.score)
+                    Column(Modifier.fillMaxWidth()) { HeroCopy(report) }
                 }
             }
         }
@@ -288,6 +303,47 @@ private fun HeroCard(report: NightReport, clock: Clock) {
         }
     }
 }
+
+@Composable
+private fun HeroCopy(report: NightReport) {
+    val score = report.score
+    Text(report.site.name, style = MaterialTheme.typography.titleLarge)
+    Text(
+        "${Format.dayName(report.date)}, ${Format.dayMonth(report.date)}",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(10.dp))
+    if (score != null) {
+        val color = NightColors.forScore(score.score)
+        AssistChip(
+            onClick = {},
+            label = { Text("${score.verdict.label} · ${score.band.label}", fontWeight = FontWeight.SemiBold) },
+            colors = AssistChipDefaults.assistChipColors(labelColor = color),
+            border = AssistChipDefaults.assistChipBorder(true, borderColor = color.copy(alpha = 0.5f)),
+        )
+        score.bestWindow?.takeIf { NightPlanCard.showsBestWindow(score) }?.let {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Schedule,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = color,
+                )
+                Spacer(Modifier.width(6.dp))
+                EmphasizedText(
+                    stringResource(R.string.best_window, Format.window(it, report.site.zone), score.bestWindowScore),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    } else {
+        Text(stringResource(R.string.no_score_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private val HeroSideBySideMin = 250.dp
 
 @Composable
 private fun SkyCard(report: NightReport) {

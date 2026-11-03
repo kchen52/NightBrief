@@ -13,6 +13,7 @@ val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
             it.zoneId, it.zoneEdited, it.savedLatitude, it.savedLongitude, it.savedZoneId,
             it.digestTimeOverride, it.makePrimary,
             *it.horizon.altitudes().toTypedArray(),
+            it.nameEdited,
         )
     },
     restore = { saved ->
@@ -45,6 +46,7 @@ val SiteDraftSaver: Saver<SiteDraft, Any> = Saver(
             } else {
                 LocalHorizon()
             },
+            nameEdited = if (v.size >= 22) v[21] as Boolean else false,
         )
     },
 )

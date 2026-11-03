@@ -12,6 +12,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.Locale
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * One geocoding hit. [region] is the first administrative area (a province or state).
@@ -120,4 +125,22 @@ class PlaceSearch(
         const val MIN_QUERY_LENGTH = 2
         const val RESULT_COUNT = 8
     }
+}
+
+/**
+ * Open-Meteo geocoding has no bias coordinate, so the map orders hits by distance from a pin.
+ * Without a pin the caller keeps the service order.
+ */
+fun List<PlaceMatch>.nearestFirst(latitude: Double, longitude: Double): List<PlaceMatch> {
+    if (size < 2) return this
+    return sortedBy { haversineKm(latitude, longitude, it.latitude, it.longitude) }
+}
+
+private fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val radius = 6371.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = sin(dLat / 2).pow(2) +
+        cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
+    return 2 * radius * asin(sqrt(a.coerceIn(0.0, 1.0)))
 }

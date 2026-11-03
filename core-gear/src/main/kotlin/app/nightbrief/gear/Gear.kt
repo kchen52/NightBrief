@@ -63,10 +63,16 @@ data class Lens(
     val maxApertureAtLongEnd: Double = maxAperture,
     /** Personal name. Null or blank leaves the exposure line in its technical form. */
     val nickname: String? = null,
+    /**
+     * Crop factor this lens is designed to cover. Null means unknown, so it is not treated as a
+     * mismatch. A body with a smaller crop factor (a larger sensor) than this is a format mismatch.
+     */
+    val designedForCrop: Double? = null,
 ) {
     init {
         require(minFocalMm > 0 && maxFocalMm >= minFocalMm) { "invalid focal range" }
         require(maxAperture > 0 && maxApertureAtLongEnd >= maxAperture) { "invalid aperture" }
+        require(designedForCrop == null || designedForCrop > 0) { "invalid designed crop" }
     }
 
     val isZoom: Boolean get() = maxFocalMm > minFocalMm

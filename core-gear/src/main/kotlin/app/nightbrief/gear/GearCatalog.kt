@@ -3,7 +3,10 @@ package app.nightbrief.gear
 /** Common astrophotography bodies and lenses offered in the gear picker. Users can also enter custom gear. */
 object GearCatalog {
     val canonR7 = CameraBody("canon-r7", "Canon EOS R7", 22.3, 14.8, 32.5)
-    val sigma10to18 = Lens("sigma-10-18-f28-dcdn", "Sigma 10–18mm f/2.8 DC DN Contemporary", 10.0, 18.0, 2.8)
+    val sigma10to18 = Lens(
+        "sigma-10-18-f28-dcdn", "Sigma 10–18mm f/2.8 DC DN Contemporary", 10.0, 18.0, 2.8,
+        designedForCrop = 1.5,
+    )
 
     val bodies: List<CameraBody> = listOf(
         canonR7,
@@ -58,10 +61,10 @@ object GearCatalog {
 
     val lenses: List<Lens> = listOf(
         sigma10to18,
-        Lens("sigma-16-f14-dcdn", "Sigma 16mm f/1.4 DC DN Contemporary", 16.0, maxAperture = 1.4),
+        Lens("sigma-16-f14-dcdn", "Sigma 16mm f/1.4 DC DN Contemporary", 16.0, maxAperture = 1.4, designedForCrop = 1.5),
         Lens("viltrox-13-f14", "Viltrox AF 13mm f/1.4", 13.0, maxAperture = 1.4),
         Lens("tokina-11-16-f28", "Tokina 11–16mm f/2.8", 11.0, 16.0, 2.8),
-        Lens("samyang-12-f2", "Samyang 12mm f/2 NCS CS", 12.0, maxAperture = 2.0),
+        Lens("samyang-12-f2", "Samyang 12mm f/2 NCS CS", 12.0, maxAperture = 2.0, designedForCrop = 1.5),
         Lens("samyang-14-f28", "Samyang / Rokinon 14mm f/2.8", 14.0, maxAperture = 2.8),
         Lens("sigma-14-f18-art", "Sigma 14mm f/1.8 DG HSM Art", 14.0, maxAperture = 1.8),
         Lens("sigma-14-24-f28-dgdn", "Sigma 14–24mm f/2.8 DG DN Art", 14.0, 24.0, 2.8),
@@ -69,17 +72,17 @@ object GearCatalog {
         Lens("sigma-20-f14-dgdn", "Sigma 20mm f/1.4 DG DN Art", 20.0, maxAperture = 1.4),
         Lens("sigma-24-f14-art", "Sigma 24mm f/1.4 DG HSM Art", 24.0, maxAperture = 1.4),
         Lens("samyang-24-f14", "Samyang / Rokinon 24mm f/1.4", 24.0, maxAperture = 1.4),
-        Lens("kit-18-55", "18–55mm f/3.5–5.6 kit zoom", 18.0, 55.0, 3.5, 5.6),
+        Lens("kit-18-55", "18–55mm f/3.5–5.6 kit zoom", 18.0, 55.0, 3.5, 5.6, designedForCrop = 1.5),
         Lens("rf-24-105-f4", "Canon RF 24–105mm f/4L", 24.0, 105.0, 4.0),
         Lens("nifty-50-f18", "50mm f/1.8", 50.0, maxAperture = 1.8),
         Lens("samyang-135-f2", "Samyang / Rokinon 135mm f/2", 135.0, maxAperture = 2.0),
         Lens("tele-70-200-f28", "70–200mm f/2.8", 70.0, 200.0, 2.8),
         Lens("tele-100-400", "100–400mm f/4.5–5.6", 100.0, 400.0, 4.5, 5.6),
-        Lens("sigma-16-300-f35-dcos", "Sigma 16–300mm f/3.5–6.7 DC OS Contemporary", 16.0, 300.0, 3.5, 6.7),
-        Lens("sigma-18-50-f28-dcdn", "Sigma 18–50mm f/2.8 DC DN Contemporary", 18.0, 50.0, 2.8),
-        Lens("sigma-23-f14-dcdn", "Sigma 23mm f/1.4 DC DN Contemporary", 23.0, maxAperture = 1.4),
-        Lens("sigma-30-f14-dcdn", "Sigma 30mm f/1.4 DC DN Contemporary", 30.0, maxAperture = 1.4),
-        Lens("sigma-56-f14-dcdn", "Sigma 56mm f/1.4 DC DN Contemporary", 56.0, maxAperture = 1.4),
+        Lens("sigma-16-300-f35-dcos", "Sigma 16–300mm f/3.5–6.7 DC OS Contemporary", 16.0, 300.0, 3.5, 6.7, designedForCrop = 1.5),
+        Lens("sigma-18-50-f28-dcdn", "Sigma 18–50mm f/2.8 DC DN Contemporary", 18.0, 50.0, 2.8, designedForCrop = 1.5),
+        Lens("sigma-23-f14-dcdn", "Sigma 23mm f/1.4 DC DN Contemporary", 23.0, maxAperture = 1.4, designedForCrop = 1.5),
+        Lens("sigma-30-f14-dcdn", "Sigma 30mm f/1.4 DC DN Contemporary", 30.0, maxAperture = 1.4, designedForCrop = 1.5),
+        Lens("sigma-56-f14-dcdn", "Sigma 56mm f/1.4 DC DN Contemporary", 56.0, maxAperture = 1.4, designedForCrop = 1.5),
         Lens("sigma-28-70-f28-dgdn", "Sigma 28–70mm f/2.8 DG DN Contemporary", 28.0, 70.0, 2.8),
         Lens("sigma-24-70-f28-dgdn", "Sigma 24–70mm f/2.8 DG DN Art", 24.0, 70.0, 2.8),
         Lens("sigma-35-f14-dgdn", "Sigma 35mm f/1.4 DG DN Art", 35.0, maxAperture = 1.4),

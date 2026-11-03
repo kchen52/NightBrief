@@ -23,6 +23,11 @@ data class ExposureSuggestion(
     val stackCount: Int? = null,
     /** Suggested total integration in minutes. Null when untracked. */
     val integrationMinutes: Int? = null,
+    /**
+     * Set when the chosen lens is designed for a smaller sensor than the body.
+     * Null when the lens fits, or when its format is unknown.
+     */
+    val formatWarning: String? = null,
 ) {
     val fullFrameEquivalentMm: Double get() = focalMm * body.cropFactor
 
@@ -32,18 +37,25 @@ data class ExposureSuggestion(
      * A lens nickname replaces "the {focal}mm". A tracked stack plan is appended either way.
      */
     val summary: String
-        get() {
-            val bodyNick = body.nickname.displayNick()
-            val lensNick = lens.nickname.displayNick()
-            if (bodyNick == null && lensNick == null) return technicalSummary()
-            val lensPart = lensNick ?: "the ${focalMm.fmt()}mm"
-            val who = if (bodyNick != null) "$bodyNick + $lensPart" else lensPart
-            val friendly = "$who: ${shutterSeconds.fmt()} s at ISO $iso."
-            if (tracked && stackCount != null && integrationMinutes != null) {
-                return "$friendly · ${stackCount}×${ExposureCalculator.shutterLabel(shutterSeconds)} ($integrationMinutes min)"
-            }
-            return friendly
+        get() = withFormatWarning(exposureLine())
+
+    private fun exposureLine(): String {
+        val bodyNick = body.nickname.displayNick()
+        val lensNick = lens.nickname.displayNick()
+        if (bodyNick == null && lensNick == null) return technicalSummary()
+        val lensPart = lensNick ?: "the ${focalMm.fmt()}mm"
+        val who = if (bodyNick != null) "$bodyNick + $lensPart" else lensPart
+        val friendly = "$who: ${shutterSeconds.fmt()} s at ISO $iso."
+        if (tracked && stackCount != null && integrationMinutes != null) {
+            return "$friendly · ${stackCount}×${ExposureCalculator.shutterLabel(shutterSeconds)} ($integrationMinutes min)"
         }
+        return friendly
+    }
+
+    private fun withFormatWarning(line: String): String {
+        val note = formatWarning?.takeIf { it.isNotBlank() } ?: return line
+        return if (line.endsWith(".")) "$line $note" else "$line. $note"
+    }
 
     private fun technicalSummary(): String = buildString {
         append("${focalMm.fmt()}mm · f/${aperture.fmt()} · ")
@@ -158,9 +170,14 @@ object ExposureCalculator {
     }
 
     /**
-     * Picks the best lens in [kit] for a target whose ideal framing is [idealFocalFullFrameMm]
-     * (full-frame equivalent), preferring lenses that cover that focal length, then faster apertures.
-     * A tracker in [kit] lifts the sub-exposure cap and adds a stack plan; pass [tracked] to override.
+     * Picks the best lens in [kit] for a target whose useful framing is
+     * [minFocalFullFrameMm]..[idealFocalFullFrameMm] (full-frame equivalent).
+     *
+     * A lens designed for a smaller sensor ranks after one that covers this body.
+     * For a wide target (ideal at most [WIDE_IDEAL_FULL_FRAME_MM]), a faster lens anywhere in
+     * that range wins, so a 15 mm f/2 beats an 18 mm f/2.8. Longer targets stay closest to the
+     * ideal, then faster. A tracker in [kit] lifts the sub-exposure cap and adds a stack plan;
+     * pass [tracked] to override.
      */
     fun bestFor(
         kit: GearKit,
@@ -174,16 +191,45 @@ object ExposureCalculator {
         val body = kit.primaryBody ?: return null
         if (kit.lenses.isEmpty()) return null
         val idealActual = idealFocalFullFrameMm / body.cropFactor
-        val lens = kit.lenses.minWith(
-            compareBy<Lens>(
-                { if (it.covers(idealActual)) 0.0 else distanceToRange(it, idealActual) },
-                { it.maxApertureAt(idealActual.coerceIn(it.minFocalMm, it.maxFocalMm)) },
-            ),
-        )
+        val minActual = minFocalFullFrameMm / body.cropFactor
+        val overlapping = kit.lenses.filter { it.maxFocalMm >= minActual && it.minFocalMm <= idealActual }
+        val wide = idealFocalFullFrameMm <= WIDE_IDEAL_FULL_FRAME_MM
+        val lens = if (overlapping.isNotEmpty()) {
+            overlapping.minWith(
+                if (wide) {
+                    compareBy<Lens>(
+                        { if (it.fitsBody(body)) 0 else 1 },
+                        { it.apertureAt(idealActual) },
+                        { distanceToIdeal(it, idealActual) },
+                    )
+                } else {
+                    compareBy(
+                        { if (it.fitsBody(body)) 0 else 1 },
+                        { distanceToIdeal(it, idealActual) },
+                        { it.apertureAt(idealActual) },
+                    )
+                },
+            )
+        } else {
+            kit.lenses.minWith(
+                compareBy<Lens>(
+                    { if (it.fitsBody(body)) 0 else 1 },
+                    { if (it.covers(idealActual)) 0.0 else distanceToRange(it, idealActual) },
+                    { it.apertureAt(idealActual) },
+                ),
+            )
+        }
         return suggest(
             body, lens, idealActual, bortle, brightMoon, declinationDeg, minFocalFullFrameMm,
             tracked = tracked ?: kit.isTracked,
-        )
+        ).copy(formatWarning = formatWarning(body, lens))
+    }
+
+    /** Null when [lens] covers [body], or when the lens format is unknown. */
+    fun formatWarning(body: CameraBody, lens: Lens): String? {
+        if (lens.fitsBody(body)) return null
+        val designed = lens.designedForCrop ?: return null
+        return "${SensorFormat.fromCrop(designed).label} lens on a ${body.format.label} body."
     }
 
     private fun distanceToRange(lens: Lens, focal: Double): Double = when {
@@ -191,5 +237,21 @@ object ExposureCalculator {
         else -> ln(focal / lens.maxFocalMm)
     }
 
+    private fun distanceToIdeal(lens: Lens, focal: Double): Double {
+        val closest = focal.coerceIn(lens.minFocalMm, lens.maxFocalMm)
+        return abs(ln(closest / focal))
+    }
+
+    private const val WIDE_IDEAL_FULL_FRAME_MM = 40.0
+
     fun shutterLabel(seconds: Double): String = "${seconds.fmt()}s"
 }
+
+/** True when the lens format is unknown or its image circle covers [body]. */
+private fun Lens.fitsBody(body: CameraBody): Boolean {
+    val designed = designedForCrop ?: return true
+    return body.cropFactor + 0.15 >= designed
+}
+
+private fun Lens.apertureAt(focal: Double): Double =
+    maxApertureAt(focal.coerceIn(minFocalMm, maxFocalMm))

@@ -161,7 +161,7 @@ object TargetAdvisor {
         kit: GearKit,
         trackedName: String?,
     ): String {
-        val moonPct = (eph.moonIllumination * 100).toInt()
+        val moonPct = (eph.moonIllumination * 100).roundToInt()
         val phase = eph.moonPhaseName.label
         // Name the filter only when it changed the outcome: an emission target kept despite Bortle or Moon.
         val filterHelped = target.kind == TargetKind.EMISSION_NEBULA &&

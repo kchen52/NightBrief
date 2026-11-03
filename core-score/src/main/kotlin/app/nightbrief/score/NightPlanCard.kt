@@ -9,7 +9,8 @@ import kotlin.math.floor
 /**
  * Facts for a shared picture of one night.
  *
- * [place] is rounded to 0.1° (about 11 km). The card does not carry the site pin.
+ * [place] is rounded to 0.1° (about 11 km) and is drawn on the picture.
+ * The caption leaves coordinates out. The card does not carry the site pin.
  * Clock times are `HH:mm` in the site zone, matching the digest. Not a [NightScoreEngine] input.
  * The shared picture uses the ordinary blue palette even when night vision is on.
  */
@@ -44,7 +45,6 @@ data class NightPlanCard(
             val headline = if (score == null) verdictLabel else "$scoreText $verdictLabel"
             return listOfNotNull(
                 siteName,
-                place,
                 headline,
                 bestWindow?.let { "Best $it" },
                 milkyWay,

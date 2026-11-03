@@ -5,7 +5,9 @@ import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.HourlyWeather
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
 import java.time.Instant
@@ -68,6 +70,31 @@ class NightSummaryTest {
             "Clear skies, little moonlight, and calm air.",
             NightSummary.whyGood(score),
         )
+    }
+
+    @Test
+    fun noGoNightNamesTheFactorThatGaveUpTheMostPoints() {
+        val overcast = NightScoreEngine.scoreNight(night(cloud = { 100 }, transparency = 8, seeing = 5))
+        val cloud = NightSummary.limiting(overcast)
+        assertNotNull(cloud)
+        assertTrue(cloud, cloud!!.contains("cloud cover"))
+        assertTrue(cloud, cloud.contains("/35"))
+
+        val fullMoon = NightScoreEngine.scoreNight(night(moonAlt = 40.0, moonIllum = 1.0))
+        assertEquals(Verdict.MAYBE, fullMoon.verdict)
+        assertNull(NightSummary.limiting(fullMoon))
+
+        assertNull(NightSummary.limiting(NightScoreEngine.scoreNight(night())))
+        assertNull(NightSummary.limiting(NightScore.NO_DARKNESS))
+    }
+
+    @Test
+    fun anEstimatedLimiterIsNotStatedAsAMeasurement() {
+        val scored = NightScoreEngine.scoreNight(night(cloud = { 100 }, transparency = 8, seeing = 5))
+        val estimated = scored.copy(factors = scored.factors.map { it.copy(estimated = true) })
+        val line = NightSummary.limiting(estimated)
+        assertNotNull(line)
+        assertTrue(line, line!!.contains("estimated"))
     }
 
     @Test

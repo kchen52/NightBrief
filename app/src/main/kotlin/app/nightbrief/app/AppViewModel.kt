@@ -237,9 +237,9 @@ class AppViewModel(
     }
 
     private fun readSite(): SiteDraft {
-        val raw = savedState.get<String>(ONBOARDING_SITE) ?: return SiteDraft(name = "Home", makePrimary = true)
+        val raw = savedState.get<String>(ONBOARDING_SITE) ?: return SiteDraft(name = SiteDraft.UNTOUCHED_NAME, makePrimary = true)
         return runCatching { json.decodeFromString(SiteDraft.serializer(), raw) }
-            .getOrDefault(SiteDraft(name = "Home", makePrimary = true))
+            .getOrDefault(SiteDraft(name = SiteDraft.UNTOUCHED_NAME, makePrimary = true))
     }
 
     private fun readGear(): GearKit? {

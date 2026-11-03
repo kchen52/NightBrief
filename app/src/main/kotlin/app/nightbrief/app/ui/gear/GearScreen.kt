@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -51,7 +50,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import app.nightbrief.app.R
 import androidx.compose.ui.text.input.KeyboardType
@@ -295,22 +297,28 @@ private fun BodyRow(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Row(
+            RadioButton(
+                selected = selected,
+                onClick = onSelect,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
+            Column(
                 Modifier
                     .weight(1f)
-                    .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
-                    .semantics(mergeDescendants = true) { contentDescription = body.name },
-                verticalAlignment = Alignment.CenterVertically,
+                    .clickable(onClick = onSelect)
+                    .semantics {
+                        role = Role.RadioButton
+                        this.selected = selected
+                        contentDescription = body.name
+                    }
+                    .padding(vertical = 8.dp),
             ) {
-                RadioButton(selected = selected, onClick = null)
-                Column(Modifier.padding(vertical = 8.dp)) {
-                    Text(body.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        bodySpec(body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(body.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    bodySpec(body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
         }

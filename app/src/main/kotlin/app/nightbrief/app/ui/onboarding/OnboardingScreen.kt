@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.TimePickerDialog
 import app.nightbrief.app.ui.gear.GearEditor
+import app.nightbrief.app.ui.gear.InterestPicker
 import app.nightbrief.app.ui.sites.SiteForm
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.theme.NightColors
@@ -198,6 +199,14 @@ fun OnboardingScreen(vm: AppViewModel) {
                             CircularProgressIndicator()
                         } else {
                             GearEditor(kit, onChange = vm::updateOnboardingGear)
+                            // Optional: leaving every chip off keeps "no preference". It rides on the gear draft.
+                            Text(stringResource(R.string.onboarding_interests_title), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(R.string.onboarding_interests_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            InterestPicker(kit.interests, onChange = { vm.updateOnboardingGear(kit.withInterests(it)) })
                         }
                     }
                     else -> {

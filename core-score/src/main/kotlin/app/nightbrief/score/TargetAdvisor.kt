@@ -9,6 +9,7 @@ import app.nightbrief.astro.TimeWindow
 import app.nightbrief.gear.ExposureCalculator
 import app.nightbrief.gear.ExposureSuggestion
 import app.nightbrief.gear.GearKit
+import app.nightbrief.gear.TargetInterest
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -51,6 +52,20 @@ object TargetAdvisor {
         return (target.maxMoonIllumination + DUAL_BAND_MOON_BONUS).coerceAtMost(1.0)
     }
 
+    /** The interest a catalog kind belongs to. Every [TargetKind] maps to exactly one. */
+    fun interestOf(kind: TargetKind): TargetInterest = when (kind) {
+        TargetKind.EMISSION_NEBULA, TargetKind.REFLECTION_NEBULA -> TargetInterest.NEBULAE
+        TargetKind.GALAXY -> TargetInterest.GALAXIES
+        TargetKind.STAR_CLUSTER -> TargetInterest.CLUSTERS
+        TargetKind.MILKY_WAY -> TargetInterest.MILKY_WAY
+        TargetKind.CONSTELLATION -> TargetInterest.CONSTELLATIONS
+        TargetKind.MOON, TargetKind.MOONLIT -> TargetInterest.MOON
+    }
+
+    /** An empty [GearKit.interests] keeps everything. Otherwise only the chosen interests survive. */
+    private fun wanted(target: Target, kit: GearKit): Boolean =
+        kit.interests.isEmpty() || interestOf(target.kind) in kit.interests
+
     fun suggest(
         eph: NightEphemeris,
         bortle: Int,
@@ -62,6 +77,7 @@ object TargetAdvisor {
         val dark = eph.darkWindow ?: return emptyList()
         val tracker = kit.tracker
         return catalog
+            .filter { wanted(it, kit) }
             .filter { bortle <= effectiveMaxBortle(it, kit) }
             .filter { !it.requiresBrightMoon || eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION }
             // Trails need the sky to drift. A tighter target than the mount can track is not a plan.

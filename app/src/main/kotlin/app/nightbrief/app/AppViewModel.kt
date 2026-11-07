@@ -275,6 +275,12 @@ class AppViewModel(
     }
 
     fun deleteSite(id: String) = mutate { it.copy(sites = it.sites.delete(id)) }
+    /**
+     * Puts [previous] back after a delete, but only while the book is still exactly [expected]
+     * (the book right after that delete). Any edit in between wins and the undo is dropped.
+     */
+    fun restoreSites(previous: SiteBook, expected: SiteBook) =
+        mutate { if (it.sites == expected) it.copy(sites = previous) else it }
     fun setPrimary(id: String) = mutate { it.copy(sites = it.sites.setPrimary(id)) }
     fun moveSite(from: Int, to: Int) = mutate { it.copy(sites = it.sites.move(from, to)) }
 

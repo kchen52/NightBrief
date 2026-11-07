@@ -143,6 +143,21 @@ data class GearFilter(
     }
 }
 
+/**
+ * Coarse kinds of subject a user can ask for. `:core-score` maps each to catalog target kinds;
+ * this lives here, with the kit, because `:core-gear` cannot see the target catalog.
+ * Serialized by name, so never rename one.
+ */
+@Serializable
+enum class TargetInterest(val label: String) {
+    NEBULAE("Nebulae"),
+    GALAXIES("Galaxies"),
+    CLUSTERS("Star clusters"),
+    MILKY_WAY("Milky Way"),
+    CONSTELLATIONS("Constellations"),
+    MOON("Moon & moonlit landscapes"),
+}
+
 /** The user's kit: any number of bodies and lenses, with one body used for suggestions. */
 @Serializable
 data class GearKit(
@@ -153,6 +168,11 @@ data class GearKit(
     val tracker: StarTracker? = null,
     /** Optional screw-in / clip-in filters. Empty means no filter. */
     val filters: List<GearFilter> = emptyList(),
+    /**
+     * What the user wants to shoot. Empty means no preference: every kind is suggested. Kept on the
+     * kit so Tonight, the digest, the widget and the watch, which all take a kit, agree.
+     */
+    val interests: Set<TargetInterest> = emptySet(),
 ) {
     val primaryBody: CameraBody? get() = bodies.firstOrNull { it.id == primaryBodyId } ?: bodies.firstOrNull()
     val isEmpty: Boolean get() = bodies.isEmpty() || lenses.isEmpty()
@@ -182,6 +202,7 @@ data class GearKit(
     fun withTracker(tracker: StarTracker?) = copy(tracker = tracker)
     fun addFilter(filter: GearFilter) = copy(filters = filters.filterNot { it.id == filter.id } + filter)
     fun removeFilter(id: String) = copy(filters = filters.filterNot { it.id == id })
+    fun withInterests(interests: Set<TargetInterest>) = copy(interests = interests)
 }
 
 internal fun Double.fmt(): String =

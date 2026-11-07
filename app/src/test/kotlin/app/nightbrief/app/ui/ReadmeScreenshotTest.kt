@@ -169,7 +169,7 @@ class ReadmeScreenshotTest {
                     // ISS peak line (below that height) never lays out. Measure it unbounded,
                     // then shift the meteor and ISS cards into the frame.
                     Column(Modifier.revealFrom(408.dp)) {
-                        NightDetail(report, alternative = null, onOpenAlternative = {})
+                        NightDetail(report, alternative = null, onOpenAlternative = {}, showIss = true)
                     }
                 }
             }

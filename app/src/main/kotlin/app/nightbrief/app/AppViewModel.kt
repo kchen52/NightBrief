@@ -287,6 +287,12 @@ class AppViewModel(
     fun setAlternativeThreshold(points: Int) = mutate { it.copy(alternativeThreshold = points) }
     fun setNightVision(enabled: Boolean) = mutate { it.copy(nightVision = enabled) }
     fun setUnits(units: UnitSystem) = mutate { it.copy(units = units) }
+    fun setIssEnabled(enabled: Boolean) = mutate { it.copy(issEnabled = enabled) }
+
+    /** Flips one card. The set lives in settings, so it survives restarts and applies to every site. */
+    fun toggleCardCollapsed(cardId: String) = mutate {
+        it.copy(collapsedCards = if (cardId in it.collapsedCards) it.collapsedCards - cardId else it.collapsedCards + cardId)
+    }
 
     fun logSession(
         siteId: String,

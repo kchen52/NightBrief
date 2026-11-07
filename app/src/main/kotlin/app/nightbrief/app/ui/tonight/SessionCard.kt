@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
+import app.nightbrief.app.ui.common.CardIds
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.score.ForecastSurprise
 import app.nightbrief.score.SessionEntry
@@ -90,7 +91,7 @@ fun SessionHistoryCard(
     onOpenPassport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SectionCard(stringResource(R.string.session_history), modifier = modifier) {
+    SectionCard(stringResource(R.string.session_history), modifier = modifier, collapseId = CardIds.SESSION_HISTORY) {
         TextButton(onClick = onOpenPassport) { Text(stringResource(R.string.sky_passport)) }
         if (streakLine != null) {
             Text(

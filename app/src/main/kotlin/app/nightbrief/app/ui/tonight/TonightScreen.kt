@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,6 +47,8 @@ import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Banner
+import app.nightbrief.app.ui.common.CardCollapse
+import app.nightbrief.app.ui.common.LocalCardCollapse
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
@@ -103,89 +106,92 @@ fun TonightScreen(
             )
         },
     ) { inner ->
-        Column(
-            Modifier
-                .padding(inner)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            if (ui.loading) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-                RefreshStatusLine(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
-            }
-            val chips = book.primaryFirst()
-            if (chips.size > 1) {
-                SiteStrip(
-                    sites = chips.map {
-                        SiteChip(it.id, it.name, briefing?.reportFor(it.id)?.scoreValue, it.id == book.primaryId)
-                    },
-                    selectedId = siteId,
-                    onSelect = vm::selectSite,
-                )
-            }
-            ui.error?.let { Banner(it, NightColors.Poor, Modifier.padding(horizontal = 16.dp)) }
-            val stamps = remember(current.sessions) { Passport.evaluate(current.sessions) }
-            NewStampNotice(
-                stamps = stamps,
-                seenIds = current.seenPassportStamps,
-                onDismiss = vm::markPassportStampsSeen,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-
-            if (briefing == null || report == null) {
-                val site = siteId?.let { book[it] }
-                if (ui.loading && site != null) {
-                    LoadingSky(site)
-                } else {
-                    Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-                        if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))
-                    }
+        val collapse = remember(current.collapsedCards) { CardCollapse(current.collapsedCards, vm::toggleCardCollapsed) }
+        CompositionLocalProvider(LocalCardCollapse provides collapse) {
+            Column(
+                Modifier
+                    .padding(inner)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                if (ui.loading) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    RefreshStatusLine(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
                 }
-            } else {
-                val others = briefing.tonight.filter { it.site.id != report.site.id }
-                val alternative = SiteComparison.bestAlternative(
-                    report, others, current.alternativeThreshold,
-                )
-                // Morning-after prompt: 06:00–12:00 local, yesterday's night, asked once.
-                val zone = report.site.zone
-                val today = java.time.LocalDate.now(zone)
-                val promptDate = SessionPrompt.morningPromptDate(java.time.LocalTime.now(zone), today)
-                if (promptDate != null && report.site.id.let { id ->
-                        SessionPrompt.shouldAsk(id, promptDate, current.sessions, current.dismissedSessionPrompts)
-                    }
-                ) {
-                    SessionPromptCard(
-                        nightDate = promptDate,
-                        score = null,
-                        onSave = { rating, note ->
-                            vm.logSession(report.site.id, promptDate, null, rating, note, report = report)
+                val chips = book.primaryFirst()
+                if (chips.size > 1) {
+                    SiteStrip(
+                        sites = chips.map {
+                            SiteChip(it.id, it.name, briefing?.reportFor(it.id)?.scoreValue, it.id == book.primaryId)
                         },
-                        onDismiss = { vm.dismissSessionPrompt(report.site.id, promptDate) },
+                        selectedId = siteId,
+                        onSelect = vm::selectSite,
+                    )
+                }
+                ui.error?.let { Banner(it, NightColors.Poor, Modifier.padding(horizontal = 16.dp)) }
+                val stamps = remember(current.sessions) { Passport.evaluate(current.sessions) }
+                NewStampNotice(
+                    stamps = stamps,
+                    seenIds = current.seenPassportStamps,
+                    onDismiss = vm::markPassportStampsSeen,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+
+                if (briefing == null || report == null) {
+                    val site = siteId?.let { book[it] }
+                    if (ui.loading && site != null) {
+                        LoadingSky(site)
+                    } else {
+                        Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
+                            if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))
+                        }
+                    }
+                } else {
+                    val others = briefing.tonight.filter { it.site.id != report.site.id }
+                    val alternative = SiteComparison.bestAlternative(
+                        report, others, current.alternativeThreshold,
+                    )
+                    // Morning-after prompt: 06:00–12:00 local, yesterday's night, asked once.
+                    val zone = report.site.zone
+                    val today = java.time.LocalDate.now(zone)
+                    val promptDate = SessionPrompt.morningPromptDate(java.time.LocalTime.now(zone), today)
+                    if (promptDate != null && report.site.id.let { id ->
+                            SessionPrompt.shouldAsk(id, promptDate, current.sessions, current.dismissedSessionPrompts)
+                        }
+                    ) {
+                        SessionPromptCard(
+                            nightDate = promptDate,
+                            score = null,
+                            onSave = { rating, note ->
+                                vm.logSession(report.site.id, promptDate, null, rating, note, report = report)
+                            },
+                            onDismiss = { vm.dismissSessionPrompt(report.site.id, promptDate) },
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                    NightDetail(report, alternative, onOpenAlternative = vm::selectSite, units = units, showIss = current.issEnabled)
+                    val darkerSky by vm.darkerSky.collectAsStateWithLifecycle()
+                    DarkerSkyCard(
+                        site = report.site,
+                        state = darkerSky,
+                        onSearch = vm::searchDarkerSky,
+                        onSave = vm::saveDarkerSky,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        onAccessFilter = vm::setDarkerSkyAccessFilter,
+                    )
+                    SessionHistoryCard(
+                        sessions = current.sessions.filter { it.siteId == report.site.id },
+                        siteName = report.site.name,
+                        streakLine = current.sessions.takeIf { it.isNotEmpty() }?.let {
+                            ConstellationStreaks.progress(it.size).summary
+                        },
+                        onOpenPassport = onOpenPassport,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
-                NightDetail(report, alternative, onOpenAlternative = vm::selectSite, units = units)
-                val darkerSky by vm.darkerSky.collectAsStateWithLifecycle()
-                DarkerSkyCard(
-                    site = report.site,
-                    state = darkerSky,
-                    onSearch = vm::searchDarkerSky,
-                    onSave = vm::saveDarkerSky,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    onAccessFilter = vm::setDarkerSkyAccessFilter,
-                )
-                SessionHistoryCard(
-                    sessions = current.sessions.filter { it.siteId == report.site.id },
-                    siteName = report.site.name,
-                    streakLine = current.sessions.takeIf { it.isNotEmpty() }?.let {
-                        ConstellationStreaks.progress(it.size).summary
-                    },
-                    onOpenPassport = onOpenPassport,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
 }

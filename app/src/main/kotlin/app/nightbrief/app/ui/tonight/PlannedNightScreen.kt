@@ -135,6 +135,7 @@ fun PlannedNightScreen(
                     alternative = null,
                     onOpenAlternative = {},
                     units = state?.resolvedUnits() ?: UnitSystem.METRIC,
+                    showIss = state?.issEnabled == true,
                 )
                 LogNightPrompt(
                     report = r,

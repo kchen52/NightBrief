@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +23,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -34,6 +37,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,8 +70,14 @@ fun SectionCard(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     trailing: @Composable (() -> Unit)? = null,
+    collapseId: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val host = LocalCardCollapse.current
+    // Needs a title to tap, an id to remember, and a host that stores it. Anywhere else the card is static.
+    val toggle: (() -> Unit)? =
+        if (title != null && collapseId != null && host != null) ({ host.onToggle(collapseId) }) else null
+    val collapsed = toggle != null && collapseId != null && host != null && collapseId in host.collapsed
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -74,7 +85,18 @@ fun SectionCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             if (title != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                val action = stringResource(if (collapsed) R.string.expand_card else R.string.collapse_card, title)
+                Row(
+                    modifier = if (toggle != null) {
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 32.dp)
+                            .clickable(role = Role.Button, onClickLabel = action, onClick = toggle)
+                    } else {
+                        Modifier
+                    },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (icon != null) {
                         Icon(
                             icon,
@@ -91,12 +113,44 @@ fun SectionCard(
                         modifier = Modifier.weight(1f),
                     )
                     trailing?.invoke()
+                    if (toggle != null) {
+                        Icon(
+                            if (collapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+                            contentDescription = action,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                Spacer(Modifier.height(10.dp))
+                if (!collapsed) Spacer(Modifier.height(10.dp))
             }
-            content()
+            if (!collapsed) content()
         }
     }
+}
+
+/**
+ * Which cards the host has collapsed, and how to flip one. [SectionCard] collapses only when it
+ * has a `collapseId` and this local is provided; null (the default) leaves every card static.
+ */
+class CardCollapse(val collapsed: Set<String>, val onToggle: (String) -> Unit)
+
+val LocalCardCollapse = compositionLocalOf<CardCollapse?> { null }
+
+/** Stable ids for [SectionCard.collapseId]. Persisted in `AppState.collapsedCards`, so never reuse or rename one. */
+object CardIds {
+    const val SKY = "sky"
+    const val DEW = "dew"
+    const val AURORA = "aurora"
+    const val METEORS = "meteors"
+    const val ISS = "iss"
+    const val MILKY_WAY = "milky-way"
+    const val BREAKDOWN = "breakdown"
+    const val TIMELINE = "timeline"
+    const val CONFIDENCE = "confidence"
+    const val TARGETS = "targets"
+    const val DARKER_SKY = "darker-sky"
+    const val SESSION_HISTORY = "session-history"
 }
 
 /** Arc gauge with the score in the middle. */

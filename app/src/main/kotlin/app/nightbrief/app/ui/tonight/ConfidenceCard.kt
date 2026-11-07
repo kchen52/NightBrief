@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
+import app.nightbrief.app.ui.common.CardIds
 import app.nightbrief.app.ui.common.EmphasizedText
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.theme.NightColors
@@ -34,6 +35,7 @@ fun ConfidenceCard(agreement: CloudAgreement, modifier: Modifier = Modifier) {
         title = stringResource(R.string.section_confidence),
         icon = Icons.Filled.Cloud,
         modifier = modifier,
+        collapseId = CardIds.CONFIDENCE,
     ) {
         EmphasizedText(
             ModelAgreement.line(agreement),

@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.gear.InterestPicker
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.data.LightPollutionAttribution
@@ -217,6 +218,18 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                             .semantics { contentDescription = issLabel },
                     )
                 }
+            }
+
+            SectionCard(stringResource(R.string.section_what_i_shoot)) {
+                Text(
+                    stringResource(
+                        if (s.gear.interests.isEmpty()) R.string.interests_summary_all else R.string.interests_summary_chosen,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                InterestPicker(s.gear.interests, onChange = { chosen -> vm.updateGear { it.withInterests(chosen) } })
             }
 
             SectionCard(stringResource(R.string.section_morning_digest)) {

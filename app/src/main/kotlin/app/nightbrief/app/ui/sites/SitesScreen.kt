@@ -61,6 +61,17 @@ import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.sites.BortleSource
 import app.nightbrief.sites.Site
+import app.nightbrief.score.NightPlanCard
+import app.nightbrief.score.NightReport
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,10 +79,27 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
     val state by vm.state.collectAsStateWithLifecycle()
     val ui by vm.briefing.collectAsStateWithLifecycle()
     val book = state?.sites ?: return
-    var pendingDelete by remember { mutableStateOf<Site?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // Delete is immediate; Undo restores the book only if nothing else changed it meanwhile.
+    val deleteSite: (Site) -> Unit = { site ->
+        val before = book
+        vm.deleteSite(site.id)
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(
+                message = context.getString(R.string.site_deleted, site.name),
+                actionLabel = context.getString(R.string.undo),
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.restoreSites(before, before.delete(site.id))
+        }
+    }
 
     Scaffold(
         modifier = Modifier.padding(contentPadding),
+        snackbarHost = { SnackbarHost(snackbar) },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
@@ -96,7 +124,12 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
         ) {
             itemsIndexed(book.sites, key = { _, s -> s.id }) { index, site ->
                 val isPrimary = site.id == book.primaryId
-                SectionCard {
+                val report = ui.briefing?.reportFor(site.id)
+                val editLabel = stringResource(R.string.edit_named, site.name)
+                SectionCard(
+                    // The whole card opens the editor; the icon row below stays for TalkBack and reordering.
+                    modifier = Modifier.clickable(role = Role.Button, onClickLabel = editLabel) { onEdit(site.id) },
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.setPrimary(site.id) }) {
                             if (isPrimary) Icon(Icons.Filled.Star, stringResource(R.string.primary_site), tint = NightColors.Amber)
@@ -104,18 +137,24 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                         }
                         Column(Modifier.weight(1f)) {
                             Text(site.name, style = MaterialTheme.typography.titleMedium)
+                            if (isPrimary) {
+                                Text(
+                                    stringResource(R.string.primary_badge),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = NightColors.Amber,
+                                )
+                            }
                             Text(
-                                Format.coordinates(site.latitude, site.longitude),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tonightLine(report),
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
-                                bortleLabel(site) + (site.digestTimeOverride?.let { stringResource(R.string.site_digest_suffix, it) } ?: ""),
+                                bortleLabel(site) + digestSuffix(site, isPrimary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        ScorePill(ui.briefing?.reportFor(site.id)?.scoreValue)
+                        ScorePill(report?.scoreValue)
                     }
                     Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.moveSite(index, index - 1) }, enabled = index > 0) {
@@ -128,7 +167,7 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                         IconButton(onClick = { onEdit(site.id) }) {
                             Icon(Icons.Filled.Edit, stringResource(R.string.edit_named, site.name))
                         }
-                        IconButton(onClick = { pendingDelete = site }, enabled = book.sites.size > 1) {
+                        IconButton(onClick = { deleteSite(site) }, enabled = book.sites.size > 1) {
                             Icon(Icons.Filled.Delete, stringResource(R.string.delete_named, site.name))
                         }
                     }
@@ -137,25 +176,23 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
         }
     }
 
-    pendingDelete?.let { site ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.delete_site_title, site.name)) },
-            text = {
-                Text(
-                    if (site.id == book.primaryId) stringResource(R.string.delete_primary_body)
-                    else stringResource(R.string.delete_site_body),
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.deleteSite(site.id)
-                    pendingDelete = null
-                }) { Text(stringResource(R.string.delete)) }
-            },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
+}
+
+/** Verdict and best window from the cached briefing, the same score Tonight shows. */
+@Composable
+private fun tonightLine(report: NightReport?): String {
+    val score = report?.score ?: return stringResource(R.string.site_no_forecast)
+    val window = score.bestWindow?.takeIf { NightPlanCard.showsBestWindow(score) }
+    return if (window == null) score.verdict.label
+    else stringResource(R.string.site_tonight_line, score.verdict.label, Format.window(window, report.site.zone))
+}
+
+/** Only the primary site, or a site with its own time, sends a digest. Say so rather than leave it implied. */
+@Composable
+private fun digestSuffix(site: Site, isPrimary: Boolean): String = when {
+    site.digestTimeOverride != null -> stringResource(R.string.site_digest_suffix, site.digestTimeOverride!!)
+    isPrimary -> ""
+    else -> stringResource(R.string.site_no_digest_suffix)
 }
 
 @Composable

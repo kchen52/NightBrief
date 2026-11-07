@@ -1,5 +1,12 @@
 package app.nightbrief.app.ui.common
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -37,6 +44,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
@@ -63,6 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nightbrief.app.ui.theme.NightColors
 import java.time.LocalTime
+
+private const val CARD_ANIMATION_MS = 260
 
 @Composable
 fun SectionCard(
@@ -114,17 +125,32 @@ fun SectionCard(
                     )
                     trailing?.invoke()
                     if (toggle != null) {
+                        val rotation by animateFloatAsState(
+                            targetValue = if (collapsed) 0f else 180f,
+                            animationSpec = tween(CARD_ANIMATION_MS),
+                            label = "card-chevron",
+                        )
                         Icon(
-                            if (collapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+                            Icons.Filled.ExpandMore,
                             contentDescription = action,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(22.dp).rotate(rotation),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-                if (!collapsed) Spacer(Modifier.height(10.dp))
             }
-            if (!collapsed) content()
+            // Collapsed content leaves composition once the exit finishes, so tests and TalkBack
+            // still see it gone. A card with no toggle never collapses, so it never animates.
+            AnimatedVisibility(
+                visible = !collapsed,
+                enter = expandVertically(tween(CARD_ANIMATION_MS)) + fadeIn(tween(CARD_ANIMATION_MS)),
+                exit = shrinkVertically(tween(CARD_ANIMATION_MS)) + fadeOut(tween(CARD_ANIMATION_MS / 2)),
+            ) {
+                Column {
+                    if (title != null) Spacer(Modifier.height(10.dp))
+                    content()
+                }
+            }
         }
     }
 }

@@ -77,6 +77,7 @@ import app.nightbrief.app.R
 import app.nightbrief.app.ui.FoldColumns
 import app.nightbrief.app.ui.WindowForm
 import app.nightbrief.app.ui.common.Banner
+import app.nightbrief.app.ui.common.CardIds
 import app.nightbrief.app.ui.common.EmphasizedText
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.LabeledValue
@@ -126,6 +127,8 @@ fun NightDetail(
     modifier: Modifier = Modifier,
     units: UnitSystem = UnitSystem.METRIC,
     clock: Clock = Clock.systemUTC(),
+    /** ISS is opt-in (`AppState.issEnabled`). Off, the card is left out even when the report has passes. */
+    showIss: Boolean = false,
 ) {
     val form = rememberWindowForm()
     Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -151,7 +154,7 @@ fun NightDetail(
             WindowForm.Detail.Stacked -> {
                 HeroCard(report, clock)
                 SkyCard(report)
-                ConditionCards(report, units)
+                ConditionCards(report, units, showIss)
                 ScoreCards(report, units)
             }
             WindowForm.Detail.Lead -> {
@@ -166,7 +169,7 @@ fun NightDetail(
                         SkyCard(report)
                     }
                 }
-                ConditionCards(report, units)
+                ConditionCards(report, units, showIss)
                 ScoreCards(report, units)
             }
             WindowForm.Detail.Panes -> {
@@ -178,7 +181,7 @@ fun NightDetail(
                     },
                     right = {
                         SkyCard(report)
-                        ConditionCards(report, units)
+                        ConditionCards(report, units, showIss)
                     },
                 )
             }
@@ -188,11 +191,11 @@ fun NightDetail(
 }
 
 @Composable
-private fun ColumnScope.ConditionCards(report: NightReport, units: UnitSystem) {
+private fun ColumnScope.ConditionCards(report: NightReport, units: UnitSystem, showIss: Boolean) {
     report.dew?.let { DewCard(it, report.site.zone, units) }
     report.aurora?.let { AuroraCard(it) }
     report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
-    if (report.issPasses.isNotEmpty()) IssCard(report)
+    if (showIss && report.issPasses.isNotEmpty()) IssCard(report)
     MilkyWayCard(report)
 }
 
@@ -202,7 +205,7 @@ private fun ColumnScope.ScoreCards(report: NightReport, units: UnitSystem) {
     TimelineCard(report, units)
     ModelAgreement.assess(report)?.let { ConfidenceCard(it) }
     if (report.suggestions.isNotEmpty()) {
-        SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus) {
+        SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus, collapseId = CardIds.TARGETS) {
             report.suggestions.forEachIndexed { i, s ->
                 if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 SuggestionRow(s, report)
@@ -349,7 +352,7 @@ private val HeroSideBySideMin = 250.dp
 private fun SkyCard(report: NightReport) {
     val e = report.ephemeris
     val zone = report.site.zone
-    SectionCard(stringResource(R.string.section_sky), icon = Icons.Filled.DarkMode) {
+    SectionCard(stringResource(R.string.section_sky), icon = Icons.Filled.DarkMode, collapseId = CardIds.SKY) {
         Row(Modifier.fillMaxWidth()) {
             SkyMoment(Icons.Filled.WbTwilight, stringResource(R.string.sunset), Format.time(e.sunset, zone), Modifier.weight(1f))
             SkyMoment(Icons.Filled.WbSunny, stringResource(R.string.sunrise), Format.time(e.sunrise, zone), Modifier.weight(1f))
@@ -495,7 +498,7 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem) {
         else -> Icons.Filled.Thermostat
     }
     val color = if (dew.frostFrom != null) NightColors.Poor else NightColors.Amber
-    SectionCard(stringResource(titleRes), icon = icon) {
+    SectionCard(stringResource(titleRes), icon = icon, collapseId = CardIds.DEW) {
         DewCopy.riskLine(dew) { Format.time(it, zone) }?.let { line ->
             EmphasizedText(
                 line,
@@ -523,7 +526,7 @@ private fun AuroraCard(aurora: AuroraOutlook) {
         AuroraChance.UNLIKELY -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val title = stringResource(R.string.section_aurora)
-    SectionCard(title, icon = Icons.Filled.AutoAwesome) {
+    SectionCard(title, icon = Icons.Filled.AutoAwesome, collapseId = CardIds.AURORA) {
         EmphasizedText(
             AuroraCopy.digestLine(aurora),
             style = if (alert) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
@@ -537,7 +540,7 @@ private fun AuroraCard(aurora: AuroraOutlook) {
 @Composable
 private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
     val title = stringResource(R.string.section_meteors)
-    SectionCard(title, icon = Icons.Filled.Stars) {
+    SectionCard(title, icon = Icons.Filled.Stars, collapseId = CardIds.METEORS) {
         MeteorSparkle {
             EmphasizedText(MeteorAdvisor.digestLine(meteor), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
@@ -601,7 +604,7 @@ private fun WhyBlock(title: String, detail: String) {
 @Composable
 private fun IssCard(report: NightReport) {
     val zone = report.site.zone
-    SectionCard(stringResource(R.string.section_iss), icon = Icons.Filled.SatelliteAlt) {
+    SectionCard(stringResource(R.string.section_iss), icon = Icons.Filled.SatelliteAlt, collapseId = CardIds.ISS) {
         report.issPasses.forEachIndexed { i, pass ->
             if (i > 0) HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
             IssPassRow(pass, zone)
@@ -635,7 +638,7 @@ private fun IssPassRow(pass: IssPass, zone: ZoneId) {
 private fun MilkyWayCard(report: NightReport) {
     val mw = report.ephemeris.milkyWay
     val zone = report.site.zone
-    SectionCard(stringResource(R.string.section_milky_way), icon = Icons.Filled.NightsStay) {
+    SectionCard(stringResource(R.string.section_milky_way), icon = Icons.Filled.NightsStay, collapseId = CardIds.MILKY_WAY) {
         if (mw == null) {
             Text(
                 if (report.ephemeris.milkyWayBlockedByHorizon) {
@@ -689,7 +692,7 @@ private fun MilkyWayCard(report: NightReport) {
 @Composable
 private fun BreakdownCard(report: NightReport) {
     val score = report.score ?: return
-    SectionCard(stringResource(R.string.section_breakdown), icon = Icons.Filled.BarChart) {
+    SectionCard(stringResource(R.string.section_breakdown), icon = Icons.Filled.BarChart, collapseId = CardIds.BREAKDOWN) {
         score.factors.forEach { f ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 5.dp)) {
                 Text(
@@ -767,7 +770,7 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
             { h -> h.windKmh?.let { colors.forScore((100 - it * 2.5).roundToInt()) } },
         ),
     )
-    SectionCard(stringResource(R.string.section_timeline), icon = Icons.Filled.Timeline) {
+    SectionCard(stringResource(R.string.section_timeline), icon = Icons.Filled.Timeline, collapseId = CardIds.TIMELINE) {
         Row(Modifier.fillMaxWidth()) {
             Column {
                 Box(Modifier.timelineHead(), contentAlignment = Alignment.CenterStart) {}

@@ -128,6 +128,8 @@
     <string name="hide">Hide</string>
     <string name="show_section_details">Show %1$s details</string>
     <string name="hide_section_details">Hide %1$s details</string>
+    <string name="collapse_card">Collapse %1$s card</string>
+    <string name="expand_card">Expand %1$s card</string>
     <string name="show_target_details">Show details for %1$s</string>
     <string name="hide_target_details">Hide details for %1$s</string>
     <string name="target_kind_window">%1$s · %2$s</string>
@@ -143,6 +145,9 @@
     <string name="section_display">Display</string>
     <string name="night_vision">Night vision</string>
     <string name="night_vision_summary">Red on black, so your eyes stay adapted to the dark.</string>
+    <string name="section_tonight_cards">Tonight cards</string>
+    <string name="iss_passes_setting">ISS passes</string>
+    <string name="iss_passes_summary">Show visible ISS passes on Tonight. Off by default.</string>
     <string name="night_vision_on">Night vision on</string>
     <string name="night_vision_off">Night vision off</string>
     <string name="settings_tonight">Your settings tonight: %1$s</string>

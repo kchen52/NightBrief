@@ -84,7 +84,7 @@ class TonightScreenshotTest {
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background),
                 ) {
-                    NightDetail(report, alternative = null, onOpenAlternative = {})
+                    NightDetail(report, alternative = null, onOpenAlternative = {}, showIss = true)
                 }
             }
         }

@@ -58,6 +58,17 @@ data class AppState(
      * so a stamp earned from existing sessions can show once.
      */
     val seenPassportStamps: Set<String> = emptySet(),
+    /**
+     * Show ISS passes on Tonight and the planner. Off until the user turns it on in Settings,
+     * so an older settings file also starts without the card. Display only: the briefing still
+     * carries the passes, and the digest, widget, and watch are not gated by this.
+     */
+    val issEnabled: Boolean = false,
+    /**
+     * Ids of Tonight cards the user has collapsed (`CardIds` in `:app`). One set for every site
+     * and night. Unknown ids are harmless, so a card removed later leaves nothing to migrate.
+     */
+    val collapsedCards: Set<String> = emptySet(),
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 

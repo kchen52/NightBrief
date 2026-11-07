@@ -6,12 +6,20 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,11 +34,16 @@ import androidx.work.WorkManager
 import androidx.work.impl.utils.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.CardCollapse
+import app.nightbrief.app.ui.common.CardIds
+import app.nightbrief.app.ui.common.LocalCardCollapse
+import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.settings.SettingsScreen
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.app.ui.tonight.NightDetail
 import app.nightbrief.app.ui.tonight.TonightScreen
+import app.nightbrief.astro.IssPass
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearCatalog
@@ -191,6 +204,118 @@ class DisplayUiTest {
             .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithText("km/h", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun issCardStaysOutOfNightDetailUntilOptedIn() {
+        val report = NightPlanner.plan(home, LocalDate.of(2024, 8, 12), null, GearCatalog.exampleKit).copy(
+            issPasses = listOf(
+                IssPass(
+                    rise = Instant.parse("2024-08-13T02:10:00Z"),
+                    set = Instant.parse("2024-08-13T02:16:00Z"),
+                    peak = Instant.parse("2024-08-13T02:13:00Z"),
+                    peakAltitudeDeg = 62.0,
+                    peakAzimuthDeg = 140.0,
+                ),
+            ),
+        )
+        var showIss by mutableStateOf(false)
+        compose.setContent {
+            NightBriefTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    NightDetail(report, alternative = null, onOpenAlternative = {}, showIss = showIss)
+                }
+            }
+        }
+        compose.onNodeWithText("ISS").assertDoesNotExist()
+        compose.runOnIdle { showIss = true }
+        compose.onNodeWithText("ISS").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun sectionCardCollapsesAndExpandsWhenTheHostStoresIt() {
+        var collapsed by mutableStateOf(emptySet<String>())
+        compose.setContent {
+            NightBriefTheme {
+                CompositionLocalProvider(
+                    LocalCardCollapse provides CardCollapse(collapsed) { id ->
+                        collapsed = if (id in collapsed) collapsed - id else collapsed + id
+                    },
+                ) {
+                    Column {
+                        SectionCard("Sky", collapseId = CardIds.SKY) { Text("sky body") }
+                        SectionCard("Plain") { Text("plain body") }
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("sky body").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Collapse Sky card").performClick()
+        compose.onNodeWithText("sky body").assertDoesNotExist()
+        compose.onNodeWithText("SKY").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Expand Sky card").performClick()
+        compose.onNodeWithText("sky body").assertIsDisplayed()
+        // A card with no id never offers the control.
+        compose.onNodeWithContentDescription("Collapse Plain card").assertDoesNotExist()
+        compose.onNodeWithText("plain body").assertIsDisplayed()
+    }
+
+    @Test
+    fun sectionCardIsStaticWithoutAHost() {
+        compose.setContent {
+            NightBriefTheme { SectionCard("Sky", collapseId = CardIds.SKY) { Text("sky body") } }
+        }
+        compose.onNodeWithContentDescription("Collapse Sky card").assertDoesNotExist()
+        compose.onNodeWithText("sky body").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsSwitchStoresTheIssOptIn() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, QuietBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        assertEquals(false, runBlocking { graph.settings.current().issEnabled })
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme { SettingsScreen(vm, onBack = {}) }
+        }
+        compose.onNodeWithTag("iss-enabled").performScrollTo().assertIsOff().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasTestTag("iss-enabled") and isOn()).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(runBlocking { graph.settings.current().issEnabled })
+    }
+
+    @Test
+    fun collapsedCardsAreStoredAndFlippedBack() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, QuietBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        val vm = AppViewModel(app)
+        compose.setContent {
+            val state by vm.state.collectAsState()
+            Text(state?.collapsedCards?.sorted()?.joinToString(",").orEmpty(), Modifier.testTag("cards"))
+        }
+        vm.toggleCardCollapsed(CardIds.TIMELINE)
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasTestTag("cards") and hasText(CardIds.TIMELINE)).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(setOf(CardIds.TIMELINE), runBlocking { graph.settings.current().collapsedCards })
+        vm.toggleCardCollapsed(CardIds.TIMELINE)
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasTestTag("cards") and hasText("")).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(emptySet<String>(), runBlocking { graph.settings.current().collapsedCards })
     }
 
     private fun initWorkManager(app: Application) {

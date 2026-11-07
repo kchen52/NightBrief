@@ -54,6 +54,22 @@ class AppStateSerializerTest {
     }
 
     @Test
+    fun olderFileWithoutCardSettingsKeepsIssOffAndNothingCollapsed() = runTest {
+        val json = """{"onboardingComplete":true}"""
+        val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
+        assertEquals(false, state.issEnabled)
+        assertEquals(emptySet<String>(), state.collapsedCards)
+    }
+
+    @Test
+    fun cardSettingsRoundTrip() = runTest {
+        val state = AppState(issEnabled = true, collapsedCards = setOf("timeline", "sky"))
+        val out = ByteArrayOutputStream()
+        AppStateSerializer.writeTo(state, out)
+        assertEquals(state, AppStateSerializer.readFrom(ByteArrayInputStream(out.toByteArray())))
+    }
+
+    @Test
     fun olderAppStateWithoutPassportFieldsDecodes() = runTest {
         val json = """
             {

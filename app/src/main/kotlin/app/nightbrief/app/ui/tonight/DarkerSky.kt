@@ -45,6 +45,7 @@ import app.nightbrief.app.DarkerSkyAccessFilter
 import app.nightbrief.app.DarkerSkyUiState
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.Banner
+import app.nightbrief.app.ui.common.CardIds
 import app.nightbrief.app.ui.common.ScorePill
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.theme.NightColors
@@ -80,6 +81,7 @@ fun DarkerSkyCard(
         title = stringResource(R.string.darker_sky_title),
         icon = Icons.Filled.Explore,
         modifier = modifier,
+        collapseId = CardIds.DARKER_SKY,
     ) {
         Text(
             stringResource(R.string.darker_sky_body, site.name),

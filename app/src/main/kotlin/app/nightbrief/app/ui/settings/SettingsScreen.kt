@@ -109,6 +109,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     val digestLabel = stringResource(R.string.daily_digest)
     val bigNightLabel = stringResource(R.string.big_night_alerts)
     val nightVisionLabel = stringResource(R.string.night_vision)
+    val issLabel = stringResource(R.string.iss_passes_setting)
     val resolvedUnits = s.resolvedUnits()
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -195,6 +196,26 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onOpenPassport, modifier = Modifier.testTag("sky-passport")) {
                     Text(stringResource(R.string.sky_passport))
+                }
+            }
+
+            SectionCard(stringResource(R.string.section_tonight_cards)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(issLabel, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.iss_passes_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = s.issEnabled,
+                        onCheckedChange = vm::setIssEnabled,
+                        modifier = Modifier
+                            .testTag("iss-enabled")
+                            .semantics { contentDescription = issLabel },
+                    )
                 }
             }
 

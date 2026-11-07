@@ -42,6 +42,7 @@ Pure JVM modules stay free of Android. New scoring, ephemeris, and forecast pars
 - A number the user sees on Tonight, in the digest, on the widget, and on the watch is computed in `:core-score` (or a core it already depends on) and rendered in each surface. Do not recompute it in the composable, the worker, and the tile.
 - Imaging targets stay in `TargetAdvisor` / `suggestions`. A shower, an ISS pass, or aurora is its own card and digest line, not a row in "Try:".
 - `ExposureCalculator` and `TargetAdvisor` already produce the exposure hint. Do not rebuild that path.
+- What the user wants to shoot is `GearKit.interests` (`TargetInterest`; empty means no preference). It lives on the kit so every surface that takes a kit agrees, and `TargetAdvisor.suggest` filters on it. `TargetAdvisor.interestOf` must map every new `TargetKind`. The chips (`InterestPicker`) appear in Settings and the onboarding Gear step. Do not add a fifth onboarding step: tests and device tests assume "Step 1 of 4".
 - Kp, meteors, ISS, dew, and cloud layers are not `NightScoreEngine` inputs. Show them. Leave the score fixtures alone.
 - Optional network products are constructor arguments that may be null (`KpSource`, `TleSource`). A failed fetch leaves that field empty and does not fail the briefing.
 
@@ -114,8 +115,10 @@ Rebuild only with `tools/build_bortle_grid.py`, the bbox and `--aggregate mean` 
 - One `AppViewModel`, created in `MainActivity` and passed through `NightBriefNavHost`. `selectedSiteId` is memory-only. Process death returns Tonight and Week to the primary site unless the notification intent sets `EXTRA_SITE_ID`.
 - Onboarding site and gear drafts live in `SavedStateHandle` as JSON. The step index and digest time use `rememberSaveable`.
 - Routes: Tonight, Week, Sites, Gear are tabs. Settings is pushed from Tonight. `night/{siteId}/{date}` is the planner. The route date is the source of truth. Replacing the destination keeps the back stack from growing by one entry per day. The stepper stops at the forecast horizon (`OpenMeteoClient.DEFAULT_FORECAST_DAYS`).
-- Briefing refresh follows onboarding, sites, and gear. Digest time, digest enabled, and `alternativeThreshold` do not refetch. The threshold is read live.
-- UI copy is hardcoded in composables. `strings.xml` is only `app_name`. Match that until the task is localisation. New controls that TalkBack must name (planner arrows, the Daily digest and Big Night switches) need the same content descriptions `ConnectedAccessibilityTest` and `TalkBackLabelTest` already look up.
+- Sites list: each card shows the cached briefing's verdict and best window (no scoring in the composable). Deleting a site is immediate with an Undo snackbar; `AppViewModel.restoreSites` only restores while the book still equals the post-delete book. Keep the Edit, Delete, Move up and Move down icons and their named content descriptions: `TalkBackLabelTest` looks them up.
+- Collapsible cards (`SectionCard` with a `collapseId`) animate with `AnimatedVisibility`. Collapsed content leaves composition after the exit, so tests that assert it is gone must wait for idle.
+- Briefing refresh follows onboarding, sites, and gear (interests ride on gear, so changing them refreshes). Digest time, digest enabled, and `alternativeThreshold` do not refetch. The threshold is read live.
+- UI copy lives in `app/src/main/res/values/strings.xml` and composables read it with `stringResource`. Add new copy there. (Target and interest labels such as `TargetKind.label` and `TargetInterest.label` come from the core modules, which cannot see Android resources.) New controls that TalkBack must name (planner arrows, the Daily digest and Big Night switches) need the same content descriptions `ConnectedAccessibilityTest` and `TalkBackLabelTest` already look up.
 - Screenshots in `docs/screenshots` come from `ReadmeScreenshotTest` and `WearScreenshotTest`. If you change a golden, update the README image too.
 - Phone `applicationId` is `app.nightbrief`. The watch uses the same id, `minSdk` 30, and depends on `:data` only. The tile prefers the phone's data item and otherwise reads the watch's own `AppGraph`. No complication.
 
@@ -159,5 +162,5 @@ Release minify is on for `:app`. `app/proguard-rules.pro` keeps kotlinx.serializ
 - Notification id `1000 + (siteId.hashCode() and 0x0FFF)` can collide.
 - `DigestWorker` scores every site even when only one is due.
 - Lint warnings are not errors. There is no `lint.xml`.
-- No CI. Do not add a live-network test to a future workflow without excluding `onboardedSitePostsTonightDigest`.
+- CI (`.github/workflows/ci.yml`) runs `assembleDebug lintDebug test verifyPaparazziDebug` on every push and pull request, with `NIGHTBRIEF_SKIP_LIVE_TESTS=1` so `onboardedSitePostsTonightDigest` is skipped. Keep any new live-network test behind that flag. Merge after it is green.
 - Dependencies stay on the pinned late-2024 catalog unless the task is a bump.

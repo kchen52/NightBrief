@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import app.nightbrief.app.BuildConfig
@@ -81,6 +82,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val context = LocalContext.current
+    val resources = LocalResources.current
     var showTime by remember { mutableStateOf(false) }
     var canNotify by remember { mutableStateOf(DigestNotifier(context).canNotify()) }
     var digestNote by remember { mutableStateOf<String?>(null) }
@@ -91,13 +93,13 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
             context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
         }.getOrNull()
         libraryNote = if (text.isNullOrBlank()) {
-            context.getString(R.string.library_import_failed)
+            resources.getString(R.string.library_import_failed)
         } else {
             try {
                 vm.importLibrary(text)
-                context.getString(R.string.library_imported)
+                resources.getString(R.string.library_imported)
             } catch (_: LibraryFormatException) {
-                context.getString(R.string.library_import_failed)
+                resources.getString(R.string.library_import_failed)
             }
         }
     }
@@ -356,7 +358,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
             Button(
                 onClick = {
                     vm.sendDigestNow()
-                    digestNote = context.getString(
+                    digestNote = resources.getString(
                         if (canNotify) R.string.digest_queued else R.string.digest_queued_silent,
                     )
                 },

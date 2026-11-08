@@ -47,7 +47,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.TextStyle
-import java.util.Locale
+import androidx.compose.ui.platform.LocalConfiguration
 
 /**
  * Year-ahead sky events beside the 8-day forecast: oppositions, elongations,
@@ -96,7 +96,7 @@ fun EventsList(
         months.forEach { (month, monthEvents) ->
             item(key = "month-${month}") {
                 Text(
-                    month.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " ${month.year}",
+                    month.month.getDisplayName(TextStyle.FULL, LocalConfiguration.current.locales[0]) + " ${month.year}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp),

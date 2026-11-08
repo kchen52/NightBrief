@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -82,6 +83,7 @@ fun SiteForm(
     globalDigestTime: String,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     var locating by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
@@ -111,10 +113,10 @@ fun SiteForm(
                 locating = true
                 val loc = LocationHelper.currentLocation(context)
                 locating = false
-                if (loc != null) setCoordinates(loc.latitude, loc.longitude) else locationError = context.getString(R.string.location_fix_failed)
+                if (loc != null) setCoordinates(loc.latitude, loc.longitude) else locationError = resources.getString(R.string.location_fix_failed)
             }
         } else {
-            locationError = context.getString(R.string.location_denied)
+            locationError = resources.getString(R.string.location_denied)
         }
     }
 

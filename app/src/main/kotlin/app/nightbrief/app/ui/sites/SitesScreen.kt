@@ -70,6 +70,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.launch
 
@@ -82,6 +83,7 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources = LocalResources.current
     // Delete is immediate; Undo restores the book only if nothing else changed it meanwhile.
     val deleteSite: (Site) -> Unit = { site ->
         val before = book
@@ -89,8 +91,8 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
         scope.launch {
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(
-                message = context.getString(R.string.site_deleted, site.name),
-                actionLabel = context.getString(R.string.undo),
+                message = resources.getString(R.string.site_deleted, site.name),
+                actionLabel = resources.getString(R.string.undo),
                 duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) vm.restoreSites(before, before.delete(site.id))

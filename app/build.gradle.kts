@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "app.nightbrief.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.nightbrief"
@@ -30,7 +30,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -71,6 +70,9 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
+    implementation(libs.haze)
+    implementation(libs.haze.glass)
+    implementation(libs.haze.blur)
     implementation(libs.osmdroid)
     implementation(libs.androidx.window)
     implementation(libs.androidx.glance.appwidget)
@@ -90,4 +92,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestUtil(libs.androidx.test.orchestrator)
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }

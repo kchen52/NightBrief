@@ -50,6 +50,14 @@ import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.CardCollapse
 import app.nightbrief.app.ui.common.LocalCardCollapse
 import app.nightbrief.app.ui.common.Format
+import app.nightbrief.app.ui.common.GlassActionCluster
+import app.nightbrief.app.ui.common.GlassTopBarBackdrop
+import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.glassSource
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.passport.NewStampNotice
@@ -81,38 +89,58 @@ fun TonightScreen(
     val report = siteId?.let { briefing?.reportFor(it) }
 
     Scaffold(
-        modifier = Modifier.padding(contentPadding),
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.nav_tonight)) },
-                actions = {
-                    IconButton(onClick = { vm.setNightVision(!current.nightVision) }) {
-                        Icon(
-                            Icons.Filled.Visibility,
-                            contentDescription = stringResource(
-                                if (current.nightVision) R.string.night_vision_on else R.string.night_vision_off,
-                            ),
-                            tint = if (current.nightVision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    IconButton(onClick = { vm.refresh(force = true) }) {
-                        Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast))
-                    }
-                    if (report != null) ShareNightPlanButton(report)
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-            )
+            Box {
+                GlassTopBarBackdrop(Modifier.matchParentSize())
+                TopAppBar(
+                    title = { Text(stringResource(R.string.nav_tonight)) },
+                    actions = {
+                        GlassActionCluster {
+                            Action(highlighted = current.nightVision) {
+                                IconButton(onClick = { vm.setNightVision(!current.nightVision) }) {
+                                    Icon(
+                                        Icons.Filled.Visibility,
+                                        contentDescription = stringResource(
+                                            if (current.nightVision) R.string.night_vision_on else R.string.night_vision_off,
+                                        ),
+                                        tint = if (current.nightVision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                            Action {
+                                IconButton(onClick = { vm.refresh(force = true) }) {
+                                    Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast))
+                                }
+                            }
+                            if (report != null) Action { ShareNightPlanButton(report) }
+                            Action {
+                                IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
+                    ),
+                )
+            }
         },
     ) { inner ->
         val collapse = remember(current.collapsedCards) { CardCollapse(current.collapsedCards, vm::toggleCardCollapsed) }
+        val direction = LocalLayoutDirection.current
         CompositionLocalProvider(LocalCardCollapse provides collapse) {
             Column(
                 Modifier
-                    .padding(inner)
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                    .glassSource(LocalHazeState.current)
+                    .verticalScroll(rememberScrollState())
+                    .padding(
+                        start = inner.calculateStartPadding(direction),
+                        top = inner.calculateTopPadding(),
+                        end = inner.calculateEndPadding(direction),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (ui.loading) {

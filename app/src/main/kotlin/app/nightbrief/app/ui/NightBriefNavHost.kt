@@ -3,7 +3,6 @@ package app.nightbrief.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -14,13 +13,12 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.annotation.StringRes
@@ -40,6 +38,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.GlassNavBar
+import app.nightbrief.app.ui.common.GlassNavItem
+import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.glassNavBarPadding
+import dev.chrisbanes.haze.rememberHazeState
 import app.nightbrief.app.ui.gear.GearScreen
 import app.nightbrief.app.ui.onboarding.OnboardingScreen
 import app.nightbrief.app.ui.passport.PassportRoute
@@ -110,23 +113,11 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            if (showBar && !rail) {
-                NavigationBar(Modifier.testTag("nav-bar")) {
-                    topDestinations.forEach { dest ->
-                        NavigationBarItem(
-                            selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
-                            onClick = { navController.goTop(dest.route) },
-                            icon = { Icon(dest.icon, contentDescription = null) },
-                            label = { Text(stringResource(dest.label)) },
-                        )
-                    }
-                }
-            }
-        },
-    ) { innerPadding ->
+    val hazeState = rememberHazeState()
+    val bottomBar = showBar && !rail
+    val innerPadding = if (bottomBar) glassNavBarPadding() else PaddingValues()
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.fillMaxSize()) {
         if (rail) {
             NavigationRail(Modifier.testTag("nav-rail")) {
@@ -235,6 +226,20 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
             }
         }
         }
+        if (bottomBar) {
+            GlassNavBar(
+                items = topDestinations.map { dest ->
+                    GlassNavItem(
+                        label = stringResource(dest.label),
+                        icon = dest.icon,
+                        selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
+                        onClick = { navController.goTop(dest.route) },
+                    )
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).testTag("nav-bar"),
+            )
+        }
+    }
     }
 }
 

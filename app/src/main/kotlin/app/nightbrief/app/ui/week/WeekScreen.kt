@@ -42,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.glassSource
 import app.nightbrief.app.ui.rememberWindowForm
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.ScorePill
@@ -77,8 +79,8 @@ fun WeekScreen(
     val report = briefing?.reportFor(siteId)
     val bigNightThreshold = state?.bigNightThreshold ?: BigNightAlerts.threshold
 
+    val bottomInset = contentPadding.calculateBottomPadding()
     Scaffold(
-        modifier = Modifier.padding(contentPadding),
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
@@ -90,10 +92,10 @@ fun WeekScreen(
         if (window.weekColumns > 1) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(window.weekColumns),
-                modifier = Modifier.padding(inner).fillMaxSize().testTag("week-grid"),
+                modifier = Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current).testTag("week-grid"),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp + bottomInset),
             ) {
                 if (ui.loading) {
                     item(span = { GridItemSpan(maxLineSpan) }) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -147,9 +149,9 @@ fun WeekScreen(
             }
         } else {
             LazyColumn(
-                Modifier.padding(inner).fillMaxSize(),
+                Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                contentPadding = PaddingValues(bottom = 16.dp + bottomInset),
             ) {
                 if (ui.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 item {

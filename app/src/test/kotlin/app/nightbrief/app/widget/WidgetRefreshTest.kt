@@ -75,11 +75,14 @@ class WidgetRefreshTest {
         assertEquals(0, widgetRefreshes(app))
 
         vm.saveSite(SiteDraft.from(home, isPrimary = true).copy(name = "Toronto Widget"))
-        idleUntil { runBlocking { graph.settings.current().sites.primary?.name == "Toronto Widget" } }
+        // The broadcast follows the settings write and the digest reschedule, so wait for it too.
+        idleUntil {
+            runBlocking { graph.settings.current().sites.primary?.name == "Toronto Widget" } && widgetRefreshes(app) >= 1
+        }
         assertEquals(1, widgetRefreshes(app))
 
         vm.setPrimary(other.id)
-        idleUntil { runBlocking { graph.settings.current().sites.primaryId == other.id } }
+        idleUntil { runBlocking { graph.settings.current().sites.primaryId == other.id } && widgetRefreshes(app) >= 2 }
         assertEquals(2, widgetRefreshes(app))
     }
 

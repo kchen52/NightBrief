@@ -1,5 +1,6 @@
 package app.nightbrief.app.widget
 
+import android.app.AlarmManager
 import android.app.Application
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
@@ -34,6 +35,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -70,20 +73,27 @@ class WidgetRefreshTest {
         idle()
         shadowOf(app).clearBroadcastIntents()
 
+        // AppViewModel.mutate re-arms the digest alarm and decides on the widget refresh in the same
+        // main-thread slice, after the settings write. Seeing the new settings is not enough: wait for
+        // the alarm (no refresh expected) or for the broadcast itself.
         vm.setDigestTime("09:30")
-        idleUntil { runBlocking { graph.settings.current().digestTime == "09:30" } }
+        idleUntil("digest alarm at 09:30") { nextDigestAlarm(app) == LocalTime.of(9, 30) }
         assertEquals(0, widgetRefreshes(app))
 
         vm.saveSite(SiteDraft.from(home, isPrimary = true).copy(name = "Toronto Widget"))
-        // The broadcast follows the settings write and the digest reschedule, so wait for it too.
-        idleUntil {
-            runBlocking { graph.settings.current().sites.primary?.name == "Toronto Widget" } && widgetRefreshes(app) >= 1
-        }
+        idleUntil("first widget refresh") { widgetRefreshes(app) >= 1 }
+        assertEquals("Toronto Widget", runBlocking { graph.settings.current().sites.primary?.name })
         assertEquals(1, widgetRefreshes(app))
 
         vm.setPrimary(other.id)
-        idleUntil { runBlocking { graph.settings.current().sites.primaryId == other.id } && widgetRefreshes(app) >= 2 }
+        idleUntil("second widget refresh") { widgetRefreshes(app) >= 2 }
+        assertEquals(other.id, runBlocking { graph.settings.current().sites.primaryId })
         assertEquals(2, widgetRefreshes(app))
+    }
+
+    private fun nextDigestAlarm(app: Application): LocalTime? {
+        val alarm = shadowOf(app.getSystemService(AlarmManager::class.java)).peekNextScheduledAlarm() ?: return null
+        return Instant.ofEpochMilli(alarm.triggerAtMs).atZone(ZoneId.systemDefault()).toLocalTime()
     }
 
     private fun widgetRefreshes(app: Application): Int =
@@ -93,14 +103,15 @@ class WidgetRefreshTest {
         shadowOf(Looper.getMainLooper()).idle()
     }
 
-    private fun idleUntil(condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 5_000
+    /** The settings write runs on DataStore's own thread, so a slow CI runner gets a generous deadline. */
+    private fun idleUntil(what: String, condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + 30_000
         while (System.currentTimeMillis() < deadline) {
             idle()
             if (condition()) return
             Thread.sleep(20)
         }
-        error("timed out waiting for settings")
+        error("timed out waiting for $what")
     }
 
     private fun initWorkManager(app: Application) {

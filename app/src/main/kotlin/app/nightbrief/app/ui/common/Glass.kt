@@ -23,8 +23,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import app.nightbrief.app.ui.theme.NightPalette
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,12 +65,25 @@ fun Modifier.glassSource(state: HazeState?): Modifier = if (state == null) this 
 /** Sources clear when a tab leaves, so the bar never shows the last frame of another tab. */
 private fun HazeState.input() = HazeInput.Sources(this, retention = HazeSourceRetention.ClearWhenUnavailable)
 
+/**
+ * Night vision draws a flat fill instead: glass speculars and white point add green and blue,
+ * which [NightPalette.NightVision] keeps at zero.
+ */
 @Composable
 private fun Modifier.glassPill(state: HazeState?, tint: State<Color>): Modifier {
-    if (state == null) return background(tint.value, Pill)
+    if (state == null || NightColors.palette == NightPalette.NightVision) {
+        return background(NightColors.palette.surface.copy(alpha = 0.92f), Pill).background(tint.value, Pill)
+    }
     val style = remember(tint) {
+        // The app is always dark, but Regular picks its light response on a light-mode device.
         GlassStyle.regular.then {
             shape(Pill)
+            specularIntensity(0.38f)
+            edgeShadow(Color.Black.copy(alpha = 0.32f))
+            ambientResponse(0.08f)
+            contrast(0.08f)
+            whitePoint(-0.22f)
+            chromaMultiplier(1.1f)
             tint(tint.value)
         }
     }
@@ -90,38 +107,37 @@ data class GlassNavItem(
     val onClick: () -> Unit,
 )
 
-/**
- * Floating tab bar. Each tab is its own glass member; they sit closer than the container's
- * merge distance, so they render as one pill and the selected tab keeps its own tint.
- */
+/** Floating tab bar: one glass pill, with the selected tab in a flat capsule inside it. */
 @Composable
 fun GlassNavBar(items: List<GlassNavItem>, modifier: Modifier = Modifier) {
     val state = LocalHazeState.current
+    val tint = rememberUpdatedState(NightColors.palette.surfaceHigh.copy(alpha = 0.45f))
     Row(
         modifier
             .navigationBarsPadding()
             .padding(vertical = NavBarMargin)
-            .hazeGlassContainer(mergeDistance = 16.dp)
+            .height(NavBarHeight)
+            .glassPill(state, tint)
+            .padding(4.dp)
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items.forEach { item -> GlassNavTab(item, state) }
+        items.forEach { item -> GlassNavTab(item) }
     }
 }
 
 @Composable
-private fun GlassNavTab(item: GlassNavItem, state: HazeState?) {
+private fun GlassNavTab(item: GlassNavItem) {
     val palette = NightColors.palette
-    val tint = animateColorAsState(
-        if (item.selected) palette.primaryContainer.copy(alpha = 0.78f) else palette.surfaceHigh.copy(alpha = 0.42f),
-        label = "tab-tint",
+    val capsule by animateColorAsState(
+        if (item.selected) palette.primaryContainer.copy(alpha = 0.85f) else Color.Transparent,
+        label = "tab-capsule",
     )
     val content = if (item.selected) palette.onPrimaryContainer else palette.textMuted
     Column(
         Modifier
-            .height(NavBarHeight)
+            .fillMaxHeight()
             .width(80.dp)
-            .glassPill(state, tint)
+            .background(capsule, Pill)
             .selectable(selected = item.selected, onClick = item.onClick, role = Role.Tab),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -176,8 +192,8 @@ fun GlassTopBarBackdrop(modifier: Modifier = Modifier) {
     }
     val style = remember(background) {
         HazeBlurStyle {
-            blurRadius(24.dp)
-            colorEffects(listOf(HazeColorEffect.tint(background.copy(alpha = 0.55f))))
+            blurRadius(32.dp)
+            colorEffects(listOf(HazeColorEffect.tint(background.copy(alpha = 0.7f))))
             progressive(HazeProgressive.verticalGradient(startIntensity = 1f, endIntensity = 0.35f))
         }
     }

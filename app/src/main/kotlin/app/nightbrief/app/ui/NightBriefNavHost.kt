@@ -1,5 +1,10 @@
 package app.nightbrief.app.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -29,6 +34,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -134,7 +140,26 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
         NavHost(
             navController,
             startDestination = Routes.Tonight,
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .tabSwipe(enabled = showBar) { step ->
+                    topDestinations.getOrNull(tabIndex(route) + step)?.let { navController.goTop(it.route) }
+                },
+            enterTransition = {
+                when (val direction = tabDirection(initialState, targetState)) {
+                    0 -> fadeIn(tween(700))
+                    else -> slideInHorizontally(tween(TabSlideMillis)) { direction * it / 4 } +
+                        fadeIn(tween(TabSlideMillis))
+                }
+            },
+            exitTransition = {
+                when (val direction = tabDirection(initialState, targetState)) {
+                    0 -> fadeOut(tween(700))
+                    else -> slideOutHorizontally(tween(TabSlideMillis)) { -direction * it / 4 } +
+                        fadeOut(tween(TabSlideMillis))
+                }
+            },
         ) {
             composable(Routes.Tonight) {
                 TonightScreen(
@@ -241,6 +266,20 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
         }
     }
     }
+}
+
+private const val TabSlideMillis = 300
+
+/** Position in [topDestinations]; null is the start destination, and -1 is a pushed screen. */
+private fun tabIndex(route: String?): Int =
+    if (route == null) 0 else topDestinations.indexOfFirst { it.route == route }
+
+/** 1 when moving to a tab on the right, -1 to the left, 0 when either end is not a tab. */
+private fun tabDirection(from: NavBackStackEntry, to: NavBackStackEntry): Int {
+    val start = topDestinations.indexOfFirst { it.route == from.destination.route }
+    val end = topDestinations.indexOfFirst { it.route == to.destination.route }
+    if (start < 0 || end < 0 || start == end) return 0
+    return if (end > start) 1 else -1
 }
 
 private fun NavHostController.goTop(route: String) {

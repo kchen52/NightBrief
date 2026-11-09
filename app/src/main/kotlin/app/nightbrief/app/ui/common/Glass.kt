@@ -1,6 +1,8 @@
 package app.nightbrief.app.ui.common
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,10 +26,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import kotlin.math.max
+import kotlin.math.min
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import app.nightbrief.app.ui.theme.NightPalette
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -107,11 +125,25 @@ data class GlassNavItem(
     val onClick: () -> Unit,
 )
 
-/** Floating tab bar: one glass pill, with the selected tab in a flat capsule inside it. */
+private val NavTabWidth = 80.dp
+
+/**
+ * Floating tab bar: one glass pill, with the selected tab in a flat capsule inside it. When the
+ * selection changes the capsule flows to the new tab like a droplet (see [TabDroplet]).
+ */
 @Composable
 fun GlassNavBar(items: List<GlassNavItem>, modifier: Modifier = Modifier) {
     val state = LocalHazeState.current
     val tint = rememberUpdatedState(NightColors.palette.surfaceHigh.copy(alpha = 0.45f))
+    val selected = items.indexOfFirst { it.selected }
+    val droplet = remember { TabDroplet(selected.coerceAtLeast(0)) }
+    LaunchedEffect(selected) {
+        if (selected >= 0) droplet.flowTo(selected)
+    }
+    val dropletColor by animateColorAsState(
+        if (selected >= 0) NightColors.palette.primaryContainer.copy(alpha = 0.85f) else Color.Transparent,
+        label = "tab-droplet",
+    )
     Row(
         modifier
             .navigationBarsPadding()
@@ -119,25 +151,92 @@ fun GlassNavBar(items: List<GlassNavItem>, modifier: Modifier = Modifier) {
             .height(NavBarHeight)
             .glassPill(state, tint)
             .padding(4.dp)
+            .drawBehind { drawTabDroplet(droplet, NavTabWidth.toPx(), dropletColor) }
             .selectableGroup(),
     ) {
         items.forEach { item -> GlassNavTab(item) }
     }
 }
 
+/**
+ * The selected-tab capsule, in tab widths: tab `i` spans `i..i + 1`. When it moves, the edge
+ * on the side it travels toward springs ahead and the far edge follows on a softer spring, so
+ * the capsule stretches out, thins in the middle, and snaps back with a small wobble.
+ */
+@Stable
+private class TabDroplet(index: Int) {
+    val start = Animatable(index.toFloat())
+    val end = Animatable(index + 1f)
+    var forward by mutableStateOf(true)
+        private set
+
+    suspend fun flowTo(index: Int) = coroutineScope {
+        val target = index.toFloat()
+        if (start.targetValue == target && end.targetValue == target + 1f) return@coroutineScope
+        forward = target > start.value
+        val (lead, trail) = if (forward) end to start else start to end
+        val leadTarget = if (forward) target + 1f else target
+        val trailTarget = if (forward) target else target + 1f
+        launch { lead.animateTo(leadTarget, DropletLead) }
+        launch { trail.animateTo(trailTarget, DropletTrail) }
+    }
+}
+
+private val DropletLead = spring<Float>(dampingRatio = 0.55f, stiffness = 520f)
+private val DropletTrail = spring<Float>(dampingRatio = 0.72f, stiffness = 170f)
+
+/**
+ * A resting droplet is a plain capsule. A stretched one is a full-size head at the leading
+ * edge, a smaller tail at the trailing edge, and a bridge whose sides pinch in between them.
+ * The three are unioned so the translucent colour is not drawn twice where they overlap.
+ */
+private fun DrawScope.drawTabDroplet(droplet: TabDroplet, tabWidth: Float, color: Color) {
+    if (color.alpha == 0f) return
+    val a = droplet.start.value * tabWidth
+    val b = droplet.end.value * tabWidth
+    val left = min(a, b)
+    val right = max(a, b)
+    val h = size.height
+    val stretch = ((right - left) / tabWidth - 1f).coerceIn(0f, 1f)
+    if (stretch < 0.02f) {
+        drawRoundRect(color, Offset(left, 0f), Size(right - left, h), CornerRadius(h / 2))
+        return
+    }
+    val headLeft = if (droplet.forward) right - tabWidth else left
+    val tailH = h * (1f - 0.3f * stretch)
+    val tailW = tabWidth * (1f - 0.25f * stretch)
+    val tailLeft = if (droplet.forward) left else right - tailW
+    val tailTop = (h - tailH) / 2
+    val head = Path().apply { addRoundRect(RoundRect(headLeft, 0f, headLeft + tabWidth, h, CornerRadius(h / 2))) }
+    val tail = Path().apply {
+        addRoundRect(RoundRect(tailLeft, tailTop, tailLeft + tailW, tailTop + tailH, CornerRadius(tailH / 2)))
+    }
+    val headX = headLeft + tabWidth / 2
+    val tailX = tailLeft + tailW / 2
+    val midX = (headX + tailX) / 2
+    val pinch = h * 0.55f * stretch
+    val bridge = Path().apply {
+        moveTo(tailX, tailTop)
+        quadraticTo(midX, pinch, headX, 0f)
+        lineTo(headX, h)
+        quadraticTo(midX, h - pinch, tailX, tailTop + tailH)
+        close()
+    }
+    val blob = Path.combine(PathOperation.Union, Path.combine(PathOperation.Union, head, tail), bridge)
+    drawPath(blob, color)
+}
+
 @Composable
 private fun GlassNavTab(item: GlassNavItem) {
     val palette = NightColors.palette
-    val capsule by animateColorAsState(
-        if (item.selected) palette.primaryContainer.copy(alpha = 0.85f) else Color.Transparent,
-        label = "tab-capsule",
+    val content by animateColorAsState(
+        if (item.selected) palette.onPrimaryContainer else palette.textMuted,
+        label = "tab-content",
     )
-    val content = if (item.selected) palette.onPrimaryContainer else palette.textMuted
     Column(
         Modifier
             .fillMaxHeight()
-            .width(80.dp)
-            .background(capsule, Pill)
+            .width(NavTabWidth)
             .selectable(selected = item.selected, onClick = item.onClick, role = Role.Tab),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

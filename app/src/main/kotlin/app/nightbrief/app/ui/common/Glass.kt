@@ -194,8 +194,9 @@ private fun DrawScope.drawTabDroplet(droplet: TabDroplet, tabWidth: Float, color
     if (color.alpha == 0f) return
     val a = droplet.start.value * tabWidth
     val b = droplet.end.value * tabWidth
-    val left = min(a, b)
-    val right = max(a, b)
+    // The lead spring overshoots; at the first or last tab it squashes against the bar's end.
+    val left = min(a, b).coerceAtLeast(0f)
+    val right = max(a, b).coerceAtMost(size.width)
     val h = size.height
     val stretch = ((right - left) / tabWidth - 1f).coerceIn(0f, 1f)
     if (stretch < 0.02f) {

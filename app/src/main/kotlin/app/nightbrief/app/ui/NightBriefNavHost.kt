@@ -235,7 +235,15 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 }
             }
         }
-        Box(Modifier.weight(1f).fillMaxHeight()) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .tabSwipe(enabled = activeTab != null) { step ->
+                    val next = topDestinations.getOrNull(topDestinations.indexOfFirst { it.route == activeTab } + step)
+                    if (next != null) navController.goTop(next.route, glassScroll)
+                },
+        ) {
         NavHost(
             navController,
             startDestination = Routes.Tonight,

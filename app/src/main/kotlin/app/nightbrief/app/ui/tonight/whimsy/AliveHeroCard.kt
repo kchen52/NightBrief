@@ -5,6 +5,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.draw.CacheDrawScope
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -83,11 +85,19 @@ fun AliveHeroCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Box {
-            Canvas(Modifier.matchParentSize()) {
-                drawRect(Brush.verticalGradient(listOf(paint.top, paint.bottom)))
-                drawStars(paint.star, starAlpha(sky.twilight))
-                drawMilkyWay(paint.milkyWay, sky.milkyWayAlpha.toFloat())
-            }
+            // Cached for the life of this size. The card redraws on every scroll frame.
+            Box(
+                Modifier.matchParentSize().drawWithCache {
+                    val gradient = Brush.verticalGradient(listOf(paint.top, paint.bottom))
+                    val stars = starAlpha(sky.twilight)
+                    val wash = milkyWayWash(paint.milkyWay, sky.milkyWayAlpha.toFloat())
+                    onDrawBehind {
+                        drawRect(gradient)
+                        drawStars(paint.star, stars)
+                        if (wash != null) drawPath(wash.path, wash.brush)
+                    }
+                },
+            )
             if (report.aurora?.chance == AuroraChance.LIKELY) {
                 AuroraRipple(palette.excellent)
             }
@@ -228,13 +238,14 @@ private fun MoonTarget(
 /** Keeps the score copy clear of the Moon in the top-end corner. */
 private val HeroGutter = 64.dp
 
+private val StarFractions = floatArrayOf(0.06f, 0.24f, 0.42f, 0.63f, 0.84f)
+
 private fun DrawScope.drawStars(color: Color, alpha: Float) {
     if (alpha <= 0f) return
     val left = 10.dp.toPx()
     val right = size.width - (HeroGutter + 8.dp).toPx()
     val span = (right - left).coerceAtLeast(1f)
-    val alongTop = listOf(0.06f, 0.24f, 0.42f, 0.63f, 0.84f)
-    alongTop.forEachIndexed { i, f ->
+    StarFractions.forEachIndexed { i, f ->
         drawCircle(
             color.copy(alpha = alpha * if (i % 2 == 0) 0.55f else 0.32f),
             radius = if (i % 2 == 0) 1.15.dp.toPx() else 0.8.dp.toPx(),
@@ -248,9 +259,10 @@ private fun DrawScope.drawStars(color: Color, alpha: Float) {
 /**
  * A wash along the bottom of the card, edge to edge.
  * Peak alpha is 0.10 at a score of 100 and falls to 0 across the band.
+ * Built once per size: the hero redraws while Tonight scrolls.
  */
-private fun DrawScope.drawMilkyWay(color: Color, strength: Float) {
-    if (strength <= 0.01f) return
+private fun CacheDrawScope.milkyWayWash(color: Color, strength: Float): MilkyWash? {
+    if (strength <= 0.01f) return null
     val peak = (0.10f * strength).coerceIn(0f, 0.12f)
     val right = size.width.coerceAtLeast(1f)
     val mid = size.height - 7.dp.toPx()
@@ -274,17 +286,17 @@ private fun DrawScope.drawMilkyWay(color: Color, strength: Float) {
         }
         close()
     }
-    drawPath(
-        path,
-        Brush.verticalGradient(
-            0f to Color.Transparent,
-            0.5f to color.copy(alpha = peak),
-            1f to Color.Transparent,
-            startY = mid - rise - half,
-            endY = mid + half,
-        ),
+    val brush = Brush.verticalGradient(
+        0f to Color.Transparent,
+        0.5f to color.copy(alpha = peak),
+        1f to Color.Transparent,
+        startY = mid - rise - half,
+        endY = mid + half,
     )
+    return MilkyWash(path, brush)
 }
+
+private data class MilkyWash(val path: Path, val brush: Brush)
 
 private fun DrawScope.drawRipples(phase: Float, color: Color) {
     repeat(3) { i ->

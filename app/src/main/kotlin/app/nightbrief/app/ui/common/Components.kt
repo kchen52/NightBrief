@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -229,8 +230,11 @@ fun SiteStrip(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val rowState = rememberLazyListState()
+    ReportGlassScroll(rowState.isScrollInProgress)
     Box(modifier.fillMaxWidth()) {
     LazyRow(
+        state = rowState,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

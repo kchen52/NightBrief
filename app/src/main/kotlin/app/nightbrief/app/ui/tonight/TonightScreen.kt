@@ -53,6 +53,7 @@ import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.GlassActionCluster
 import app.nightbrief.app.ui.common.GlassTopBarBackdrop
 import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.glassSource
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -77,6 +78,7 @@ fun TonightScreen(
     onOpenSettings: () -> Unit,
     contentPadding: androidx.compose.foundation.layout.PaddingValues,
     onOpenPassport: () -> Unit = {},
+    sourceKey: Any? = null,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val ui by vm.briefing.collectAsStateWithLifecycle()
@@ -87,6 +89,8 @@ fun TonightScreen(
     val siteId = selected?.takeIf { book[it] != null } ?: book.primaryId
     val units = current.resolvedUnits()
     val report = siteId?.let { briefing?.reportFor(it) }
+    val scroll = rememberScrollState()
+    ReportGlassScroll(scroll.isScrollInProgress)
 
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
@@ -133,8 +137,8 @@ fun TonightScreen(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .glassSource(LocalHazeState.current)
-                    .verticalScroll(rememberScrollState())
+                    .glassSource(LocalHazeState.current, sourceKey)
+                    .verticalScroll(scroll)
                     .padding(
                         start = inner.calculateStartPadding(direction),
                         top = inner.calculateTopPadding(),

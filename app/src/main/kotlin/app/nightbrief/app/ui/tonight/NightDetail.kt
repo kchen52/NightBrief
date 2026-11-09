@@ -61,8 +61,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -78,6 +79,7 @@ import app.nightbrief.app.ui.FoldColumns
 import app.nightbrief.app.ui.WindowForm
 import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.CardIds
+import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.EmphasizedText
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.LabeledValue
@@ -743,6 +745,9 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
     val colors = NightColors.palette
     val twentyFourHour = DateFormat.is24HourFormat(LocalContext.current)
     val hours = report.timeline.filter { it.isDark }.ifEmpty { report.timeline }
+    val hoursScroll = rememberScrollState()
+    // The hour row sits inside Tonight's haze source. A horizontal drag moves pixels in that layer.
+    ReportGlassScroll(hoursScroll.isScrollInProgress)
     val good = stringResource(R.string.quality_good)
     val fair = stringResource(R.string.quality_fair)
     val poor = stringResource(R.string.quality_poor)
@@ -788,13 +793,21 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
                 }
             }
             Spacer(Modifier.width(8.dp))
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+            Row(Modifier.weight(1f).horizontalScroll(hoursScroll)) {
                 hours.forEach { h ->
                     Column(
                         Modifier
                             .width(56.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (h.isDark) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent),
+                            .then(
+                                if (h.isDark) {
+                                    Modifier.background(
+                                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        RoundedCornerShape(10.dp),
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(Modifier.timelineHead(), contentAlignment = Alignment.Center) {
@@ -854,11 +867,16 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
 
 /**
  * Fixed so the label column and the hour columns stay on the same rows.
- * Clipped, because a Box does not clip and a tall glyph would paint into the row below.
+ * Clipped in the current draw: a Box does not clip, and a tall glyph would paint into the row
+ * below. [androidx.compose.ui.draw.clipToBounds] would put every cell on its own graphics layer.
  */
-private fun Modifier.timelineHead(): Modifier = height(28.dp).clipToBounds()
+private fun Modifier.timelineHead(): Modifier = height(28.dp).clipInPlace()
 
-private fun Modifier.timelineCell(): Modifier = height(36.dp).clipToBounds()
+private fun Modifier.timelineCell(): Modifier = height(36.dp).clipInPlace()
+
+private fun Modifier.clipInPlace(): Modifier = drawWithContent {
+    clipRect { this@drawWithContent.drawContent() }
+}
 
 /** Name, window, and peak stay visible. Reason, exposure, and the tip start hidden. */
 @Composable

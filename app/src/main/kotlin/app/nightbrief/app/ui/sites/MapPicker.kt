@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,7 +116,7 @@ fun MapPickerDialog(
         mutableStateOf(if (initialLat != null && initialLon != null) GeoPoint(initialLat, initialLon) else null)
     }
     var chosenName by remember { mutableStateOf<String?>(null) }
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var settledQuery by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<PlaceMatch>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }

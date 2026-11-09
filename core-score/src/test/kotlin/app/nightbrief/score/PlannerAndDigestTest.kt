@@ -76,6 +76,31 @@ class PlannerAndDigestTest {
         assertNull(r.score)
         assertNotNull(r.ephemeris.darkWindow)
         assertEquals(saved.fetchedAt, r.forecastFetchedAt)
+        assertTrue(
+            "a night with no forecast should not show hourly scores",
+            r.timeline.all { it.score == null },
+        )
+    }
+
+    @Test
+    fun anHourWithoutCloudHasNoTimelineScore() {
+        val saved = forecast(longPoint)
+        val covered = NightPlanner.plan(longPoint, aug10, saved, kit)
+        val dark = covered.timeline.filter { it.isDark }
+        assertTrue("covered dark hours should score", dark.isNotEmpty() && dark.all { it.score != null })
+        val missing = dark[dark.size / 2].time.epochSecond
+        val gapped = saved.copy(
+            hours = saved.hours.map { hour ->
+                if (hour.epochSecond == missing) hour.copy(cloudCover = null) else hour
+            },
+        )
+        val report = NightPlanner.plan(longPoint, aug10, gapped, kit)
+        val gap = report.timeline.first { it.time.epochSecond == missing }
+        assertTrue(gap.isDark)
+        assertNull("missing cloud should not publish a proxy score", gap.score)
+        assertTrue(report.timeline.any { it.isDark && it.score != null })
+        assertNotNull("a partial night still has a night score", report.score)
+        assertEquals(ForecastCoverage.PARTIAL, report.coverage)
     }
 
     @Test

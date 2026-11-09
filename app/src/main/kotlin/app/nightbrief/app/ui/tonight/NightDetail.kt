@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
@@ -53,7 +53,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -575,7 +574,7 @@ private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
  */
 @Composable
 private fun WhyBlock(title: String, detail: String) {
-    var open by remember(title) { mutableStateOf(false) }
+    var open by rememberSaveable(title) { mutableStateOf(false) }
     if (open) {
         Spacer(Modifier.height(6.dp))
         EmphasizedText(detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -745,7 +744,8 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
     val colors = NightColors.palette
     val twentyFourHour = DateFormat.is24HourFormat(LocalContext.current)
     val hours = report.timeline.filter { it.isDark }.ifEmpty { report.timeline }
-    val hoursScroll = rememberScrollState()
+    // A fold recreates the activity. The position is part of what the user was comparing.
+    val hoursScroll = rememberSaveable(report.site.id, report.date, saver = ScrollState.Saver) { ScrollState(0) }
     // The hour row sits inside Tonight's haze source. A horizontal drag moves pixels in that layer.
     ReportGlassScroll(hoursScroll.isScrollInProgress)
     val good = stringResource(R.string.quality_good)
@@ -755,7 +755,12 @@ private fun TimelineCard(report: NightReport, units: UnitSystem) {
     fun layer(percent: Int?): String = percent?.let { "$it%" } ?: "–"
     fun layerColor(percent: Int?): Color? = percent?.let { colors.forScore(100 - it) }
     val rows = listOf(
-        TimelineRow(stringResource(R.string.timeline_score), { it.score.toString() }, { colors.forScore(it.score) }, emphasize = true),
+        TimelineRow(
+            stringResource(R.string.timeline_score),
+            { h -> h.score?.toString() ?: "–" },
+            { h -> h.score?.let(colors::forScore) },
+            emphasize = true,
+        ),
         TimelineRow(stringResource(R.string.timeline_cloud), { h -> layer(h.cloudCover) }, { h -> layerColor(h.cloudCover) }),
         TimelineRow(stringResource(R.string.timeline_cloud_low), { h -> layer(h.cloudLow) }, { h -> layerColor(h.cloudLow) }),
         TimelineRow(stringResource(R.string.timeline_cloud_mid), { h -> layer(h.cloudMid) }, { h -> layerColor(h.cloudMid) }),

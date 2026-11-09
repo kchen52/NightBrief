@@ -31,6 +31,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +74,7 @@ fun DarkerSkyCard(
     modifier: Modifier = Modifier,
     onAccessFilter: (DarkerSkyAccessFilter) -> Unit = {},
 ) {
-    var showMap by remember { mutableStateOf(false) }
+    var showMap by rememberSaveable { mutableStateOf(false) }
     val visible = remember(state.candidates, state.accessFilter) {
         filterByAccess(state.candidates.orEmpty(), state.accessFilter)
     }
@@ -236,7 +237,10 @@ internal fun DarkerSkyRow(
             }
             candidate.delta?.let { delta ->
                 Text(
-                    stringResource(R.string.darker_sky_delta, delta),
+                    stringResource(
+                        if (delta < 0) R.string.darker_sky_delta_negative else R.string.darker_sky_delta,
+                        if (delta < 0) -delta else delta,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (delta >= 0) NightColors.Excellent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )

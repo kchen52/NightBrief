@@ -1,18 +1,23 @@
 package app.nightbrief.app.ui
 
 import android.app.Application
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
@@ -32,6 +37,7 @@ import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.ForecastStatus
 import app.nightbrief.weather.HourlyWeather
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -112,11 +118,51 @@ class RoadmapUiTest {
             forecastStatus = ForecastStatus.STALE,
         )
         assertTrue(report.coverage == ForecastCoverage.NONE)
+        assertNull(report.score)
+        assertTrue(
+            "hourly scores should stay blank past the forecast",
+            report.timeline.all { it.score == null },
+        )
         compose.setContent {
             NightBriefTheme { NightDetail(report, alternative = null, onOpenAlternative = {}) }
         }
         compose.onNodeWithText(SavedForecast.detail(report.forecastFetchedAt!!, home.zone)).assertIsDisplayed()
         compose.onNodeWithText("This night is beyond the forecast horizon — showing sky data only").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(sdk = [34], qualifiers = "w360dp-h5000dp")
+    fun whyAndTheHourStripSurviveAConfigurationChange() {
+        val date = LocalDate.of(2024, 8, 12)
+        val spread = forecast().let { base ->
+            base.copy(hours = base.hours.map { it.copy(temperatureC = 12.0, dewPointC = 4.0) })
+        }
+        val report = NightPlanner.plan(home, date, spread, GearCatalog.exampleKit)
+        val lastDark = report.timeline.last { it.isDark }
+        val hourLabel = Format.hour(
+            lastDark.time,
+            home.zone,
+            DateFormat.is24HourFormat(ApplicationProvider.getApplicationContext()),
+        )
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            NightBriefTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    NightDetail(report, alternative = null, onOpenAlternative = {})
+                }
+            }
+        }
+        compose.onNodeWithContentDescription("Show Overnight details").performScrollTo().performClick()
+        compose.onNodeWithText("The air stays more than 2 °C above the dew point during darkness.").assertIsDisplayed()
+        compose.onNodeWithText(hourLabel).assertIsNotDisplayed()
+        compose.onNodeWithText(hourLabel).performScrollTo().assertIsDisplayed()
+
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Hide Overnight details").assertIsDisplayed()
+        compose.onNodeWithText("The air stays more than 2 °C above the dew point during darkness.").assertIsDisplayed()
+        compose.onNodeWithText(hourLabel).assertIsDisplayed()
     }
 
     @Test

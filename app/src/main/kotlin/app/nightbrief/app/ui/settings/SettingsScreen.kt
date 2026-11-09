@@ -83,7 +83,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     val s = state ?: return
     val context = LocalContext.current
     val resources = LocalResources.current
-    var showTime by remember { mutableStateOf(false) }
+    var showTime by rememberSaveable { mutableStateOf(false) }
     var canNotify by remember { mutableStateOf(DigestNotifier(context).canNotify()) }
     var digestNote by remember { mutableStateOf<String?>(null) }
     var libraryNote by remember { mutableStateOf<String?>(null) }

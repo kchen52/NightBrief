@@ -16,12 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -118,6 +120,29 @@ class DisplayUiTest {
         assertTrue(onBackground.red > 0.5f)
         assertTrue(excellent.red > 0.5f)
         assertEquals(Color(0xFF8AB4FF), standardPrimary)
+    }
+
+    @Test
+    fun morningDigestPickerStaysOpenAcrossAConfigurationChange() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, QuietBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        val vm = AppViewModel(app)
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            NightBriefTheme { SettingsScreen(vm, onBack = {}) }
+        }
+        compose.onNodeWithText("Time:", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("PM").performClick()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+        compose.onNodeWithText("OK").assertIsDisplayed()
+        compose.onNodeWithText("PM").assertIsSelected()
     }
 
     @Test

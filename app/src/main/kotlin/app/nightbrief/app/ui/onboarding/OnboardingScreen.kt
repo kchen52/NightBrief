@@ -85,7 +85,7 @@ fun OnboardingScreen(vm: AppViewModel) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     var siteAttempted by rememberSaveable { mutableStateOf(false) }
     var digestTime by rememberSaveable { mutableStateOf(s.digestTime.ifBlank { "08:00" }) }
-    var showTime by remember { mutableStateOf(false) }
+    var showTime by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     var notificationsGranted by remember { mutableStateOf(notificationsAllowed(context)) }
     val scroll = rememberScrollState()

@@ -3,6 +3,7 @@ package app.nightbrief.app.ui
 import android.app.Application
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -63,6 +64,35 @@ class DarkerSkyUiTest {
         compose.onNodeWithText("boom").assertIsDisplayed()
         compose.onNodeWithText("Find darker sky nearby").performClick()
         assertEquals(1, searched)
+    }
+
+    @Test
+    fun aLowerScoreUsesOneMinusSign() {
+        show(DarkerSkyUiState(candidates = listOf(candidate(4, 43.50, -79.70, 41.0, -14)), searchedSiteId = home.id))
+        compose.onNodeWithText("−14 tonight").assertIsDisplayed()
+    }
+
+    @Test
+    fun theMapStaysOpenAcrossAConfigurationChange() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            NightBriefTheme {
+                DarkerSkyCard(
+                    site = home,
+                    state = DarkerSkyUiState(
+                        candidates = listOf(candidate(3, 43.75, -79.10, 28.0, 12)),
+                        searchedSiteId = home.id,
+                    ),
+                    onSearch = {},
+                    onSave = {},
+                )
+            }
+        }
+        compose.onNodeWithText("Show on map").performClick()
+        compose.onNodeWithText("Map data © OpenStreetMap contributors").assertIsDisplayed()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+        compose.onNodeWithText("Map data © OpenStreetMap contributors").assertIsDisplayed()
     }
 
     @Test

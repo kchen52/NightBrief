@@ -1,15 +1,17 @@
 package app.nightbrief.app.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.NightsStay
@@ -25,13 +27,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
@@ -46,7 +62,13 @@ import androidx.navigation.navArgument
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.GlassNavBar
 import app.nightbrief.app.ui.common.GlassNavItem
+import app.nightbrief.app.ui.common.GlassScrollGate
+import app.nightbrief.app.ui.common.LocalGlassScrollGate
+import app.nightbrief.app.ui.common.LocalHazeSelection
+import app.nightbrief.app.ui.common.LocalPageVisibility
+import app.nightbrief.app.ui.common.PageVisibility
 import app.nightbrief.app.ui.common.LocalHazeState
+import dev.chrisbanes.haze.HazeSourceSelection
 import app.nightbrief.app.ui.common.glassNavBarPadding
 import dev.chrisbanes.haze.rememberHazeState
 import app.nightbrief.app.ui.gear.GearScreen
@@ -86,6 +108,27 @@ private val topDestinations = listOf(
     TopDest(Routes.Gear, R.string.nav_gear, Icons.Filled.PhotoCamera),
 )
 
+private val tabRoutes = topDestinations.map { it.route }.toSet()
+
+/**
+ * Tab changes are instant. The host default fades for 700 ms and keeps both
+ * destinations composed, so leaving Tonight crossfades that whole column while
+ * it is still the glass source. Pushed screens keep a short fade.
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.switchingTabs(): Boolean {
+    val from = initialState.destination.route
+    val to = targetState.destination.route
+    return from in tabRoutes && to in tabRoutes
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition =
+    if (switchingTabs()) EnterTransition.None else fadeIn(tween(STACK_FADE_MS))
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition =
+    if (switchingTabs()) ExitTransition.None else fadeOut(tween(STACK_FADE_MS))
+
+private const val STACK_FADE_MS = 180
+
 @Composable
 fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
     val form = rememberWindowForm()
@@ -108,21 +151,76 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    val showBar = route == null || route in topDestinations.map { it.route }
+    val showBar = route == null || route in tabRoutes
     val rail = showBar && form.navigation == WindowForm.Navigation.Rail
+
+    val hazeState = rememberHazeState()
+    val glassScroll = remember { GlassScrollGate() }
+    val activeTab = if (showBar) route ?: Routes.Tonight else null
+    val visibleRoute = remember { VisibleRoute() }
+    // After this composition, so the write is not a snapshot change mid-pass. Haze reads it
+    // when it next resolves sources. Glass is flat for that same frame.
+    SideEffect { visibleRoute.route = activeTab }
+    // One predicate for the life of the host. It reads [visibleRoute], which haze observes,
+    // so a tab change retargets capture without a new selection object.
+    val hazeSelection = remember {
+        HazeSourceSelection.Behind.where { meta ->
+            val route = visibleRoute.route
+            route == null || meta.key == route
+        }
+    }
+    glassScroll.holdFor(activeTab)
 
     LaunchedEffect(openTonightSignal) {
         if (openTonightSignal > 0) {
             // NavHost installs the graph after this effect is first scheduled.
             navController.currentBackStackEntryFlow.first()
-            navController.showTonight()
+            navController.showTonight(glassScroll)
         }
     }
-
-    val hazeState = rememberHazeState()
     val bottomBar = showBar && !rail
     val innerPadding = if (bottomBar) glassNavBarPadding() else PaddingValues()
-    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    val bottomPad = innerPadding.calculateBottomPadding()
+    val openSettings = remember(navController) { { navController.navigate(Routes.Settings) } }
+    val openPassport = remember(navController) { { navController.navigate(Routes.Passport) } }
+    val openNight = remember(navController) {
+        { siteId: String, date: LocalDate -> navController.navigate(Routes.night(siteId, date)) }
+    }
+    val openEvents = remember(navController) { { navController.navigate(Routes.Events) } }
+    val editSite = remember(navController) { { id: String? -> navController.navigate(Routes.siteEdit(id)) } }
+    // The tab body stays composed after the first visit. Navigation still owns the back stack,
+    // but switching back does not build Tonight again.
+    val tonight = remember(vm, openSettings, openPassport) {
+        TabContent(
+            movableContentOf { bottom: Dp ->
+                TonightScreen(
+                    vm,
+                    openSettings,
+                    PaddingValues(bottom = bottom),
+                    openPassport,
+                    sourceKey = Routes.Tonight,
+                )
+            },
+        )
+    }
+    val week = remember(vm, openNight, openEvents) {
+        TabContent(
+            movableContentOf { bottom: Dp ->
+                WeekScreen(vm, openNight, openEvents, PaddingValues(bottom = bottom), sourceKey = Routes.Week)
+            },
+        )
+    }
+    val sites = remember(vm, editSite) {
+        TabContent(movableContentOf { bottom: Dp -> SitesScreen(vm, editSite, PaddingValues(bottom = bottom)) })
+    }
+    val gear = remember(vm) {
+        TabContent(movableContentOf { bottom: Dp -> GearScreen(vm, PaddingValues(bottom = bottom)) })
+    }
+    CompositionLocalProvider(
+        LocalHazeState provides hazeState,
+        LocalGlassScrollGate provides glassScroll,
+        LocalHazeSelection provides hazeSelection,
+    ) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.fillMaxSize()) {
         if (rail) {
@@ -130,63 +228,38 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 topDestinations.forEach { dest ->
                     NavigationRailItem(
                         selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
-                        onClick = { navController.goTop(dest.route) },
+                        onClick = { navController.goTop(dest.route, glassScroll) },
                         icon = { Icon(dest.icon, contentDescription = null) },
                         label = { Text(stringResource(dest.label)) },
                     )
                 }
             }
         }
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .tabSwipe(enabled = activeTab != null) { step ->
+                    val next = topDestinations.getOrNull(topDestinations.indexOfFirst { it.route == activeTab } + step)
+                    if (next != null) navController.goTop(next.route, glassScroll)
+                },
+        ) {
         NavHost(
             navController,
             startDestination = Routes.Tonight,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .tabSwipe(enabled = showBar) { step ->
-                    topDestinations.getOrNull(tabIndex(route) + step)?.let { navController.goTop(it.route) }
-                },
-            enterTransition = {
-                when (val direction = tabDirection(initialState, targetState)) {
-                    0 -> fadeIn(tween(700))
-                    else -> slideInHorizontally(tween(TabSlideMillis)) { direction * it / 4 } +
-                        fadeIn(tween(TabSlideMillis))
-                }
-            },
-            exitTransition = {
-                when (val direction = tabDirection(initialState, targetState)) {
-                    0 -> fadeOut(tween(700))
-                    else -> slideOutHorizontally(tween(TabSlideMillis)) { -direction * it / 4 } +
-                        fadeOut(tween(TabSlideMillis))
-                }
-            },
+            // Tab bodies live in RetainedTabs. A full-size host here is measured on every
+            // switch for an empty destination, which is where the warm-switch time went.
+            modifier = if (activeTab != null) Modifier.size(0.dp) else Modifier.fillMaxSize(),
+            enterTransition = { enter() },
+            exitTransition = { exit() },
+            popEnterTransition = { enter() },
+            popExitTransition = { exit() },
         ) {
-            composable(Routes.Tonight) {
-                TonightScreen(
-                    vm,
-                    onOpenSettings = { navController.navigate(Routes.Settings) },
-                    contentPadding = innerPadding,
-                    onOpenPassport = { navController.navigate(Routes.Passport) },
-                )
-            }
-            composable(Routes.Week) {
-                WeekScreen(
-                    vm,
-                    onOpenNight = { siteId, date -> navController.navigate(Routes.night(siteId, date)) },
-                    onOpenEvents = { navController.navigate(Routes.Events) },
-                    contentPadding = innerPadding,
-                )
-            }
-            composable(Routes.Sites) {
-                SitesScreen(
-                    vm,
-                    onEdit = { id -> navController.navigate(Routes.siteEdit(id)) },
-                    contentPadding = innerPadding,
-                )
-            }
-            composable(Routes.Gear) {
-                GearScreen(vm, contentPadding = innerPadding)
-            }
+            // Tab screens live in [RetainedTabs]. These entries only keep the back stack.
+            composable(Routes.Tonight) {}
+            composable(Routes.Week) {}
+            composable(Routes.Sites) {}
+            composable(Routes.Gear) {}
             composable(Routes.Settings) {
                 SettingsScreen(
                     vm,
@@ -250,6 +323,8 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 }
             }
         }
+        RetainedTabs(activeTab, bottomPad, glassScroll, tonight, week, sites, gear)
+        }
         }
         if (bottomBar) {
             GlassNavBar(
@@ -258,7 +333,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                         label = stringResource(dest.label),
                         icon = dest.icon,
                         selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
-                        onClick = { navController.goTop(dest.route) },
+                        onClick = { navController.goTop(dest.route, glassScroll) },
                     )
                 },
                 modifier = Modifier.align(Alignment.BottomCenter).testTag("nav-bar"),
@@ -268,21 +343,103 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
     }
 }
 
-private const val TabSlideMillis = 300
-
-/** Position in [topDestinations]; null is the start destination, and -1 is a pushed screen. */
-private fun tabIndex(route: String?): Int =
-    if (route == null) 0 else topDestinations.indexOfFirst { it.route == route }
-
-/** 1 when moving to a tab on the right, -1 to the left, 0 when either end is not a tab. */
-private fun tabDirection(from: NavBackStackEntry, to: NavBackStackEntry): Int {
-    val start = topDestinations.indexOfFirst { it.route == from.destination.route }
-    val end = topDestinations.indexOfFirst { it.route == to.destination.route }
-    if (start < 0 || end < 0 || start == end) return 0
-    return if (end > start) 1 else -1
+/**
+ * Tabs the user has opened stay measured. The visible one is placed on screen; the others
+ * stay offscreen with their semantics cleared, so a return trip does not rebuild the tree.
+ * [active] null covers a pushed screen: the pages stay warm and the layout reports no size,
+ * so the screen on the back stack receives touches.
+ */
+@Composable
+private fun RetainedTabs(
+    active: String?,
+    bottom: Dp,
+    glass: GlassScrollGate,
+    tonight: TabContent,
+    week: TabContent,
+    sites: TabContent,
+    gear: TabContent,
+) {
+    val seen = remember { mutableStateListOf(Routes.Tonight) }
+    val order = listOf(Routes.Tonight, Routes.Week, Routes.Sites, Routes.Gear)
+    val shown = order.filter { it == active || it in seen }
+    SideEffect {
+        if (active != null && active !in seen) seen.add(active)
+    }
+    LaunchedEffect(active) {
+        if (active != null) {
+            withFrameNanos { }
+            glass.releaseFlat()
+        }
+    }
+    Layout(
+        content = {
+            shown.forEach { route ->
+                RetainedPage(visible = route == active) {
+                    when (route) {
+                        Routes.Tonight -> RetainedTab(bottom, tonight)
+                        Routes.Week -> RetainedTab(bottom, week)
+                        Routes.Sites -> RetainedTab(bottom, sites)
+                        Routes.Gear -> RetainedTab(bottom, gear)
+                    }
+                }
+            }
+        },
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val childConstraints = if (width == Constraints.Infinity || height == Constraints.Infinity) {
+            constraints
+        } else {
+            Constraints.fixed(width, height)
+        }
+        val placeables = measurables.map { it.measure(childConstraints) }
+        if (active == null || width == Constraints.Infinity || height == Constraints.Infinity) {
+            layout(0, 0) {
+                placeables.forEach { it.place(-width.coerceAtLeast(0), 0) }
+            }
+        } else {
+            layout(width, height) {
+                placeables.forEachIndexed { index, placeable ->
+                    placeable.place(if (shown[index] == active) 0 else -width, 0)
+                }
+            }
+        }
+    }
 }
 
-private fun NavHostController.goTop(route: String) {
+@Composable
+private fun RetainedPage(visible: Boolean, content: @Composable () -> Unit) {
+    val visibility = remember { PageVisibility() }
+    visibility.visible = visible
+    CompositionLocalProvider(LocalPageVisibility provides visibility) {
+        Box(
+            Modifier
+                .then(if (visible) Modifier else Modifier.clearAndSetSemantics {})
+                .drawWithContent { if (visible) drawContent() },
+        ) {
+            content()
+        }
+    }
+}
+
+/**
+ * Skips when [bottom] and [content] are unchanged, so a tab switch does not recompose a page
+ * that is already retained. [content] is [Stable], which a composable lambda parameter is not.
+ */
+@Composable
+private fun RetainedTab(bottom: Dp, content: TabContent) {
+    content.render(bottom)
+}
+
+@Stable
+private class TabContent(val render: @Composable (Dp) -> Unit)
+
+private class VisibleRoute {
+    var route by mutableStateOf<String?>(null)
+}
+
+private fun NavHostController.goTop(route: String, glass: GlassScrollGate) {
+    glass.holdFor(route)
     navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
@@ -297,7 +454,8 @@ private fun NavHostController.goTop(route: String) {
  * is showing would put Settings straight back. `saveState` and `restoreState` stay
  * off here so the notification lands on Tonight itself.
  */
-private fun NavHostController.showTonight() {
+private fun NavHostController.showTonight(glass: GlassScrollGate) {
+    glass.holdFor(Routes.Tonight)
     navigate(Routes.Tonight) {
         popUpTo(graph.findStartDestination().id) { saveState = false }
         launchSingleTop = true

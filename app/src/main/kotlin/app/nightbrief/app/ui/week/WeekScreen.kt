@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.glassSource
 import app.nightbrief.app.ui.rememberWindowForm
 import app.nightbrief.app.ui.common.Format
@@ -67,6 +70,7 @@ fun WeekScreen(
     onOpenNight: (String, LocalDate) -> Unit,
     onOpenEvents: () -> Unit,
     contentPadding: PaddingValues,
+    sourceKey: Any? = null,
 ) {
     val window = rememberWindowForm()
     val state by vm.state.collectAsStateWithLifecycle()
@@ -90,9 +94,12 @@ fun WeekScreen(
         },
     ) { inner ->
         if (window.weekColumns > 1) {
+            val gridState = rememberLazyGridState()
+            ReportGlassScroll(gridState.isScrollInProgress)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(window.weekColumns),
-                modifier = Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current).testTag("week-grid"),
+                state = gridState,
+                modifier = Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current, sourceKey).testTag("week-grid"),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp + bottomInset),
@@ -148,8 +155,11 @@ fun WeekScreen(
                 }
             }
         } else {
+            val listState = rememberLazyListState()
+            ReportGlassScroll(listState.isScrollInProgress)
             LazyColumn(
-                Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current),
+                Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current, sourceKey),
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(bottom = 16.dp + bottomInset),
             ) {

@@ -87,8 +87,8 @@ fun SiteForm(
     val scope = rememberCoroutineScope()
     var locating by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
-    var showMap by remember { mutableStateOf(false) }
-    var showTime by remember { mutableStateOf(false) }
+    var showMap by rememberSaveable { mutableStateOf(false) }
+    var showTime by rememberSaveable { mutableStateOf(false) }
     var editingZone by rememberSaveable(draft.id) { mutableStateOf(false) }
     var lookingUpDarkness by remember { mutableStateOf(false) }
     var noSkyCoverage by remember { mutableStateOf(false) }

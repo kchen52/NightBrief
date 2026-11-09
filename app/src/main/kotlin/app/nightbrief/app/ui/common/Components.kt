@@ -45,7 +45,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.semantics.Role
@@ -354,7 +358,14 @@ fun Banner(text: String, color: Color, modifier: Modifier = Modifier, action: (@
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickerDialog(initial: LocalTime, onDismiss: () -> Unit, onConfirm: (LocalTime) -> Unit) {
-    val state = rememberTimePickerState(initial.hour, initial.minute)
+    // OK has not been pressed yet. A fold has to keep the hour the user already dialled.
+    var hour by rememberSaveable { mutableIntStateOf(initial.hour) }
+    var minute by rememberSaveable { mutableIntStateOf(initial.minute) }
+    val state = rememberTimePickerState(hour, minute)
+    SideEffect {
+        hour = state.hour
+        minute = state.minute
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ok)) } },

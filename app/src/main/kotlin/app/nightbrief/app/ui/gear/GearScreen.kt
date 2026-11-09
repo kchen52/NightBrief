@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -103,10 +104,10 @@ fun GearScreen(vm: AppViewModel, contentPadding: PaddingValues) {
 
 @Composable
 fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = Modifier) {
-    var addBody by remember { mutableStateOf(false) }
-    var addLens by remember { mutableStateOf(false) }
-    var addTracker by remember { mutableStateOf(false) }
-    var addFilter by remember { mutableStateOf(false) }
+    var addBody by rememberSaveable { mutableStateOf(false) }
+    var addLens by rememberSaveable { mutableStateOf(false) }
+    var addTracker by rememberSaveable { mutableStateOf(false) }
+    var addFilter by rememberSaveable { mutableStateOf(false) }
     val primaryId = kit.primaryBodyId ?: kit.bodies.firstOrNull()?.id
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -322,7 +323,7 @@ private fun BodyRow(
             }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
         }
-        NicknameEditor(body.nickname, onNickname)
+        NicknameEditor(body.nickname, onNickname, body.id)
     }
 }
 
@@ -348,25 +349,33 @@ private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit, onNickn
             }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
         }
-        NicknameEditor(lens.nickname, onNickname)
+        NicknameEditor(lens.nickname, onNickname, lens.id)
     }
 }
 
 @Composable
-private fun NicknameEditor(nickname: String?, onValue: (String) -> Unit) {
-    var editing by remember(nickname) { mutableStateOf(!nickname.isNullOrBlank()) }
+private fun NicknameEditor(nickname: String?, onValue: (String) -> Unit, fieldKey: String) {
+    var editing by rememberSaveable(fieldKey) { mutableStateOf(!nickname.isNullOrBlank()) }
     if (editing) {
-        NicknameField(nickname.orEmpty(), onValue)
+        NicknameField(nickname.orEmpty(), onValue, fieldKey)
     } else {
         TextButton(onClick = { editing = true }) { Text(stringResource(R.string.add_nickname)) }
     }
 }
 
+/**
+ * [value] is the nickname already stored on the kit. Saving that kit is asynchronous, so the
+ * field keeps its own text: typing against the stored copy reorders characters while the save catches up.
+ */
 @Composable
-private fun NicknameField(value: String, onValue: (String) -> Unit) {
+private fun NicknameField(value: String, onValue: (String) -> Unit, fieldKey: String) {
+    var draft by rememberSaveable(fieldKey) { mutableStateOf(value) }
     OutlinedTextField(
-        value = value,
-        onValueChange = onValue,
+        value = draft,
+        onValueChange = { next ->
+            draft = next
+            onValue(next)
+        },
         label = { Text(stringResource(R.string.nickname)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
@@ -393,8 +402,8 @@ private fun bodySpec(body: CameraBody): String {
 
 @Composable
 private fun AddBodyDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: (CameraBody) -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var custom by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var custom by rememberSaveable { mutableStateOf(false) }
     CatalogDialog(
         title = stringResource(if (custom) R.string.custom_camera else R.string.add_body),
         query = query,
@@ -425,8 +434,8 @@ private fun AddBodyDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
 
 @Composable
 private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: (Lens) -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var custom by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var custom by rememberSaveable { mutableStateOf(false) }
     CatalogDialog(
         title = stringResource(if (custom) R.string.custom_lens else R.string.add_lens),
         query = query,
@@ -457,7 +466,7 @@ private fun AddLensDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: 
 
 @Composable
 private fun AddTrackerDialog(currentId: String?, onDismiss: () -> Unit, onPick: (StarTracker) -> Unit) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
@@ -489,7 +498,7 @@ private fun AddTrackerDialog(currentId: String?, onDismiss: () -> Unit, onPick: 
                         )
                     }
                 }
-                var custom by remember { mutableStateOf(false) }
+                var custom by rememberSaveable { mutableStateOf(false) }
                 if (custom) CustomTrackerForm(onAdd = onPick)
                 Row(Modifier.align(Alignment.End)) {
                     TextButton(onClick = { custom = !custom }) {
@@ -536,7 +545,7 @@ private fun CustomTrackerForm(onAdd: (StarTracker) -> Unit) {
 
 @Composable
 private fun AddFilterDialog(ownedIds: Set<String>, onDismiss: () -> Unit, onPick: (GearFilter) -> Unit) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
@@ -753,7 +762,8 @@ private fun CustomLensForm(onAdd: (Lens) -> Unit) {
             text = if (submitted && error != null) stringResource(error) else "",
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodySmall,
-            minLines = 1,
+            // The prime-aperture message wraps to two lines. One reserved line still shifts Add lens.
+            minLines = 2,
         )
         Button(
             onClick = {

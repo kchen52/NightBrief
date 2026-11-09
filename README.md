@@ -78,6 +78,8 @@ Per-factor quality, as implemented:
 
 7Timer's ASTRO product covers about 72 hours. Past that horizon the index fields are absent, so transparency and seeing fall through to the humidity and 250 hPa proxies above. Open-Meteo still supplies cloud, wind, humidity, and the jet-stream wind. A night factor is flagged estimated if any of its dark hours was estimated.
 
+The hour-by-hour timeline leaves that hour's score blank when the hour has no cloud measurement. Missing cloud is the coverage signal, and the 0.5 cloud proxy is not shown as a number. A night past the saved forecast already publishes no night score, so its hours do not show scores either.
+
 Bands: Excellent ≥ 85, Good ≥ 70, Fair ≥ 50, Marginal ≥ 30, otherwise Poor. Verdict: Go ≥ 70, Maybe ≥ 50, otherwise No-go.
 
 ## Data sources

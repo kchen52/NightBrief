@@ -11,8 +11,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -123,6 +125,61 @@ class MapPickerTest {
             compose.onAllNodesWithText("Couldn't search places. Tap the map instead.").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Tap the map to choose a spot").assertIsDisplayed()
+    }
+
+    @Test
+    fun mapSearchStaysOpenAcrossAConfigurationChange() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            NightBriefTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    SiteForm(
+                        draft = SiteDraft(),
+                        onChange = {},
+                        lookupBortle = { _, _ -> null },
+                        lookupTimeZone = { _, _ -> null },
+                        searchPlaces = { PlaceSearchResult() },
+                        showPrimaryToggle = false,
+                        showDigestOverride = true,
+                        globalDigestTime = "08:00",
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("Pick on map").performScrollTo().performClick()
+        compose.onNodeWithText("Search for a place").performTextInput("Toronto")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+        compose.onNodeWithText("Toronto").assertIsDisplayed()
+        compose.onNodeWithText("Search for a place").assertIsDisplayed()
+    }
+
+    @Test
+    fun digestTimePickerStaysOpenAcrossAConfigurationChange() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            NightBriefTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    SiteForm(
+                        draft = SiteDraft(),
+                        onChange = {},
+                        lookupBortle = { _, _ -> null },
+                        lookupTimeZone = { _, _ -> null },
+                        searchPlaces = { PlaceSearchResult() },
+                        showPrimaryToggle = false,
+                        showDigestOverride = true,
+                        globalDigestTime = "08:00",
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("Own digest time").performScrollTo().performClick()
+        compose.onNodeWithText("PM").performClick()
+        compose.onNodeWithText("OK").assertIsDisplayed()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+        compose.onNodeWithText("OK").assertIsDisplayed()
+        compose.onNodeWithText("PM").assertIsSelected()
     }
 
     @Test

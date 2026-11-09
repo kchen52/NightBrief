@@ -29,7 +29,12 @@ data class TimelineHour(
     val seeingIndex: Int?,
     val transparencyIndex: Int?,
     val windKmh: Double?,
-    val score: Int,
+    /**
+     * Hour score, or null when this hour has no cloud measurement.
+     * Missing cloud is what [ForecastCoverage] counts. The engine's 0.5 cloud proxy
+     * would otherwise show up as a number on a night that publishes no score.
+     */
+    val score: Int?,
     /** Second-model total cloud cover, %. Null when that fetch failed. Not a score input. */
     val cloudSecondary: Int? = null,
 )
@@ -163,7 +168,7 @@ object NightPlanner {
                 seeingIndex = w?.seeing,
                 transparencyIndex = w?.transparency,
                 windKmh = w?.windKmh,
-                score = NightScoreEngine.scoreHour(input).score,
+                score = if (w?.cloudCover != null) NightScoreEngine.scoreHour(input).score else null,
                 cloudSecondary = w?.cloudCoverSecondary,
             )
         }

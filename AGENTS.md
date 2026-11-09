@@ -1,6 +1,6 @@
 # Practices for agents
 
-NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `compileSdk` 36) that scores a night for astrophotography. Read this before changing code. `README.md` is the spec for the score, the Bortle grids, and digest scheduling. `ROADMAP.md` is status, known debt, and ideas that are not committed scope.
+NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `compileSdk` 37 on `:app` and `:wear`) that scores a night for astrophotography. Read this before changing code. `README.md` is the spec for the score, the Bortle grids, and digest scheduling. `ROADMAP.md` is status, known debt, and ideas that are not committed scope.
 
 Match the code that is already here. A change that "cleans up" an intentional constraint is a bug.
 
@@ -164,3 +164,40 @@ Release minify is on for `:app`. `app/proguard-rules.pro` keeps kotlinx.serializ
 - Lint warnings are not errors. There is no `lint.xml`.
 - CI (`.github/workflows/ci.yml`) runs `assembleDebug lintDebug test verifyPaparazziDebug` on every push and pull request, with `NIGHTBRIEF_SKIP_LIVE_TESTS=1` so `onboardedSitePostsTonightDigest` is skipped. Keep any new live-network test behind that flag. Merge after it is green.
 - Dependencies stay on the pinned late-2024 catalog unless the task is a bump.
+
+## Cursor Cloud specific instructions
+
+### Android SDK
+
+The start script writes `local.properties` with `sdk.dir=/opt/android-sdk`, but nothing installs an SDK there, and `~/android-sdk` (used in the Tests commands) does not exist on the VM either. Install the SDK once, then use `ANDROID_HOME=/opt/android-sdk`:
+
+```bash
+sudo mkdir -p /opt/android-sdk && sudo chown "$(id -u):$(id -g)" /opt/android-sdk
+curl -sSfLo /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+unzip -q /tmp/clt.zip -d /tmp/clt && mkdir -p /opt/android-sdk/cmdline-tools && mv /tmp/clt/cmdline-tools /opt/android-sdk/cmdline-tools/latest
+yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null
+/opt/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-37.0" "platforms;android-36" "build-tools;37.0.0" "platform-tools"
+```
+
+- The package for `compileSdk = 37` is `platforms;android-37.0`. `platforms;android-37` does not exist.
+- After the licences are accepted, AGP downloads anything else it needs on the first build (`:data` compiles against 35, and AGP adds build-tools 36).
+- `:app:verifyPaparazziDebug` runs the whole `:app:testDebugUnitTest` task, so one run covers both the goldens and the Compose/Robolectric tests. A cold run takes about 3 minutes on this VM.
+
+### Emulator for manual UI checks
+
+`/dev/kvm` exists but is not writable by the agent user. Run `sudo chmod 666 /dev/kvm` first.
+
+- Use an **API 30** image (`system-images;android-30;google_apis;x86_64`, `-d pixel_5`). On API 34, the emulator's host renderer segfaults ("RenderThread: potentially unexpected fatal signal 11" in `dmesg`) as soon as NightBrief opens, with `-gpu swiftshader_indirect`, with `-gpu guest`, and with `-feature -Vulkan`. That crash comes from the Haze glass shaders, not from an app bug. On API 30, Haze falls back to flat fills and the emulator stays up.
+- Run headless in tmux: `emulator -avd <name> -no-window -no-audio -no-snapshot -gpu swiftshader_indirect -memory 3072`. Wait for `adb shell getprop sys.boot_completed` to print `1`.
+- The launcher activity is `app.nightbrief/.app.MainActivity`, not `.MainActivity`. `adb shell monkey -p app.nightbrief -c android.intent.category.LAUNCHER 1` avoids getting the name wrong.
+- To skip onboarding, launch the app once so its files directory exists, force-stop it, then seed the state with `run-as` (debug build only). The app has to be stopped while the file is written:
+
+  ```bash
+  adb push app_state.json /data/local/tmp/app_state.json
+  adb shell "run-as app.nightbrief sh -c 'mkdir -p files/datastore && cp /data/local/tmp/app_state.json files/datastore/app_state.json'"
+  ```
+
+  A minimal file: `{"onboardingComplete":true,"sites":{"sites":[{"id":"home","name":"Home","latitude":49.28,"longitude":-123.12,"zoneId":"America/Vancouver","bortle":7}],"primaryId":"home"},"digestEnabled":false,"bigNightAlertsEnabled":false}`. The live forecast loads over the VM's network.
+- On a Pixel 5 profile (1080×2340), the bottom-bar tabs are at y≈2090, with x≈210 (Tonight), 429 (Week), 650 (Sites), and 868 (Gear). The Tonight site strip is at y≈430. Swipe at y≈1000 to stay clear of it.
+- To record, give `adb shell screenrecord` a `--time-limit` and let it finish. Killing the local `adb` process does not stop the recorder on the device, and the pulled MP4 has no moov atom. `ffmpeg` installs with `apt-get` for frame extraction.
+- Software rendering drops the first frames after a tab change, so fast animations look like jumps in a recording. To capture motion, set `adb shell settings put global animator_duration_scale 5` (Compose animations follow it), then set it back to `1`.

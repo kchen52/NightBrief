@@ -9,10 +9,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
 import app.nightbrief.app.ui.week.WeekScreen
@@ -22,6 +24,7 @@ import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.BriefingSource
+import app.nightbrief.score.MeteorAdvisor
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.OutlookNight
@@ -38,6 +41,7 @@ import app.nightbrief.weather.HourlyWeather
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -150,6 +154,59 @@ class WhimsyUiTest {
             compose.onAllNodesWithText("Perseid Thursday").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Perseid Thursday").assertIsDisplayed()
+    }
+
+    @Test
+    fun meteorCardRowsStackWithoutOverlapping() {
+        // November 15 carries the Leonids, so the card renders without a forecast.
+        val report = NightPlanner.plan(home, LocalDate.of(2026, 11, 15), null, GearCatalog.exampleKit)
+        val meteor = report.meteor
+        assertNotNull("November 15 should carry a shower", meteor)
+        assertTrue("the shower must be worth watching to show its card", meteor!!.worthWatching)
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val summary = MeteorAdvisor.digestLine(meteor)
+        val radiant = context.getString(
+            app.nightbrief.app.R.string.meteor_radiant,
+            Format.azimuth(meteor.peakRadiantAzimuthDeg),
+            Format.time(meteor.peakRadiantTime, report.site.zone),
+        )
+        compose.setContent {
+            NightBriefTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    NightDetail(report, alternative = null, onOpenAlternative = {})
+                }
+            }
+        }
+        // Scroll the bottom-most row into view: this Compose version zeroes the bounds of
+        // nodes clipped below a scrollable's viewport, so every row must be on screen.
+        compose.onNodeWithContentDescription(
+            context.getString(
+                app.nightbrief.app.R.string.show_section_details,
+                context.getString(app.nightbrief.app.R.string.section_meteors),
+            ),
+        ).performScrollTo()
+        val summaryBounds = compose.onNodeWithText(summary).fetchSemanticsNode().boundsInRoot
+        val radiantBounds = compose.onNodeWithText(radiant).fetchSemanticsNode().boundsInRoot
+        val whyBounds = compose
+            .onNodeWithContentDescription(
+                context.getString(
+                    app.nightbrief.app.R.string.show_section_details,
+                    context.getString(app.nightbrief.app.R.string.section_meteors),
+                ),
+            )
+            .fetchSemanticsNode()
+            .boundsInRoot
+        assertTrue("the summary row must be laid out on screen, was $summaryBounds", summaryBounds.height > 0f)
+        assertTrue("the radiant row must be laid out on screen, was $radiantBounds", radiantBounds.height > 0f)
+        assertTrue("the Why control must be laid out on screen, was $whyBounds", whyBounds.height > 0f)
+        assertTrue(
+            "summary must sit above the radiant row: $summaryBounds vs $radiantBounds",
+            summaryBounds.bottom <= radiantBounds.top,
+        )
+        assertTrue(
+            "radiant row must sit above the Why control: $radiantBounds vs $whyBounds",
+            radiantBounds.bottom <= whyBounds.top,
+        )
     }
 
     private object QuietForecasts : ForecastSource {

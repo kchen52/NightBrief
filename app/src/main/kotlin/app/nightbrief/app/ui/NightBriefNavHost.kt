@@ -348,6 +348,11 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
  * stay offscreen with their semantics cleared, so a return trip does not rebuild the tree.
  * [active] null covers a pushed screen: the pages stay warm and the layout reports no size,
  * so the screen on the back stack receives touches.
+ *
+ * Hidden pages park a full width *and* height up and left. Hit testing follows placed
+ * bounds without clipping to this layout, and a rail narrows the content area by its own
+ * width, so a page parked at `(-width, 0)` still reaches across the rail and steals its
+ * taps. No touch has a negative window y, so `(-width, -height)` is out of reach.
  */
 @Composable
 private fun RetainedTabs(
@@ -395,12 +400,16 @@ private fun RetainedTabs(
         val placeables = measurables.map { it.measure(childConstraints) }
         if (active == null || width == Constraints.Infinity || height == Constraints.Infinity) {
             layout(0, 0) {
-                placeables.forEach { it.place(-width.coerceAtLeast(0), 0) }
+                placeables.forEach { it.place(-width.coerceAtLeast(0), -height.coerceAtLeast(0)) }
             }
         } else {
             layout(width, height) {
                 placeables.forEachIndexed { index, placeable ->
-                    placeable.place(if (shown[index] == active) 0 else -width, 0)
+                    if (shown[index] == active) {
+                        placeable.place(0, 0)
+                    } else {
+                        placeable.place(-width, -height)
+                    }
                 }
             }
         }

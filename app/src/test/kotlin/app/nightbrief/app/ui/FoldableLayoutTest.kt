@@ -9,8 +9,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
@@ -146,6 +149,38 @@ class FoldableLayoutTest {
             compose.onAllNodesWithTag("week-grid").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("week-grid").assertIsDisplayed()
+    }
+
+    @Test
+    fun railTapsSwitchTabsWhileHiddenPagesAreParkedOffscreen() {
+        val vm = AppViewModel(ApplicationProvider.getApplicationContext())
+        compose.setContent {
+            WindowSize(widthDp = 700, heightDp = 900, landscape = false) {
+                NightBriefTheme { NightBriefNavHost(vm) }
+            }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag("nav-rail").fetchSemanticsNodes().isNotEmpty()
+        }
+        // Visit Week, so Tonight parks offscreen beside the rail.
+        compose.onNodeWithText("Week").performTouchInput { click(center) }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("This week").fetchSemanticsNodes().isNotEmpty()
+        }
+        // The tap lands where a page parked at (-width, 0) would reach across the rail and
+        // steal it. It has to reach the rail item, so the Sites tab opens.
+        compose.onNodeWithText("Sites").performTouchInput { click(center) }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Home").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Home").assertIsDisplayed()
+        // And back, with Sites and Week both parked offscreen now. The empty briefing settles
+        // on tonight_empty rather than the loading sky, so that is the proof of the switch.
+        compose.onNodeWithText("Tonight").performTouchInput { click(center) }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Pull fresh data with the refresh button").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Pull fresh data with the refresh button").assertIsDisplayed()
     }
 
     @Test

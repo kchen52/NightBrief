@@ -141,6 +141,10 @@
     <string name="previous_night">Previous night</string>
     <string name="next_night">Next night</string>
     <string name="share_night_plan">Share night plan</string>
+    <string name="share_or_print">Share or print</string>
+    <string name="share">Share</string>
+    <string name="print">Print</string>
+    <string name="print_night_plan">Night plan</string>
 
     <string name="section_display">Display</string>
     <string name="night_vision">Night vision</string>

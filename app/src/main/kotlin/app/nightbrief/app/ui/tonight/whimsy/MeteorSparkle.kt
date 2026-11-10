@@ -2,7 +2,7 @@ package app.nightbrief.app.ui.tonight.whimsy
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +40,9 @@ fun MeteorSparkle(content: @Composable () -> Unit) {
         val wave = sin(anim.value * PI.toFloat() * 2f)
         0.2f + 0.7f * if (wave < 0f) 0f else wave
     }
-    Box(
+    // A Column, so the summary, the radiant row, and the Why control each get their own
+    // line. A Box here stacked all three at the top-start corner over one another.
+    Column(
         Modifier
             .fillMaxWidth()
             .drawBehind { drawSparkles(palette.amber, alpha) },

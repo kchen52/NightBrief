@@ -30,6 +30,7 @@ import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.CardIds
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.score.ForecastSurprise
+import app.nightbrief.score.ScoreBias
 import app.nightbrief.score.SessionEntry
 import java.time.LocalDate
 
@@ -98,6 +99,14 @@ fun SessionHistoryCard(
                 streakLine,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        ScoreBias.line(siteName, sessions)?.let { bias ->
+            Text(
+                bias,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary,
             )
             Spacer(Modifier.height(8.dp))
         }

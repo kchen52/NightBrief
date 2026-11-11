@@ -339,9 +339,8 @@ private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit, onNickn
                 )
                 if (body != null) {
                     val npf = ExposureCalculator.npf(lens.minFocalMm, lens.maxAperture, body.pixelPitchUm)
-                    val rule = ExposureCalculator.rule500(lens.minFocalMm, body.cropFactor)
                     Text(
-                        stringResource(R.string.npf_line, ExposureCalculator.shutterLabel(npf), ExposureCalculator.shutterLabel(rule)),
+                        stringResource(R.string.npf_line, ExposureCalculator.shutterLabel(npf)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

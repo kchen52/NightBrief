@@ -28,6 +28,28 @@ class PlanningAndWidgetCopyTest {
     }
 
     @Test
+    fun nextNightCanReturnToASkyEventPastTheHorizon() {
+        val tonight = LocalDate.of(2026, 8, 12)
+        val event = tonight.plusDays(40)
+        assertFalse(
+            "a night before the event is past the horizon",
+            NightPlanner.canStepToNextNight(event.minusDays(1), tonight),
+        )
+        assertTrue(
+            "Next should return to the opened event",
+            NightPlanner.canStepToNextNight(event.minusDays(1), tonight, ceiling = event),
+        )
+        assertFalse(
+            "Next should stop at the opened event",
+            NightPlanner.canStepToNextNight(event, tonight, ceiling = event),
+        )
+        assertTrue(
+            "a ceiling inside the horizon does not shorten it",
+            NightPlanner.canStepToNextNight(tonight.plusDays(2), tonight, ceiling = tonight.plusDays(1)),
+        )
+    }
+
+    @Test
     fun widgetScoreLineNamesTheBand() {
         assertEquals("No score", WidgetCopy.scoreLine(null))
         assertEquals("85 Excellent", WidgetCopy.scoreLine(85))

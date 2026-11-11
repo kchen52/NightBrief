@@ -93,10 +93,16 @@ private object Routes {
     const val Passport = "passport"
     const val Events = "events"
     const val SiteEdit = "site/edit?id={id}"
-    const val Night = "night/{siteId}/{date}"
+    const val Night = "night/{siteId}/{date}?ceiling={ceiling}"
 
     fun siteEdit(id: String?) = if (id == null) "site/edit" else "site/edit?id=$id"
-    fun night(siteId: String, date: LocalDate) = "night/$siteId/$date"
+
+    /**
+     * [ceiling] is a night reached directly, such as a sky event past the forecast horizon.
+     * The stepper may return to it; the route date itself stays the night being shown.
+     */
+    fun night(siteId: String, date: LocalDate, ceiling: LocalDate? = null) =
+        if (ceiling == null) "night/$siteId/$date" else "night/$siteId/$date?ceiling=$ceiling"
 }
 
 private data class TopDest(val route: String, @StringRes val label: Int, val icon: ImageVector)
@@ -276,7 +282,9 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                     onBack = { navController.popBackStack() },
                     onOpenNight = { date ->
                         val siteId = vm.selectedSiteId.value ?: vm.state.value?.sites?.primaryId
-                        if (siteId != null) navController.navigate(Routes.night(siteId, date))
+                        // A sky event can sit past the forecast horizon; remember it so the
+                        // stepper can come back to it after a night in between.
+                        if (siteId != null) navController.navigate(Routes.night(siteId, date, ceiling = date))
                     },
                 )
             }
@@ -301,10 +309,16 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 arguments = listOf(
                     navArgument("siteId") { type = NavType.StringType },
                     navArgument("date") { type = NavType.StringType },
+                    navArgument("ceiling") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
                 ),
             ) { entry ->
                 val siteId = entry.arguments?.getString("siteId").orEmpty()
                 val date = runCatching { LocalDate.parse(entry.arguments?.getString("date")) }.getOrNull()
+                val ceiling = runCatching { LocalDate.parse(entry.arguments?.getString("ceiling")) }.getOrNull()
                 if (date == null) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
@@ -312,9 +326,10 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                         vm,
                         siteId,
                         date,
+                        ceiling = ceiling,
                         onBack = { navController.popBackStack() },
                         onSelectDate = { newDate ->
-                            navController.navigate(Routes.night(siteId, newDate)) {
+                            navController.navigate(Routes.night(siteId, newDate, ceiling)) {
                                 popUpTo(Routes.Night) { inclusive = true }
                                 launchSingleTop = true
                             }

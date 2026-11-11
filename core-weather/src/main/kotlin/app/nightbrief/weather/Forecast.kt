@@ -18,6 +18,11 @@ data class HourlyWeather(
     val temperatureC: Double? = null,
     val dewPointC: Double? = null,
     val windKmh: Double? = null,
+    /**
+     * Wind direction at 10 m, degrees clockwise from north, meteorological convention
+     * (the direction the wind blows from). Display only; the wind factor stays speed-only.
+     */
+    val windDirectionDeg: Int? = null,
     val gustKmh: Double? = null,
     /** Wind speed at 250 hPa (jet-stream level), used as a seeing proxy beyond 7Timer's horizon. */
     val jetStreamKmh: Double? = null,

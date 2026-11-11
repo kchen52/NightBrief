@@ -87,6 +87,7 @@ class ForecastRepositoryTest {
         val h = f.at(Instant.ofEpochSecond(1790866800))!!
         assertEquals(100, h.cloudCover)
         assertEquals(99.6, h.jetStreamKmh!!, 0.01)
+        assertEquals(315, h.windDirectionDeg)
         assertEquals(5, h.seeing)
         assertEquals(5, h.transparency)
         assertEquals(4, f.at(Instant.ofEpochSecond(1790866800 + 3 * 3600))!!.seeing)
@@ -125,12 +126,22 @@ class ForecastRepositoryTest {
     }
 
     @Test
+    fun parsesWindDirectionAndRequestsIt() = runTest {
+        val result = repo().forecast(43.65, -79.38)
+        val h = result.forecast.at(Instant.ofEpochSecond(1790866800))!!
+        assertEquals("expected the fixture's 315°, got ${h.windDirectionDeg}", 315, h.windDirectionDeg)
+        val primary = requests.first { "models=gem_seamless" in it }
+        assertTrue("primary should ask for wind direction, got $primary", primary.contains("winddirection_10m"))
+    }
+
+    @Test
     fun secondModelAsksForCloudCoverOnly() = runTest {
         repo().forecast(43.65, -79.38)
         val icon = requests.first { "models=icon_seamless" in it }
         assertTrue("expected cloud-only secondary request, got $icon", icon.contains("cloud_cover"))
         assertTrue("secondary should not fetch dew point, got $icon", !icon.contains("dew_point_2m"))
         assertTrue("secondary should not fetch wind, got $icon", !icon.contains("wind_speed_10m"))
+        assertTrue("secondary should not fetch wind direction, got $icon", !icon.contains("winddirection_10m"))
         val primary = requests.first { "models=gem_seamless" in it }
         assertTrue("primary should keep the full series, got $primary", primary.contains("dew_point_2m"))
     }
@@ -253,6 +264,7 @@ class ForecastRepositoryTest {
         val result = repo(FileForecastCache(dir)).forecast(43.65, -79.38)
         assertEquals(ForecastStatus.STALE, result.status)
         assertEquals(5, result.forecast.at(Instant.ofEpochSecond(1790866800))!!.seeing)
+        assertEquals(315, result.forecast.at(Instant.ofEpochSecond(1790866800))!!.windDirectionDeg)
         dir.deleteRecursively()
     }
 

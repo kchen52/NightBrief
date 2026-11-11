@@ -834,7 +834,11 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
         TimelineRow(stringResource(R.string.timeline_transp), { h -> h.transparencyIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.transparencyIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
         TimelineRow(
             stringResource(R.string.timeline_wind),
-            { h -> h.windKmh?.let(units::formatWind) ?: "–" },
+            // The unit stays in the footnote: a 56.dp cell fits "6 NW" but not "6 km/h NW".
+            { h ->
+                val dir = h.windDirectionDeg?.let { " " + DigestComposer.compass(it.toDouble()) }.orEmpty()
+                h.windKmh?.let { units.formatWind(it) + dir } ?: "–"
+            },
             // Colour stays on km/h so a unit change does not repaint the same wind.
             { h -> h.windKmh?.let { colors.forScore((100 - it * 2.5).roundToInt()) } },
         ),

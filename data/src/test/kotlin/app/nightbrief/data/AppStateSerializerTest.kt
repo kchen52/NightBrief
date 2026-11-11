@@ -22,6 +22,7 @@ class AppStateSerializerTest {
             bigNightAlertsEnabled = false,
             bigNightThreshold = 72,
             lastBigNightAlerts = mapOf("home" to "2026-08-12"),
+            lastCollapseAlerts = mapOf("home" to "2026-08-11"),
             nightVision = true,
             units = UnitSystem.IMPERIAL,
         )
@@ -49,6 +50,7 @@ class AppStateSerializerTest {
         assertEquals(true, state.bigNightAlertsEnabled)
         assertEquals(85, state.bigNightThreshold)
         assertEquals(emptyMap<String, String>(), state.lastBigNightAlerts)
+        assertEquals(emptyMap<String, String>(), state.lastCollapseAlerts)
         assertEquals(false, state.nightVision)
         assertEquals(null, state.units)
     }

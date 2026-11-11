@@ -63,6 +63,23 @@ class DigestNotifier(private val context: Context) {
         NotificationManagerCompat.from(context).notify(id, notification)
     }
 
+    fun postCollapse(siteId: String, siteName: String, score: Int, dateLabel: String, slot: Int) {
+        if (!canNotify()) return
+        val id = collapseNotificationId(slot)
+        val notification = NotificationCompat.Builder(context, CHANNEL_BIG_NIGHT)
+            .setSmallIcon(R.drawable.ic_stat_nightbrief)
+            .setContentTitle(context.getString(R.string.collapse_title, siteName))
+            .setContentText(context.getString(R.string.collapse_text, score, dateLabel))
+            .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setContentIntent(openTonight(siteId, id))
+            .setAutoCancel(true)
+            .build()
+        @Suppress("MissingPermission")
+        NotificationManagerCompat.from(context).notify(id, notification)
+        // The Big Night alert this cancels must not stay on the shelf beside the cancellation.
+        NotificationManagerCompat.from(context).cancel(bigNightNotificationId(slot))
+    }
+
     fun progressNotification(): Notification =
         NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_stat_nightbrief)
@@ -89,9 +106,10 @@ class DigestNotifier(private val context: Context) {
         const val PROGRESS_ID = 9000
         const val EXTRA_SITE_ID = "app.nightbrief.extra.SITE_ID"
 
-        /** Digest ids sit above [PROGRESS_ID]. Big-night ids use a separate range so the two never collide. */
+        /** Digest ids sit above [PROGRESS_ID]. Big-night and collapse ids use separate ranges so none collide. */
         private const val DIGEST_BASE = 10_000
         private const val BIG_NIGHT_BASE = 30_000
+        private const val COLLAPSE_BASE = 40_000
 
         fun digestNotificationId(slot: Int): Int {
             require(slot > 0) { "notification slot must be positive" }
@@ -101,6 +119,11 @@ class DigestNotifier(private val context: Context) {
         fun bigNightNotificationId(slot: Int): Int {
             require(slot > 0) { "notification slot must be positive" }
             return BIG_NIGHT_BASE + slot
+        }
+
+        fun collapseNotificationId(slot: Int): Int {
+            require(slot > 0) { "notification slot must be positive" }
+            return COLLAPSE_BASE + slot
         }
 
         fun ensureChannels(context: Context) {

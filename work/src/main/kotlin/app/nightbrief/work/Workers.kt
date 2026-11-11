@@ -8,7 +8,9 @@ import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.BigNightCandidate
+import app.nightbrief.score.Briefing
 import app.nightbrief.score.DigestComposer
+import app.nightbrief.score.NightCollapse
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.ForecastStatus
 import kotlinx.coroutines.CancellationException
@@ -154,21 +156,31 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         if (failures > 0 && failures == sites.size) return Result.retry()
 
         if (state.bigNightAlertsEnabled) {
+            var briefing: Briefing? = null
             try {
-                postBigNightAlerts(graph)
+                briefing = postBigNightAlerts(graph)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 // Scoring or notifying must not turn a saved prefetch into a retry.
+            }
+            try {
+                // Reuse the briefing Big Night just scored rather than scoring every site twice.
+                if (briefing != null) postCollapseAlerts(graph, briefing)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // A failed collapse check must not fail the prefetch either.
             }
         }
         WidgetRefresh.request(applicationContext)
         return Result.success()
     }
 
-    private suspend fun postBigNightAlerts(graph: AppGraph) {
+    /** Posts tonight's Big Night alerts and returns the briefing it scored, or null when quiet. */
+    private suspend fun postBigNightAlerts(graph: AppGraph): Briefing? {
         val current = graph.settings.current()
-        if (bigNightQuiet(current, Instant.now().epochSecond)) return
+        if (bigNightQuiet(current, Instant.now().epochSecond)) return null
         val briefing = graph.briefings.brief(
             sites = current.sites.primaryFirst(),
             kit = current.gear,
@@ -202,6 +214,47 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
             if (newlyAlerted.isNotEmpty()) {
                 graph.settings.update { saved ->
                     saved.copy(lastBigNightAlerts = saved.lastBigNightAlerts + newlyAlerted)
+                }
+            }
+        }
+        return briefing
+    }
+
+    /**
+     * The downward counterpart of [postBigNightAlerts]: a site that already earned a Big Night
+     * alert tonight whose refreshed score fell more than [NightCollapse.MARGIN] below the threshold
+     * gets one cancellation per site and local night. [DigestNotifier.postCollapse] removes the
+     * Big Night alert it supersedes.
+     */
+    private suspend fun postCollapseAlerts(graph: AppGraph, briefing: Briefing) {
+        BigNightPosts.withLock {
+            val latest = graph.settings.current()
+            if (bigNightQuiet(latest, Instant.now().epochSecond)) return@withLock
+            val ready = latest.ensureNotificationSlots()
+            val notifier = DigestNotifier(applicationContext)
+            val alerts = NightCollapse.select(
+                candidates = briefing.tonight.map {
+                    BigNightCandidate(it.site.id, it.site.name, it.date, it.scoreValue)
+                },
+                bigNightAlerts = latest.lastBigNightAlerts,
+                alreadyAlerted = latest.lastCollapseAlerts,
+                enabled = true,
+                threshold = latest.bigNightThreshold,
+            ).filter { alert -> !BigNightPosts.covers(alert.siteId) }
+            val locale = Locale.getDefault()
+            val newlyAlerted = alerts.associate { alert ->
+                notifier.postCollapse(
+                    alert.siteId,
+                    alert.siteName,
+                    alert.score,
+                    alert.dateLabel(locale),
+                    ready.notificationSlots.getValue(alert.siteId),
+                )
+                alert.siteId to alert.nightKey
+            }
+            if (newlyAlerted.isNotEmpty()) {
+                graph.settings.update { saved ->
+                    saved.copy(lastCollapseAlerts = saved.lastCollapseAlerts + newlyAlerted)
                 }
             }
         }

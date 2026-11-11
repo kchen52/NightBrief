@@ -30,6 +30,8 @@ data class AppState(
     val bigNightThreshold: Int = BigNightAlerts.threshold,
     /** Site id -> ISO local night date (yyyy-MM-dd) already alerted. */
     val lastBigNightAlerts: Map<String, String> = emptyMap(),
+    /** Site id -> ISO local night date (yyyy-MM-dd) already told its Big Night collapsed. */
+    val lastCollapseAlerts: Map<String, String> = emptyMap(),
     /** Minimum score lead before the digest mentions another site. */
     val alternativeThreshold: Int = SiteComparison.DEFAULT_THRESHOLD,
     /** Red-on-black theme for use at the telescope. Display only. */

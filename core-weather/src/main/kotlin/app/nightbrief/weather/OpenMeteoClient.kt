@@ -65,6 +65,7 @@ class OpenMeteoClient(
         val dew = series("dew_point_2m")
         val wind = series("wind_speed_10m")
         val gust = series("wind_gusts_10m")
+        val windDir = series("winddirection_10m")
         val jet = series("wind_speed_250hPa")
 
         val hours = times.mapIndexedNotNull { i, t ->
@@ -79,6 +80,7 @@ class OpenMeteoClient(
                 temperatureC = temp.num(i),
                 dewPointC = dew.num(i),
                 windKmh = wind.num(i),
+                windDirectionDeg = windDir.int(i),
                 gustKmh = gust.num(i),
                 jetStreamKmh = jet.num(i),
             )
@@ -93,12 +95,12 @@ class OpenMeteoClient(
         val HOURLY_FIELDS = listOf(
             "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
             "relative_humidity_2m", "temperature_2m", "dew_point_2m",
-            "wind_speed_10m", "wind_gusts_10m", "wind_speed_250hPa",
+            "wind_speed_10m", "wind_gusts_10m", "winddirection_10m", "wind_speed_250hPa",
         )
 
         /**
          * The second opinion only feeds [app.nightbrief.weather.HourlyWeather.cloudCoverSecondary],
-         * so it asks for total cloud alone instead of the full ten-field series.
+         * so it asks for total cloud alone instead of the full eleven-field series.
          */
         val SECONDARY_HOURLY_FIELDS = listOf("cloud_cover")
     }

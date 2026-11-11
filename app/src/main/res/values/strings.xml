@@ -134,7 +134,7 @@
     <string name="hide_target_details">Hide details for %1$s</string>
     <string name="target_kind_window">%1$s · %2$s</string>
     <string name="compass_at">%1$s at %2$s</string>
-    <string name="exposure_rule">%1$s on %2$s · NPF %3$ss · 500-rule %4$ss</string>
+    <string name="exposure_rule">%1$s on %2$s · NPF %3$ss</string>
     <string name="needs_focal">Needs ~%1$dmm+ (full-frame equiv.) to frame well</string>
     <string name="planner_title">%1$s · %2$s</string>
     <string name="planner_unavailable">That night isn\'t available for this site.</string>
@@ -298,7 +298,7 @@
     <string name="need_body">Add a camera body to calculate exposure limits.</string>
     <string name="add_lens">Add lens</string>
     <string name="remove_named">Remove %1$s</string>
-    <string name="npf_line">NPF at widest: %1$s · 500 rule: %2$s</string>
+    <string name="npf_line">NPF at widest: %1$s</string>
     <string name="custom_camera">Custom camera</string>
     <string name="custom_lens">Custom lens</string>
     <string name="search_cameras">Search cameras</string>

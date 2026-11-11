@@ -1014,7 +1014,6 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
                                 ex.lens.name,
                                 ex.body.name,
                                 "%.0f".format(ex.npfSeconds),
-                                "%.0f".format(ex.rule500Seconds),
                             ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

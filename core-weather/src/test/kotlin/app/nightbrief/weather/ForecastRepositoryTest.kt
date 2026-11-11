@@ -21,15 +21,19 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 
 class ForecastRepositoryTest {
     private lateinit var server: MockWebServer
-    private var openMeteoCode = 200
-    private var secondModelCode = 200
-    private var sevenTimerCode = 200
-    private var responseDelayMs = 0L
-    private val requests = mutableListOf<String>()
+    // The dispatcher runs on MockWebServer's connection threads while the test thread reads
+    // these, so they must cross threads safely. A plain list made the assertions see a stale
+    // size or miss a recorded request now and then.
+    @Volatile private var openMeteoCode = 200
+    @Volatile private var secondModelCode = 200
+    @Volatile private var sevenTimerCode = 200
+    @Volatile private var responseDelayMs = 0L
+    private val requests = CopyOnWriteArrayList<String>()
 
     private fun resource(name: String) = javaClass.classLoader.getResource(name)!!.readText()
 

@@ -2,22 +2,30 @@ package app.nightbrief.app.ui
 
 import android.app.Application
 import android.content.res.Configuration
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
 import app.nightbrief.app.ui.week.WeekScreen
@@ -35,6 +43,7 @@ import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastStatus
+import app.nightbrief.weather.HourlyWeather
 import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
@@ -124,6 +133,53 @@ class FoldableLayoutTest {
     }
 
     @Test
+    @Config(sdk = [34], qualifiers = "w360dp-h5000dp")
+    fun anExpandedExplanationSurvivesFoldingToTheStackedLayout() {
+        val report = NightPlanner.plan(home, LocalDate.of(2024, 8, 12), dewyForecast(), GearCatalog.exampleKit)
+        var widthDp by mutableStateOf(700)
+        compose.setContent {
+            WindowSize(widthDp = widthDp, heightDp = 900, landscape = false) {
+                NightBriefTheme { NightDetail(report, alternative = null, onOpenAlternative = {}) }
+            }
+        }
+        compose.onNodeWithTag("night-panes").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Show Overnight details").performClick()
+        compose.onNodeWithText("The air stays more than 2 °C above the dew point during darkness.").assertIsDisplayed()
+
+        compose.runOnIdle { widthDp = 360 }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("night-panes").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Hide Overnight details").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(sdk = [34], qualifiers = "w360dp-h5000dp")
+    fun theHourStripKeepsItsScrollWhenTheLayoutFolds() {
+        val report = NightPlanner.plan(home, LocalDate.of(2024, 8, 12), dewyForecast(), GearCatalog.exampleKit)
+        val lastDark = report.timeline.last { it.isDark }
+        val hourLabel = Format.hour(
+            lastDark.time,
+            home.zone,
+            DateFormat.is24HourFormat(ApplicationProvider.getApplicationContext()),
+        )
+        var widthDp by mutableStateOf(700)
+        compose.setContent {
+            WindowSize(widthDp = widthDp, heightDp = 900, landscape = false) {
+                NightBriefTheme { NightDetail(report, alternative = null, onOpenAlternative = {}) }
+            }
+        }
+        compose.onNodeWithTag("night-panes").assertIsDisplayed()
+        compose.onNodeWithText(hourLabel).performScrollTo().assertIsDisplayed()
+
+        compose.runOnIdle { widthDp = 360 }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("night-panes").assertDoesNotExist()
+        compose.onNodeWithText(hourLabel).assertIsDisplayed()
+    }
+
+    @Test
     fun landscapePhoneNightSplitsOnlyTheLead() {
         val report = NightPlanner.plan(home, LocalDate.of(2024, 8, 12), null, GearCatalog.exampleKit)
         compose.setContent {
@@ -193,6 +249,24 @@ class FoldableLayoutTest {
         }
         compose.onNodeWithText("This week").assertIsDisplayed()
         compose.onNodeWithTag("week-grid").assertDoesNotExist()
+    }
+
+    /** Clear and dry, so the Overnight card explains that the air stays above the dew point. */
+    private fun dewyForecast(): Forecast {
+        val start = Instant.parse("2024-08-12T00:00:00Z").epochSecond
+        return Forecast(
+            home.latitude, home.longitude, "best_match", start,
+            (0 until 72).map {
+                HourlyWeather(
+                    epochSecond = start + it * 3600L,
+                    cloudCover = 5,
+                    humidity = 40,
+                    windKmh = 6.0,
+                    temperatureC = 12.0,
+                    dewPointC = 4.0,
+                )
+            },
+        )
     }
 }
 

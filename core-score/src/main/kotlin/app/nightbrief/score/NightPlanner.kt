@@ -90,11 +90,21 @@ object NightPlanner {
 
     fun canStepToPreviousNight(date: LocalDate, tonight: LocalDate): Boolean = date.isAfter(tonight)
 
+    /**
+     * [ceiling] is the latest night the user reached directly rather than by stepping, such as a
+     * sky event past the forecast horizon. Next may return to it, and no further, so stepping back
+     * from that night does not strand the user at [planningLastDate].
+     */
     fun canStepToNextNight(
         date: LocalDate,
         tonight: LocalDate,
         forecastDays: Int = OpenMeteoClient.DEFAULT_FORECAST_DAYS,
-    ): Boolean = date.isBefore(planningLastDate(tonight, forecastDays))
+        ceiling: LocalDate? = null,
+    ): Boolean {
+        val last = planningLastDate(tonight, forecastDays)
+        val reachable = if (ceiling != null && ceiling.isAfter(last)) ceiling else last
+        return date.isBefore(reachable)
+    }
 
     fun plan(
         site: Site,

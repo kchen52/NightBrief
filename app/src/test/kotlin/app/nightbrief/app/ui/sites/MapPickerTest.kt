@@ -155,6 +155,34 @@ class MapPickerTest {
     }
 
     @Test
+    fun aChosenPlaceSurvivesAConfigurationChange() {
+        val restoration = StateRestorationTester(compose)
+        var picked: Triple<Double, Double, String?>? = null
+        restoration.setContent {
+            NightBriefTheme {
+                MapPickerDialog(
+                    initialLat = 43.6532,
+                    initialLon = -79.3832,
+                    onDismiss = {},
+                    searchPlaces = { query ->
+                        if (query == "Banf") PlaceSearchResult(listOf(banff)) else PlaceSearchResult()
+                    },
+                    onPick = { lat, lon, name -> picked = Triple(lat, lon, name) },
+                )
+            }
+        }
+        compose.onNodeWithText("Search for a place").performTextInput("Banf")
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithContentDescription("Banff, Alberta, Canada").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Banff, Alberta, Canada").performClick()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+        compose.onNodeWithText("Use ${Format.coordinates(banff.latitude, banff.longitude)}").performClick()
+        assertEquals(Triple(banff.latitude, banff.longitude, "Banff"), picked)
+    }
+
+    @Test
     fun digestTimePickerStaysOpenAcrossAConfigurationChange() {
         val restoration = StateRestorationTester(compose)
         restoration.setContent {

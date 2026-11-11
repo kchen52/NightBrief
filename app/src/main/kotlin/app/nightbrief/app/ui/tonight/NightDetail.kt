@@ -51,10 +51,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -132,6 +133,9 @@ fun NightDetail(
     showIss: Boolean = false,
 ) {
     val form = rememberWindowForm()
+    // Stacked, lead, and panes are three different composition positions. Keeping the
+    // cards' own state here means a fold that changes the layout restores it from one key.
+    val ui = rememberDetailUiState(report)
     Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         StatusBanners(report)
         alternative?.let { alt ->
@@ -155,8 +159,8 @@ fun NightDetail(
             WindowForm.Detail.Stacked -> {
                 HeroCard(report, clock)
                 SkyCard(report)
-                ConditionCards(report, units, showIss)
-                ScoreCards(report, units)
+                ConditionCards(report, units, showIss, ui)
+                ScoreCards(report, units, ui)
             }
             WindowForm.Detail.Lead -> {
                 Row(
@@ -170,19 +174,19 @@ fun NightDetail(
                         SkyCard(report)
                     }
                 }
-                ConditionCards(report, units, showIss)
-                ScoreCards(report, units)
+                ConditionCards(report, units, showIss, ui)
+                ScoreCards(report, units, ui)
             }
             WindowForm.Detail.Panes -> {
                 FoldColumns(
                     fold = form.fold,
                     left = {
                         HeroCard(report, clock)
-                        ScoreCards(report, units)
+                        ScoreCards(report, units, ui)
                     },
                     right = {
                         SkyCard(report)
-                        ConditionCards(report, units, showIss)
+                        ConditionCards(report, units, showIss, ui)
                     },
                 )
             }
@@ -192,27 +196,80 @@ fun NightDetail(
 }
 
 @Composable
-private fun ColumnScope.ConditionCards(report: NightReport, units: UnitSystem, showIss: Boolean) {
-    report.dew?.let { DewCard(it, report.site.zone, units) }
-    report.aurora?.let { AuroraCard(it) }
-    report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report) }
+private fun ColumnScope.ConditionCards(
+    report: NightReport,
+    units: UnitSystem,
+    showIss: Boolean,
+    ui: DetailUiState,
+) {
+    report.dew?.let { DewCard(it, report.site.zone, units, ui) }
+    report.aurora?.let { AuroraCard(it, ui) }
+    report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report, ui) }
     if (showIss && report.issPasses.isNotEmpty()) IssCard(report)
     MilkyWayCard(report)
 }
 
 @Composable
-private fun ColumnScope.ScoreCards(report: NightReport, units: UnitSystem) {
+private fun ColumnScope.ScoreCards(report: NightReport, units: UnitSystem, ui: DetailUiState) {
     report.score?.let { BreakdownCard(report) }
-    TimelineCard(report, units)
+    TimelineCard(report, units, ui)
     ModelAgreement.assess(report)?.let { ConfidenceCard(it) }
     if (report.suggestions.isNotEmpty()) {
         SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus, collapseId = CardIds.TARGETS) {
             report.suggestions.forEachIndexed { i, s ->
                 if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                SuggestionRow(s, report)
+                SuggestionRow(s, report, ui)
             }
         }
     }
+}
+
+/**
+ * The cards' own expansion and scroll state.
+ *
+ * [NightDetail] picks one of three layouts for the window, and a fold moves each card to a
+ * different composition position. A `rememberSaveable` inside the card would then be
+ * restored from a different key, so an open explanation or a scrolled hour strip came back
+ * at its default. Remembering it once at [NightDetail], which stays in one position, keeps
+ * the same key across the fold.
+ */
+private class DetailUiState(
+    private val whyOpen: MutableState<Set<String>>,
+    private val expandedTargets: MutableState<Set<String>>,
+    val hoursScroll: ScrollState,
+) {
+    fun isWhyOpen(title: String): Boolean = title in whyOpen.value
+
+    fun toggleWhy(title: String) {
+        whyOpen.value = whyOpen.value.toggled(title)
+    }
+
+    fun isTargetExpanded(id: String): Boolean = id in expandedTargets.value
+
+    fun toggleTarget(id: String) {
+        expandedTargets.value = expandedTargets.value.toggled(id)
+    }
+
+    private fun Set<String>.toggled(key: String): Set<String> =
+        if (key in this) this - key else this + key
+}
+
+private val stringSetSaver: Saver<MutableState<Set<String>>, Any> = listSaver(
+    save = { it.value.toList() },
+    restore = { mutableStateOf(it.toSet()) },
+)
+
+@Composable
+private fun rememberDetailUiState(report: NightReport): DetailUiState {
+    val whyOpen = rememberSaveable(report.site.id, report.date, saver = stringSetSaver) {
+        mutableStateOf(emptySet<String>())
+    }
+    val expandedTargets = rememberSaveable(report.site.id, report.date, saver = stringSetSaver) {
+        mutableStateOf(emptySet<String>())
+    }
+    // The position is part of what the user was comparing.
+    val hoursScroll = rememberSaveable(report.site.id, report.date, saver = ScrollState.Saver) { ScrollState(0) }
+    return DetailUiState(whyOpen, expandedTargets, hoursScroll)
 }
 
 @Composable
@@ -487,7 +544,7 @@ private fun StatChip(
 }
 
 @Composable
-private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem) {
+private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem, ui: DetailUiState) {
     val titleRes = when {
         dew.frostFrom != null -> R.string.section_frost
         dew.from != null -> R.string.section_dew
@@ -514,12 +571,12 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem) {
             style = if (dew.risk) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
             fontWeight = if (dew.risk) FontWeight.Normal else FontWeight.SemiBold,
         )
-        WhyBlock(stringResource(titleRes), DewCopy.detail(dew, units))
+        WhyBlock(stringResource(titleRes), DewCopy.detail(dew, units), ui)
     }
 }
 
 @Composable
-private fun AuroraCard(aurora: AuroraOutlook) {
+private fun AuroraCard(aurora: AuroraOutlook, ui: DetailUiState) {
     val alert = aurora.prominent
     val color = when (aurora.chance) {
         AuroraChance.LIKELY -> NightColors.Excellent
@@ -534,12 +591,12 @@ private fun AuroraCard(aurora: AuroraOutlook) {
             color = color,
             fontWeight = if (alert) FontWeight.SemiBold else FontWeight.Normal,
         )
-        WhyBlock(title, AuroraCopy.detail(aurora))
+        WhyBlock(title, AuroraCopy.detail(aurora), ui)
     }
 }
 
 @Composable
-private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
+private fun MeteorCard(meteor: MeteorOutlook, report: NightReport, ui: DetailUiState) {
     val title = stringResource(R.string.section_meteors)
     SectionCard(title, icon = Icons.Filled.Stars, collapseId = CardIds.METEORS) {
         MeteorSparkle {
@@ -563,7 +620,7 @@ private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            WhyBlock(title, MeteorAdvisor.detail(meteor))
+            WhyBlock(title, MeteorAdvisor.detail(meteor), ui)
         }
     }
 }
@@ -571,10 +628,11 @@ private fun MeteorCard(meteor: MeteorOutlook, report: NightReport) {
 /**
  * The long explanation starts hidden. [title] names the control for TalkBack
  * ("Show Dew details"); the visible label is just Why / Hide.
+ * [ui] owns the open set so a fold that changes the layout keeps it open.
  */
 @Composable
-private fun WhyBlock(title: String, detail: String) {
-    var open by rememberSaveable(title) { mutableStateOf(false) }
+private fun WhyBlock(title: String, detail: String, ui: DetailUiState) {
+    val open = ui.isWhyOpen(title)
     if (open) {
         Spacer(Modifier.height(6.dp))
         EmphasizedText(detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -584,7 +642,7 @@ private fun WhyBlock(title: String, detail: String) {
         Modifier
             .fillMaxWidth()
             .padding(top = 4.dp)
-            .clickable(role = Role.Button) { open = !open },
+            .clickable(role = Role.Button) { ui.toggleWhy(title) },
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -739,13 +797,14 @@ private data class TimelineRow(
 )
 
 @Composable
-private fun TimelineCard(report: NightReport, units: UnitSystem) {
+private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiState) {
     val zone = report.site.zone
     val colors = NightColors.palette
     val twentyFourHour = DateFormat.is24HourFormat(LocalContext.current)
     val hours = report.timeline.filter { it.isDark }.ifEmpty { report.timeline }
-    // A fold recreates the activity. The position is part of what the user was comparing.
-    val hoursScroll = rememberSaveable(report.site.id, report.date, saver = ScrollState.Saver) { ScrollState(0) }
+    // A fold recreates the activity and can move this card to another layout; the
+    // position lives on NightDetail so it survives both.
+    val hoursScroll = ui.hoursScroll
     // The hour row sits inside Tonight's haze source. A horizontal drag moves pixels in that layer.
     ReportGlassScroll(hoursScroll.isScrollInProgress)
     val good = stringResource(R.string.quality_good)
@@ -885,9 +944,9 @@ private fun Modifier.clipInPlace(): Modifier = drawWithContent {
 
 /** Name, window, and peak stay visible. Reason, exposure, and the tip start hidden. */
 @Composable
-private fun SuggestionRow(s: TargetSuggestion, report: NightReport) {
+private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUiState) {
     val zone = report.site.zone
-    var expanded by rememberSaveable(s.target.id) { mutableStateOf(false) }
+    val expanded = ui.isTargetExpanded(s.target.id)
     val action = stringResource(
         if (expanded) R.string.hide_target_details else R.string.show_target_details,
         s.target.name,
@@ -896,7 +955,7 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickable(role = Role.Button, onClickLabel = action) { expanded = !expanded },
+                .clickable(role = Role.Button, onClickLabel = action) { ui.toggleTarget(s.target.id) },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

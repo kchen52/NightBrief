@@ -42,6 +42,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -82,6 +84,15 @@ import org.osmdroid.views.overlay.Marker
 
 private const val SEARCH_DEBOUNCE_MS = 300L
 
+/**
+ * The pin's coordinates survive a fold. [GeoPoint] is not a Bundle type, so the
+ * pair of doubles is what gets saved; a null pin saves nothing.
+ */
+private val geoPointSaver: Saver<GeoPoint?, Any> = listSaver(
+    save = { point -> point?.let { listOf(it.latitude, it.longitude) }.orEmpty() },
+    restore = { if (it.size == 2) GeoPoint(it[0], it[1]) else null },
+)
+
 private fun findDialogWindow(view: View): Window? {
     var parent = view.parent
     while (parent != null) {
@@ -112,10 +123,12 @@ fun MapPickerDialog(
     onPick: (latitude: Double, longitude: Double, placeName: String?) -> Unit,
 ) {
     val view = LocalView.current
-    var picked by remember {
+    var picked by rememberSaveable(stateSaver = geoPointSaver) {
         mutableStateOf(if (initialLat != null && initialLon != null) GeoPoint(initialLat, initialLon) else null)
     }
-    var chosenName by remember { mutableStateOf<String?>(null) }
+    // The chosen place's name rides with the pin; a fold must not turn a searched
+    // location back into an unnamed coordinate.
+    var chosenName by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var settledQuery by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<PlaceMatch>>(emptyList()) }

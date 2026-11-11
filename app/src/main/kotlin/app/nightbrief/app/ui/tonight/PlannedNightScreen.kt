@@ -50,6 +50,8 @@ fun PlannedNightScreen(
     date: LocalDate,
     onBack: () -> Unit,
     onSelectDate: (LocalDate) -> Unit,
+    /** A night past the horizon that was opened directly, so Next can return to it. */
+    ceiling: LocalDate? = null,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val site = state?.sites?.get(siteId)
@@ -113,7 +115,7 @@ fun PlannedNightScreen(
                     }
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(1)) },
-                        enabled = tonight != null && NightPlanner.canStepToNextNight(date, tonight),
+                        enabled = tonight != null && NightPlanner.canStepToNextNight(date, tonight, ceiling = ceiling),
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_night))
                     }

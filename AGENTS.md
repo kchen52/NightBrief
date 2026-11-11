@@ -4,6 +4,10 @@ NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `comp
 
 Match the code that is already here. A change that "cleans up" an intentional constraint is a bug.
 
+## Pull requests
+
+Start the PR body with a non-technical one-liner that explains what the change does for a reader who does not know the codebase. Put it above any technical detail.
+
 ## Read the matching spec first
 
 - Score weights, gates, bands, or verdicts: `README.md` (Night Score) and `NightScoreEngine`.

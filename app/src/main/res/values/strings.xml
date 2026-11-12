@@ -55,7 +55,8 @@
         <item>Checking under the Moon…</item>
     </string-array>
     <string name="week_title">This week</string>
-    <string name="week_footnote">Strip scores show each site\'s best night. Nights marked est. estimate seeing and transparency from humidity and jet-stream wind.</string>
+    <string name="week_strip_caption">Best this week</string>
+    <string name="week_footnote">Nights marked est. estimate seeing and transparency from humidity and jet-stream wind.</string>
     <string name="week_estimated">est.</string>
     <string name="week_no_darkness">No darkness</string>
     <string name="week_beyond_forecast">Beyond forecast</string>

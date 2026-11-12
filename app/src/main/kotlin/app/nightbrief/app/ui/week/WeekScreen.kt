@@ -84,6 +84,7 @@ fun WeekScreen(
     val bigNightThreshold = state?.bigNightThreshold ?: BigNightAlerts.threshold
 
     val bottomInset = contentPadding.calculateBottomPadding()
+    val stripCaption = stringResource(R.string.week_strip_caption)
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
@@ -116,6 +117,7 @@ fun WeekScreen(
                             },
                             selectedId = siteId,
                             onSelect = vm::selectSite,
+                            scoreCaption = stripCaption,
                         )
                     }
                 }
@@ -173,6 +175,7 @@ fun WeekScreen(
                             },
                             selectedId = siteId,
                             onSelect = vm::selectSite,
+                            scoreCaption = stripCaption,
                         )
                     }
                 }

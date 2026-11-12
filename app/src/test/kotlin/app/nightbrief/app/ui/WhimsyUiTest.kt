@@ -17,6 +17,7 @@ import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
+import app.nightbrief.app.ui.tonight.TonightScreen
 import app.nightbrief.app.ui.week.WeekScreen
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
@@ -57,6 +58,8 @@ class WhimsyUiTest {
     val compose = createComposeRule()
 
     private val home = Site("home", "Home", 43.65, -79.38, "America/Toronto", bortle = 4)
+    private val cabin = Site("cabin", "Cabin", 44.0, -80.0, "America/Toronto", bortle = 3)
+    private val scoredNight = LocalDate.of(2024, 8, 12)
 
     @After
     fun tearDown() {
@@ -157,6 +160,59 @@ class WhimsyUiTest {
     }
 
     @Test
+    fun weekStripNamesEachSitesBestNightRatherThanTonight() {
+        val homeTonight = clearNight(home).scoreValue
+        val cabinTonight = clearNight(cabin).scoreValue
+        assertTrue("fixture should score tonight at home", homeTonight != null)
+        assertTrue("fixture should score tonight at the cabin", cabinTonight != null)
+        assertTrue(
+            "fixture tonight ($homeTonight, $cabinTonight) must differ from the week's best (40, 55)",
+            homeTonight != 40 && cabinTonight != 55 && homeTonight != 55 && cabinTonight != 40,
+        )
+        val vm = viewModelWith(bestNightBriefing())
+        compose.setContent {
+            NightBriefTheme {
+                WeekScreen(vm, onOpenNight = { _, _ -> }, onOpenEvents = {}, contentPadding = PaddingValues())
+            }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("40").fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodesWithText("55").fetchSemanticsNodes().isNotEmpty()
+        }
+        val captions = compose.onAllNodesWithText("Best this week").fetchSemanticsNodes().size
+        assertTrue("each week chip should name the score, found $captions", captions == 2)
+        assertTrue(
+            "week should show the best nights, not tonight's $homeTonight",
+            compose.onAllNodesWithText(homeTonight.toString()).fetchSemanticsNodes().isEmpty(),
+        )
+        assertTrue(
+            "the footnote should no longer explain the strip",
+            compose.onAllNodesWithText("Strip scores", substring = true).fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun tonightStripLeavesTheScoreUnlabeled() {
+        val homeTonight = clearNight(home).scoreValue
+        assertTrue("fixture should score tonight", homeTonight != null)
+        val vm = viewModelWith(bestNightBriefing())
+        compose.setContent {
+            NightBriefTheme { TonightScreen(vm, onOpenSettings = {}, contentPadding = PaddingValues()) }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText(homeTonight.toString()).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(
+            "tonight's chips should not say the score is the week's best",
+            compose.onAllNodesWithText("Best this week").fetchSemanticsNodes().isEmpty(),
+        )
+        assertTrue(
+            "tonight should show tonight's score, not the week's best of 40",
+            compose.onAllNodesWithText("40").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
     fun meteorCardRowsStackWithoutOverlapping() {
         // November 15 carries the Leonids, so the card renders without a forecast.
         val report = NightPlanner.plan(home, LocalDate.of(2026, 11, 15), null, GearCatalog.exampleKit)
@@ -206,6 +262,74 @@ class WhimsyUiTest {
         assertTrue(
             "radiant row must sit above the Why control: $radiantBounds vs $whyBounds",
             radiantBounds.bottom <= whyBounds.top,
+        )
+    }
+
+    /** Tonight scores high; each site's best night is a different number, so the two tabs cannot share a chip. */
+    private fun bestNightBriefing(): BriefingSource = object : BriefingSource {
+        override suspend fun brief(
+            sites: List<Site>,
+            kit: GearKit,
+            outlookDays: Int,
+            forceRefresh: Boolean,
+        ): Briefing = Briefing(
+            Instant.EPOCH,
+            listOf(clearNight(home), clearNight(cabin)),
+            listOf(
+                WeeklyOutlook(home, listOf(outlookNight(40))),
+                WeeklyOutlook(cabin, listOf(outlookNight(55))),
+            ),
+        )
+
+        override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport =
+            NightPlanner.plan(site, date, null, kit)
+    }
+
+    private fun viewModelWith(briefings: BriefingSource): AppViewModel {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, briefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(
+                    onboardingComplete = true,
+                    sites = SiteBook().add(home, makePrimary = true).add(cabin),
+                )
+            }
+        }
+        return AppViewModel(app)
+    }
+
+    private fun clearNight(site: Site): NightReport =
+        NightPlanner.plan(site, scoredNight, clearForecast(), GearCatalog.exampleKit)
+
+    private fun outlookNight(score: Int) = OutlookNight(
+        date = scoredNight,
+        score = score,
+        moonIllumination = 0.2,
+        darkness = Darkness.ASTRONOMICAL,
+        coverage = ForecastCoverage.FULL,
+    )
+
+    private fun clearForecast(): Forecast {
+        val start = Instant.parse("2024-08-12T00:00:00Z").epochSecond
+        return Forecast(
+            home.latitude,
+            home.longitude,
+            "best_match",
+            start,
+            (0 until 24 * 8).map {
+                HourlyWeather(
+                    epochSecond = start + it * 3600L,
+                    cloudCover = 5,
+                    humidity = 40,
+                    windKmh = 6.0,
+                    gustKmh = 8.0,
+                    jetStreamKmh = 70.0,
+                    seeing = 2,
+                    transparency = 2,
+                )
+            },
         )
     }
 

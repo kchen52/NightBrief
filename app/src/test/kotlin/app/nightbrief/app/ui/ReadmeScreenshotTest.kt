@@ -195,6 +195,7 @@ class ReadmeScreenshotTest {
                             ),
                             selectedId = home.id,
                             onSelect = {},
+                            scoreCaption = stringResource(R.string.week_strip_caption),
                         )
                     }
                     item {

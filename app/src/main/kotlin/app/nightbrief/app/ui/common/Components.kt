@@ -227,13 +227,18 @@ fun ScorePill(score: Int?, modifier: Modifier = Modifier) {
 
 data class SiteChip(val id: String, val name: String, val score: Int?, val isPrimary: Boolean)
 
-/** Horizontal strip of saved sites with tonight's score for each. */
+/**
+ * Horizontal strip of saved sites.
+ * [scoreCaption] names what [SiteChip.score] is. Null leaves the number unlabeled, which Tonight
+ * uses for tonight's score. Week passes one because the number is each site's best night.
+ */
 @Composable
 fun SiteStrip(
     sites: List<SiteChip>,
     selectedId: String?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
+    scoreCaption: String? = null,
 ) {
     val rowState = rememberLazyListState()
     ReportGlassScroll(rowState.isScrollInProgress)
@@ -268,6 +273,14 @@ fun SiteStrip(
                         )
                     }
                     Spacer(Modifier.height(4.dp))
+                    if (scoreCaption != null) {
+                        Text(
+                            scoreCaption,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                    }
                     Text(
                         chip.score?.toString() ?: "—",
                         style = MaterialTheme.typography.headlineMedium,

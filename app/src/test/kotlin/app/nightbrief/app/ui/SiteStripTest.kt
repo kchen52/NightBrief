@@ -38,4 +38,20 @@ class SiteStripTest {
         val height = bounds.bottom.value - bounds.top.value
         assertTrue("name stayed on one clipped line (${height}dp)", height > 30f)
     }
+
+    @Test
+    fun aCaptionNamesWhatTheScoreIs() {
+        compose.setContent {
+            NightBriefTheme {
+                SiteStrip(
+                    sites = listOf(SiteChip("home", "Home", 91, isPrimary = true)),
+                    selectedId = "home",
+                    onSelect = {},
+                    scoreCaption = "Best this week",
+                )
+            }
+        }
+        compose.onNodeWithText("Best this week").assertIsDisplayed()
+        compose.onNodeWithText("91").assertIsDisplayed()
+    }
 }

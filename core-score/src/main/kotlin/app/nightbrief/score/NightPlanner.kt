@@ -62,6 +62,8 @@ data class NightReport(
     val issPasses: List<IssPass> = emptyList(),
     /** Dew, frost, and the overnight low. Null when the forecast has no temperature. Not a score input. */
     val dew: DewOutlook? = null,
+    /** Wildfire smoke during the dark hours. Null when no air-quality reading was available. Not a score input. */
+    val smoke: SmokeOutlook? = null,
     /** Layer reading for the dark hours. Not a score input; total cloud cover still drives the score. */
     val cloudReason: CloudReason? = null,
     /** When [forecast] was fetched. Set whenever a forecast was available, including a stale file. */

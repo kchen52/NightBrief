@@ -6,6 +6,10 @@
     <string name="channel_big_night_description">Posted when tonight reaches your Big Night score, and when it later collapses well below it</string>
     <string name="channel_progress_name">Background updates</string>
     <string name="channel_progress_description">Shown briefly while forecasts are fetched</string>
+    <string name="channel_aurora_name">Aurora watch</string>
+    <string name="channel_aurora_description">Posted at night when the observed Kp reaches your alert threshold</string>
+    <string name="aurora_title_likely">Aurora likely at %1$s</string>
+    <string name="aurora_title_possible">Aurora possible at %1$s</string>
     <string name="big_night_title">Big Night at %1$s</string>
     <string name="big_night_text">Tonight scores %1$d. %2$s</string>
     <string name="collapse_title">Tonight collapsed at %1$s</string>

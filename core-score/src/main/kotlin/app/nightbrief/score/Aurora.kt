@@ -95,6 +95,15 @@ object Aurora {
 }
 
 object AuroraCopy {
+    /**
+     * The line under a nowcast notification's title. [latitudeDeg] picks the horizon to look at,
+     * and the Kp is the observed value that crossed the user's threshold, not a forecast.
+     */
+    fun alertLine(kp: Double, latitudeDeg: Double): String {
+        val pole = if (latitudeDeg >= 0) "north" else "south"
+        return "Observed Kp ${formatKp(kp)} — look $pole now"
+    }
+
     fun digestLine(aurora: AuroraOutlook): String {
         val kp = "Kp ${formatKp(aurora.peakKp)}"
         val scale = aurora.noaaScale?.let { " $it" }.orEmpty()

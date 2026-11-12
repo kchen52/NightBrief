@@ -65,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.gear.InterestPicker
+import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.data.LightPollutionAttribution
@@ -106,11 +107,14 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     var askedNotification by rememberSaveable { mutableStateOf(false) }
     var dragThreshold by remember { mutableStateOf<Int?>(null) }
     var dragBigNight by remember { mutableStateOf<Int?>(null) }
+    var dragAurora by remember { mutableStateOf<Int?>(null) }
     val shownThreshold = dragThreshold ?: s.alternativeThreshold
     val shownBigNight = (dragBigNight ?: s.bigNightThreshold)
         .coerceIn(BigNightAlerts.MIN_THRESHOLD, BigNightAlerts.MAX_THRESHOLD)
+    val shownAurora = AuroraAlerts.clamp(dragAurora ?: s.auroraKpThreshold)
     val digestLabel = stringResource(R.string.daily_digest)
     val bigNightLabel = stringResource(R.string.big_night_alerts)
+    val auroraLabel = stringResource(R.string.aurora_alerts)
     val nightVisionLabel = stringResource(R.string.night_vision)
     val issLabel = stringResource(R.string.iss_passes_setting)
     val resolvedUnits = s.resolvedUnits()
@@ -123,6 +127,9 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     }
     LaunchedEffect(s.bigNightThreshold) {
         if (dragBigNight == s.bigNightThreshold) dragBigNight = null
+    }
+    LaunchedEffect(s.auroraKpThreshold) {
+        if (dragAurora == s.auroraKpThreshold) dragAurora = null
     }
 
     LifecycleResumeEffect(Unit) {
@@ -335,6 +342,51 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
             }
 
             SectionCard(stringResource(R.string.section_notifications)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(auroraLabel, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.aurora_alerts_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = s.auroraAlertsEnabled,
+                        onCheckedChange = vm::setAuroraAlertsEnabled,
+                        modifier = Modifier
+                            .testTag("aurora-enabled")
+                            .semantics { contentDescription = auroraLabel },
+                    )
+                }
+                if (s.auroraAlertsEnabled) {
+                    Spacer(Modifier.height(8.dp))
+                    val auroraSlider = stringResource(R.string.aurora_threshold, shownAurora)
+                    Text(auroraSlider, style = MaterialTheme.typography.bodyMedium)
+                    Slider(
+                        value = shownAurora.toFloat(),
+                        onValueChange = { dragAurora = it.roundToInt() },
+                        onValueChangeFinished = {
+                            val chosen = dragAurora
+                            if (chosen == null || chosen == s.auroraKpThreshold) dragAurora = null
+                            else vm.setAuroraKpThreshold(chosen)
+                        },
+                        valueRange = AuroraAlerts.MIN_THRESHOLD.toFloat()..AuroraAlerts.MAX_THRESHOLD.toFloat(),
+                        steps = AuroraAlerts.MAX_THRESHOLD - AuroraAlerts.MIN_THRESHOLD - 1,
+                        modifier = Modifier
+                            .testTag("aurora-threshold")
+                            .semantics {
+                                contentDescription = auroraSlider
+                                stateDescription = shownAurora.toString()
+                            },
+                    )
+                    Text(
+                        stringResource(R.string.aurora_threshold_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(
                     stringResource(if (canNotify) R.string.notifications_allowed else R.string.notifications_off),
                     style = MaterialTheme.typography.bodyLarge,

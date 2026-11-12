@@ -1,6 +1,7 @@
 package app.nightbrief.data
 
 import app.nightbrief.gear.GearCatalog
+import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.sites.Site
@@ -61,6 +62,27 @@ class AppStateSerializerTest {
         val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
         assertEquals(false, state.issEnabled)
         assertEquals(emptySet<String>(), state.collapsedCards)
+    }
+
+    @Test
+    fun olderFileWithoutAuroraSettingsStaysQuietAtKpFive() = runTest {
+        val json = """{"onboardingComplete":true}"""
+        val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
+        assertEquals(false, state.auroraAlertsEnabled)
+        assertEquals(AuroraAlerts.DEFAULT_THRESHOLD, state.auroraKpThreshold)
+        assertEquals(emptyMap<String, Long>(), state.lastAuroraAlerts)
+    }
+
+    @Test
+    fun auroraSettingsRoundTrip() = runTest {
+        val state = AppState(
+            auroraAlertsEnabled = true,
+            auroraKpThreshold = 6,
+            lastAuroraAlerts = mapOf("home" to 1_762_920_000L),
+        )
+        val out = ByteArrayOutputStream()
+        AppStateSerializer.writeTo(state, out)
+        assertEquals(state, AppStateSerializer.readFrom(ByteArrayInputStream(out.toByteArray())))
     }
 
     @Test

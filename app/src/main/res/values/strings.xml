@@ -185,6 +185,10 @@
     <string name="alternative_threshold">Mention another site when it\'s at least %1$d points better</string>
     <string name="alternative_threshold_hint">Between 5 and 30. A higher bar means fewer site suggestions in the digest.</string>
     <string name="section_notifications">Notifications</string>
+    <string name="aurora_alerts">Aurora alerts</string>
+    <string name="aurora_alerts_summary">A night-time push when the observed Kp reaches your threshold. Off by default.</string>
+    <string name="aurora_threshold">Alert at Kp %1$d or above</string>
+    <string name="aurora_threshold_hint">Kp 5 is a G1 storm. High-latitude sites often see aurora below that; mid-latitudes need 6 or more.</string>
     <string name="notifications_allowed">Notifications are allowed.</string>
     <string name="notifications_off">Notifications are off.</string>
     <string name="notifications_body">The morning digest is posted as a notification. Without permission it can\'t be delivered.</string>

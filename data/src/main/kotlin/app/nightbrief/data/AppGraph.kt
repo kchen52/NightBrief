@@ -17,6 +17,7 @@ import app.nightbrief.weather.CelestrakClient
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.ForecastSource
+import app.nightbrief.weather.KpSource
 import app.nightbrief.weather.NetworkTimingListener
 import app.nightbrief.weather.OpenMeteoClient
 import app.nightbrief.weather.OverpassRoadAccessClient
@@ -24,6 +25,7 @@ import app.nightbrief.weather.PlaceSearch
 import app.nightbrief.weather.RoadAccessSource
 import app.nightbrief.weather.SevenTimerClient
 import app.nightbrief.weather.SwpcKpClient
+import app.nightbrief.weather.SwpcObservedKpClient
 import app.nightbrief.weather.TimeZoneLookup
 import app.nightbrief.weather.defaultHttpClient
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -33,6 +35,7 @@ import kotlinx.coroutines.SupervisorJob
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.IOException
+import java.time.Duration
 import java.util.zip.GZIPInputStream
 
 /** Process-wide dependencies, shared by the UI and background workers. */
@@ -73,6 +76,16 @@ class AppGraph private constructor(context: Context) {
     val roadAccess: RoadAccessSource = OverpassRoadAccessClient(http = http)
 
     val issTles = CachingTleSource(CelestrakClient(http = http), File(context.filesDir, "tle/iss.txt"))
+
+    /**
+     * Observed Kp for the aurora nowcast. Cached for 10 minutes because the aurora worker runs
+     * every 15; the day-ahead briefing keeps its own hourly-cached forecast product.
+     */
+    private val realObservedKp: KpSource =
+        CachingKpSource(SwpcObservedKpClient(http = http), maxAge = Duration.ofMinutes(10))
+
+    var observedKp: KpSource = realObservedKp
+        private set
 
     private val realBriefings: BriefingSource =
         BriefingService(
@@ -178,8 +191,14 @@ class AppGraph private constructor(context: Context) {
         this.briefings = briefings
     }
 
+    /** Points the aurora nowcast at a fake series without a network call. */
+    fun replaceObservedKpForTest(source: KpSource) {
+        observedKp = source
+    }
+
     fun resetSourcesForTest() {
         forecasts = realForecasts
         briefings = realBriefings
+        observedKp = realObservedKp
     }
 }

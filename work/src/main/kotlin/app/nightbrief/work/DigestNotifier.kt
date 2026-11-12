@@ -80,6 +80,30 @@ class DigestNotifier(private val context: Context) {
         NotificationManagerCompat.from(context).cancel(bigNightNotificationId(slot))
     }
 
+    /**
+     * Posts the aurora nowcast. [likely] picks the title; [line] is the observed Kp sentence from
+     * `AuroraCopy.alertLine`. The aurora channel is high importance on purpose: the point is to
+     * get the user outside while the display is up.
+     */
+    fun postAurora(siteId: String, siteName: String, likely: Boolean, line: String, slot: Int) {
+        if (!canNotify()) return
+        val id = auroraNotificationId(slot)
+        val title = context.getString(
+            if (likely) R.string.aurora_title_likely else R.string.aurora_title_possible,
+            siteName,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_AURORA)
+            .setSmallIcon(R.drawable.ic_stat_nightbrief)
+            .setContentTitle(title)
+            .setContentText(line)
+            .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setContentIntent(openTonight(siteId, id))
+            .setAutoCancel(true)
+            .build()
+        @Suppress("MissingPermission")
+        NotificationManagerCompat.from(context).notify(id, notification)
+    }
+
     fun progressNotification(): Notification =
         NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_stat_nightbrief)
@@ -102,6 +126,7 @@ class DigestNotifier(private val context: Context) {
     companion object {
         const val CHANNEL_DIGEST = "digest"
         const val CHANNEL_BIG_NIGHT = "big_night"
+        const val CHANNEL_AURORA = "aurora"
         const val CHANNEL_PROGRESS = "progress"
         const val PROGRESS_ID = 9000
         const val EXTRA_SITE_ID = "app.nightbrief.extra.SITE_ID"
@@ -110,6 +135,7 @@ class DigestNotifier(private val context: Context) {
         private const val DIGEST_BASE = 10_000
         private const val BIG_NIGHT_BASE = 30_000
         private const val COLLAPSE_BASE = 40_000
+        private const val AURORA_BASE = 50_000
 
         fun digestNotificationId(slot: Int): Int {
             require(slot > 0) { "notification slot must be positive" }
@@ -124,6 +150,11 @@ class DigestNotifier(private val context: Context) {
         fun collapseNotificationId(slot: Int): Int {
             require(slot > 0) { "notification slot must be positive" }
             return COLLAPSE_BASE + slot
+        }
+
+        fun auroraNotificationId(slot: Int): Int {
+            require(slot > 0) { "notification slot must be positive" }
+            return AURORA_BASE + slot
         }
 
         fun ensureChannels(context: Context) {
@@ -144,6 +175,15 @@ class DigestNotifier(private val context: Context) {
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = context.getString(R.string.channel_big_night_description)
+                },
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_AURORA,
+                    context.getString(R.string.channel_aurora_name),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = context.getString(R.string.channel_aurora_description)
                 },
             )
             nm.createNotificationChannel(

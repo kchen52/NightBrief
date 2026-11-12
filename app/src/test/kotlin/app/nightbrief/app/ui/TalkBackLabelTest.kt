@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.isOff
+import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -89,6 +90,10 @@ class TalkBackLabelTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodes(hasContentDescription("Big Night alerts") and isOff()).fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithContentDescription("Aurora alerts").performScrollTo().assertIsOff().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasContentDescription("Aurora alerts") and isOn()).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
@@ -161,6 +166,13 @@ class TalkBackLabelTest {
         ).performScrollTo().assertIsDisplayed()
         compose.onNode(
             hasContentDescription("Big Night at 85 or above") and hasStateDescription("85"),
+        ).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Aurora alerts").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodes(hasContentDescription("Alert at Kp 5 or above")).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNode(
+            hasContentDescription("Alert at Kp 5 or above") and hasStateDescription("5"),
         ).performScrollTo().assertIsDisplayed()
     }
 

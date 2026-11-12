@@ -51,12 +51,15 @@ object DigestScheduler {
         val next = DigestTimes.next(state, Instant.now(), ZoneId.systemDefault())
         if (next == null || !state.onboardingComplete) {
             alarms.cancel(alarmIntent(context, null))
-            WorkManager.getInstance(context).cancelUniqueWork(PREFETCH_WORK)
+            val work = WorkManager.getInstance(context)
+            work.cancelUniqueWork(PREFETCH_WORK)
+            work.cancelUniqueWork(AuroraWatch.WORK)
             return
         }
         val (at, time) = next
         armDigestAlarm(alarms, at.toEpochMilli(), alarmIntent(context, time))
         schedulePrefetch(context)
+        AuroraWatch.sync(context, state)
     }
 
     /**

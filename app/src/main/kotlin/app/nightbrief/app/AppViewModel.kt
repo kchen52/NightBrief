@@ -9,6 +9,7 @@ import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.data.LibraryTransfer
 import app.nightbrief.gear.GearKit
+import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.DarkSkyCandidate
 import app.nightbrief.score.DarkSkyFinder
@@ -294,6 +295,8 @@ class AppViewModel(
     fun setNightVision(enabled: Boolean) = mutate { it.copy(nightVision = enabled) }
     fun setUnits(units: UnitSystem) = mutate { it.copy(units = units) }
     fun setIssEnabled(enabled: Boolean) = mutate { it.copy(issEnabled = enabled) }
+    fun setAuroraAlertsEnabled(enabled: Boolean) = mutate { it.copy(auroraAlertsEnabled = enabled) }
+    fun setAuroraKpThreshold(kp: Int) = mutate { it.copy(auroraKpThreshold = AuroraAlerts.clamp(kp)) }
 
     /** Flips one card. The set lives in settings, so it survives restarts and applies to every site. */
     fun toggleCardCollapsed(cardId: String) = mutate {

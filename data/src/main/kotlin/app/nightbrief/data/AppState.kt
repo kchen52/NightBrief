@@ -2,6 +2,7 @@ package app.nightbrief.data
 
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearKit
+import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.SiteComparison
@@ -66,6 +67,18 @@ data class AppState(
      * carries the passes, and the digest, widget, and watch are not gated by this.
      */
     val issEnabled: Boolean = false,
+    /**
+     * Push a night-time notification when the observed Kp reaches [auroraKpThreshold]. Off until
+     * the user turns it on, like [issEnabled], so an older file never starts posting at 3 a.m.
+     */
+    val auroraAlertsEnabled: Boolean = false,
+    /** Kp at or above this is worth a nowcast push. Clamped by [AuroraAlerts.clamp]. */
+    val auroraKpThreshold: Int = AuroraAlerts.DEFAULT_THRESHOLD,
+    /**
+     * Site id -> 3-hour Kp bin (epoch seconds) already announced. One bin is one push per site,
+     * so a revision inside the bin does not post again.
+     */
+    val lastAuroraAlerts: Map<String, Long> = emptyMap(),
     /**
      * Ids of Tonight cards the user has collapsed (`CardIds` in `:app`). One set for every site
      * and night. Unknown ids are harmless, so a card removed later leaves nothing to migrate.

@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
-import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.gear.GearEditor
@@ -49,6 +49,7 @@ import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
 import androidx.compose.ui.res.stringResource
 import app.nightbrief.app.R
+import app.nightbrief.app.ui.week.BestNightCard
 import app.nightbrief.app.ui.week.NightRow
 import app.nightbrief.astro.IssPass
 import app.nightbrief.gear.GearCatalog
@@ -181,7 +182,7 @@ class ReadmeScreenshotTest {
         val outlook = weekOutlook()
         val nightNames = NightNames.titles(outlook.nights, BigNightAlerts.threshold)
         paparazzi.snapshot("week") {
-            Phone("This week", "Week") { padding ->
+            Phone("This week", "Week", subtitle = Format.daySpan(outlook.nights.first().date, outlook.nights.last().date)) { padding ->
                 LazyColumn(
                     Modifier.padding(padding).fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -190,23 +191,16 @@ class ReadmeScreenshotTest {
                     item {
                         SiteStrip(
                             sites = listOf(
-                                SiteChip(home.id, home.name, outlook.best?.score, true),
-                                SiteChip(point.id, point.name, weekOutlook(point).best?.score, false),
+                                SiteChip(home.id, home.name, outlook.best?.score, true, bestNight = outlook.best?.date),
+                                SiteChip(point.id, point.name, weekOutlook(point).best?.score, false, bestNight = weekOutlook(point).best?.date),
                             ),
                             selectedId = home.id,
                             onSelect = {},
-                            scoreCaption = stringResource(R.string.week_strip_caption),
+                            summarizeBestNight = true,
                         )
                     }
                     item {
-                        SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                stringResource(R.string.week_footnote),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        BestNightCard(outlook, Modifier.padding(horizontal = 16.dp))
                     }
                     items(outlook.nights, key = { it.date.toString() }) { night ->
                         NightRow(
@@ -246,6 +240,7 @@ class ReadmeScreenshotTest {
         title: String,
         tab: String,
         nightVision: Boolean = false,
+        subtitle: String? = null,
         actions: @Composable RowScope.() -> Unit = {},
         content: @Composable (PaddingValues) -> Unit,
     ) {
@@ -254,7 +249,18 @@ class ReadmeScreenshotTest {
                 containerColor = MaterialTheme.colorScheme.background,
                 topBar = {
                     TopAppBar(
-                        title = { Text(title) },
+                        title = {
+                            Column {
+                                Text(title)
+                                if (subtitle != null) {
+                                    Text(
+                                        subtitle,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
                         actions = actions,
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                     )

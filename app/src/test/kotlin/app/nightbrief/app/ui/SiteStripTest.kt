@@ -5,8 +5,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
+import java.time.LocalDate
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -53,5 +55,22 @@ class SiteStripTest {
         }
         compose.onNodeWithText("Best this week").assertIsDisplayed()
         compose.onNodeWithText("91").assertIsDisplayed()
+    }
+
+    @Test
+    fun aBestNightSummaryNamesTheDayInsteadOfALargeScore() {
+        val monday = LocalDate.of(2024, 8, 12)
+        compose.setContent {
+            NightBriefTheme {
+                SiteStrip(
+                    sites = listOf(SiteChip("home", "Home", 91, isPrimary = true, bestNight = monday)),
+                    selectedId = "home",
+                    onSelect = {},
+                    summarizeBestNight = true,
+                )
+            }
+        }
+        compose.onNodeWithText(Format.shortDayName(monday), substring = true).assertIsDisplayed()
+        compose.onNodeWithText("91", substring = true).assertIsDisplayed()
     }
 }

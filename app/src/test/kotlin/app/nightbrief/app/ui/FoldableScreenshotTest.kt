@@ -37,11 +37,12 @@ import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import app.nightbrief.app.R
-import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
+import app.nightbrief.app.ui.common.Format
+import app.nightbrief.app.ui.week.BestNightCard
 import app.nightbrief.app.ui.week.NightRow
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.score.BigNightAlerts
@@ -113,7 +114,11 @@ class FoldableScreenshotTest {
         val outlook = weekOutlook()
         val nightNames = NightNames.titles(outlook.nights, BigNightAlerts.threshold)
         paparazzi.snapshot("unfoldedWeek") {
-            FoldFrame(stringResource(R.string.week_title), stringResource(R.string.nav_week)) {
+            FoldFrame(
+                stringResource(R.string.week_title),
+                stringResource(R.string.nav_week),
+                subtitle = Format.daySpan(outlook.nights.first().date, outlook.nights.last().date),
+            ) {
                 val columns = rememberWindowForm().weekColumns
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(columns),
@@ -125,23 +130,16 @@ class FoldableScreenshotTest {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         SiteStrip(
                             sites = listOf(
-                                SiteChip(home.id, home.name, outlook.best?.score, true),
-                                SiteChip(point.id, point.name, weekOutlook(point).best?.score, false),
+                                SiteChip(home.id, home.name, outlook.best?.score, true, bestNight = outlook.best?.date),
+                                SiteChip(point.id, point.name, weekOutlook(point).best?.score, false, bestNight = weekOutlook(point).best?.date),
                             ),
                             selectedId = home.id,
                             onSelect = {},
-                            scoreCaption = stringResource(R.string.week_strip_caption),
+                            summarizeBestNight = true,
                         )
                     }
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        SectionCard {
-                            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                stringResource(R.string.week_footnote),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        BestNightCard(outlook)
                     }
                     items(outlook.nights, key = { it.date.toString() }) { night ->
                         NightRow(
@@ -159,7 +157,7 @@ class FoldableScreenshotTest {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    private fun FoldFrame(title: String, selected: String, content: @Composable () -> Unit) {
+    private fun FoldFrame(title: String, selected: String, subtitle: String? = null, content: @Composable () -> Unit) {
         NightBriefTheme {
             Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 NavigationRail(Modifier.fillMaxHeight()) {
@@ -177,7 +175,18 @@ class FoldableScreenshotTest {
                     containerColor = MaterialTheme.colorScheme.background,
                     topBar = {
                         TopAppBar(
-                            title = { Text(title) },
+                            title = {
+                                Column {
+                                    Text(title)
+                                    if (subtitle != null) {
+                                        Text(
+                                            subtitle,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = MaterialTheme.colorScheme.background,
                             ),

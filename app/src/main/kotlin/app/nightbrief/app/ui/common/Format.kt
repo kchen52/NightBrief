@@ -41,6 +41,15 @@ object Format {
     fun shortDayName(date: LocalDate): String = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
     fun dayMonth(date: LocalDate): String = dayMonth.format(date)
 
+    /** Inclusive span. One day is that date. A single month drops the repeated month on the end. */
+    fun daySpan(start: LocalDate, end: LocalDate): String {
+        if (start == end) return dayMonth(start)
+        if (start.year == end.year && start.month == end.month) {
+            return "${dayMonth(start)}–${end.dayOfMonth}"
+        }
+        return "${dayMonth(start)} – ${dayMonth(end)}"
+    }
+
     fun degrees(d: Double): String = "${d.roundToInt()}°"
     fun azimuth(az: Double): String = "${az.roundToInt()}° ${DigestComposer.compass(az)}"
     fun percent(fraction: Double): String = "${(fraction * 100).roundToInt()}%"

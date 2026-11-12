@@ -176,11 +176,16 @@ class WhimsyUiTest {
             }
         }
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithText("40").fetchSemanticsNodes().isNotEmpty() &&
-                compose.onAllNodesWithText("55").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("40", substring = true).fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodesWithText("55", substring = true).fetchSemanticsNodes().isNotEmpty()
         }
-        val captions = compose.onAllNodesWithText("Best this week").fetchSemanticsNodes().size
-        assertTrue("each week chip should name the score, found $captions", captions == 2)
+        val day = Format.shortDayName(scoredNight)
+        val dayLines = compose.onAllNodesWithText(day, substring = true).fetchSemanticsNodes().size
+        assertTrue("each week chip should name the best night's day, found $dayLines", dayLines >= 2)
+        assertTrue(
+            "the best-night card should name the day, not repeat a second score hero",
+            compose.onAllNodesWithText("Best night").fetchSemanticsNodes().isNotEmpty(),
+        )
         assertTrue(
             "week should show the best nights, not tonight's $homeTonight",
             compose.onAllNodesWithText(homeTonight.toString()).fetchSemanticsNodes().isEmpty(),
@@ -203,8 +208,8 @@ class WhimsyUiTest {
             compose.onAllNodesWithText(homeTonight.toString()).fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(
-            "tonight's chips should not say the score is the week's best",
-            compose.onAllNodesWithText("Best this week").fetchSemanticsNodes().isEmpty(),
+            "tonight's chips should keep tonight's score, without the week's day line",
+            compose.onAllNodesWithText(Format.shortDayName(scoredNight)).fetchSemanticsNodes().isEmpty(),
         )
         assertTrue(
             "tonight should show tonight's score, not the week's best of 40",

@@ -76,6 +76,7 @@ import app.nightbrief.app.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nightbrief.app.ui.theme.NightColors
+import java.time.LocalDate
 import java.time.LocalTime
 
 private const val CARD_ANIMATION_MS = 260
@@ -225,12 +226,21 @@ fun ScorePill(score: Int?, modifier: Modifier = Modifier) {
     }
 }
 
-data class SiteChip(val id: String, val name: String, val score: Int?, val isPrimary: Boolean)
+data class SiteChip(
+    val id: String,
+    val name: String,
+    val score: Int?,
+    val isPrimary: Boolean,
+    /** Date of this site's best night. Null on Tonight, where [score] is tonight. */
+    val bestNight: LocalDate? = null,
+)
 
 /**
- * Horizontal strip of saved sites.
- * [scoreCaption] names what [SiteChip.score] is. Null leaves the number unlabeled, which Tonight
- * uses for tonight's score. Week passes one because the number is each site's best night.
+ * Horizontal strip of saved sites. A chip calls [onSelect]; the row consumes horizontal drags.
+ *
+ * [scoreCaption] names the large score. Null leaves it unlabeled, which Tonight uses for tonight.
+ * [summarizeBestNight] draws [SiteChip.bestNight] and the score as one line, which Week uses so the
+ * chip is a site switcher. The large score stays on Tonight.
  */
 @Composable
 fun SiteStrip(
@@ -239,6 +249,7 @@ fun SiteStrip(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     scoreCaption: String? = null,
+    summarizeBestNight: Boolean = false,
 ) {
     val rowState = rememberLazyListState()
     ReportGlassScroll(rowState.isScrollInProgress)
@@ -273,19 +284,32 @@ fun SiteStrip(
                         )
                     }
                     Spacer(Modifier.height(4.dp))
-                    if (scoreCaption != null) {
+                    if (summarizeBestNight) {
+                        val night = chip.bestNight
+                        if (night != null) {
+                            BestNightChipLine(night, chip.score)
+                        } else {
+                            Text(
+                                "—",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        if (scoreCaption != null) {
+                            Text(
+                                scoreCaption,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                        }
                         Text(
-                            scoreCaption,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            chip.score?.toString() ?: "—",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = NightColors.forScore(chip.score),
                         )
-                        Spacer(Modifier.height(2.dp))
                     }
-                    Text(
-                        chip.score?.toString() ?: "—",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = NightColors.forScore(chip.score),
-                    )
                 }
             }
         }
@@ -306,6 +330,29 @@ fun SiteStrip(
             }
         }
     }
+}
+
+/** Week chip line. The weekday stays plain; the score takes [NightColors.forScore]. */
+@Composable
+private fun BestNightChipLine(date: LocalDate, score: Int?) {
+    val scoreText = score?.toString() ?: "—"
+    val line = stringResource(R.string.week_chip_night, Format.shortDayName(date), scoreText)
+    val start = line.lastIndexOf(scoreText)
+    Text(
+        if (start < 0) {
+            AnnotatedString(line)
+        } else {
+            buildAnnotatedString {
+                append(line.substring(0, start))
+                withStyle(SpanStyle(color = NightColors.forScore(score), fontWeight = FontWeight.SemiBold)) {
+                    append(scoreText)
+                }
+                if (start + scoreText.length < line.length) append(line.substring(start + scoreText.length))
+            }
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

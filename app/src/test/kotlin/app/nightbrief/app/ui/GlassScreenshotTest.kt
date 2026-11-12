@@ -41,14 +41,15 @@ import app.nightbrief.app.ui.common.GlassNavBar
 import app.nightbrief.app.ui.common.GlassNavItem
 import app.nightbrief.app.ui.common.GlassTopBarBackdrop
 import app.nightbrief.app.ui.common.LocalHazeState
-import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.common.glassNavBarPadding
 import app.nightbrief.app.ui.common.glassSource
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.NightDetail
+import app.nightbrief.app.ui.week.BestNightCard
 import app.nightbrief.app.ui.week.NightRow
+import app.nightbrief.app.ui.week.WeekTitle
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
@@ -95,7 +96,7 @@ class GlassScreenshotTest {
                     containerColor = Color.Transparent,
                     topBar = {
                         TopAppBar(
-                            title = { Text("This week") },
+                            title = { WeekTitle(outlook) },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                         )
                     },
@@ -106,9 +107,7 @@ class GlassScreenshotTest {
                         contentPadding = PaddingValues(bottom = 16.dp + bottom),
                     ) {
                         item {
-                            SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
-                            }
+                            BestNightCard(outlook, Modifier.padding(horizontal = 16.dp))
                         }
                         items(outlook.nights + outlook.nights, key = null) { night ->
                             NightRow(

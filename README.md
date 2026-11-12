@@ -8,7 +8,7 @@ The screens below are the app's Compose UI for a clear August 2024 night at a Bo
 
 | Tonight | This week |
 | --- | --- |
-| ![Tonight: Home scores 91, Go, Excellent. Clear skies on the menu.](docs/screenshots/tonight.png) | ![This week: each site chip is that site's best night, and Monday is the best](docs/screenshots/week.png) |
+| ![Tonight: Home scores 91, Go, Excellent. Clear skies on the menu.](docs/screenshots/tonight.png) | ![This week, Aug 12–18: Monday is the best night, and each site chip names that day](docs/screenshots/week.png) |
 
 | Perseids and an ISS pass | Gear |
 | --- | --- |

@@ -60,6 +60,7 @@ import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.NightNames
 import app.nightbrief.score.OutlookNight
+import app.nightbrief.score.WeeklyOutlook
 import app.nightbrief.weather.ForecastStatus
 import java.time.LocalDate
 
@@ -84,12 +85,15 @@ fun WeekScreen(
     val bigNightThreshold = state?.bigNightThreshold ?: BigNightAlerts.threshold
 
     val bottomInset = contentPadding.calculateBottomPadding()
-    val stripCaption = stringResource(R.string.week_strip_caption)
+    val stripSites = book.primaryFirst().map { site ->
+        val best = briefing?.outlookFor(site.id)?.best
+        SiteChip(site.id, site.name, best?.score, site.id == book.primaryId, bestNight = best?.date)
+    }
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.week_title)) },
+                title = { WeekTitle(outlook) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -109,15 +113,12 @@ fun WeekScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    val chips = book.primaryFirst()
-                    if (chips.size > 1) {
+                    if (stripSites.size > 1) {
                         SiteStrip(
-                            sites = chips.map {
-                                SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
-                            },
+                            sites = stripSites,
                             selectedId = siteId,
                             onSelect = vm::selectSite,
-                            scoreCaption = stripCaption,
+                            summarizeBestNight = true,
                         )
                     }
                 }
@@ -130,14 +131,7 @@ fun WeekScreen(
                 if (outlook != null) {
                     val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        SectionCard {
-                            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                stringResource(R.string.week_footnote),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        BestNightCard(outlook)
                     }
                     gridItems(outlook.nights, key = { it.date.toString() }) { night ->
                         NightRow(
@@ -167,15 +161,12 @@ fun WeekScreen(
             ) {
                 if (ui.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 item {
-                    val chips = book.primaryFirst()
-                    if (chips.size > 1) {
+                    if (stripSites.size > 1) {
                         SiteStrip(
-                            sites = chips.map {
-                                SiteChip(it.id, it.name, briefing?.outlookFor(it.id)?.best?.score, it.id == book.primaryId)
-                            },
+                            sites = stripSites,
                             selectedId = siteId,
                             onSelect = vm::selectSite,
-                            scoreCaption = stripCaption,
+                            summarizeBestNight = true,
                         )
                     }
                 }
@@ -188,14 +179,7 @@ fun WeekScreen(
                 if (outlook != null) {
                     val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
                     item {
-                        SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                stringResource(R.string.week_footnote),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        BestNightCard(outlook, Modifier.padding(horizontal = 16.dp))
                     }
                     items(outlook.nights, key = { it.date.toString() }) { night ->
                         NightRow(
@@ -215,6 +199,54 @@ fun WeekScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun WeekTitle(outlook: WeeklyOutlook?) {
+    val nights = outlook?.nights.orEmpty()
+    Column {
+        Text(stringResource(R.string.week_title))
+        if (nights.isNotEmpty()) {
+            Text(
+                Format.daySpan(nights.first().date, nights.last().date),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Names the best night. The score sits in a pill, the same size as a row, so the page reads as a week. */
+@Composable
+internal fun BestNightCard(outlook: WeeklyOutlook, modifier: Modifier = Modifier) {
+    val best = outlook.best
+    val missing = outlook.nights.isNotEmpty() && outlook.nights.all { it.forecastMissing }
+    SectionCard(modifier = modifier) {
+        if (best == null || missing) {
+            Text(outlook.headline(), style = MaterialTheme.typography.titleLarge)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.week_best_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        Format.dayName(best.date),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = NightColors.Amber,
+                    )
+                }
+                ScorePill(best.score)
+            }
+        }
+        Text(
+            stringResource(R.string.week_footnote),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

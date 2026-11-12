@@ -45,6 +45,8 @@ class TargetAdvisorTest {
         ).map { it.target.id }.toSet()
         assertTrue("expected Carina Nebula (ngc3372) in May from Sydney, got $mayIds", "ngc3372" in mayIds)
         assertTrue("expected Omega Centauri (ngc5139) in May from Sydney, got $mayIds", "ngc5139" in mayIds)
+        assertTrue("expected Centaurus A (ngc5128) in May from Sydney, got $mayIds", "ngc5128" in mayIds)
+        assertTrue("expected the Jewel Box (ngc4755) in May from Sydney, got $mayIds", "ngc4755" in mayIds)
 
         val novIds = TargetAdvisor.suggest(
             eph = sydneyNovEph,
@@ -54,6 +56,73 @@ class TargetAdvisorTest {
         ).map { it.target.id }.toSet()
         assertTrue("expected Large Magellanic Cloud (lmc) in Nov from Sydney, got $novIds", "lmc" in novIds)
         assertTrue("expected Small Magellanic Cloud (smc) in Nov from Sydney, got $novIds", "smc" in novIds)
+        assertTrue("expected 47 Tucanae (ngc104) in Nov from Sydney, got $novIds", "ngc104" in novIds)
+    }
+
+    @Test
+    fun aWideKitInSydneySeesTheCrossAndRhoNotOnlyTargetsItCannotFrame() {
+        val shown = TargetAdvisor.suggest(sydneyMayEph, bortle = 3, kit = GearCatalog.exampleKit)
+        val crux = shown.find { it.target.id == "crux" }
+        val rho = shown.find { it.target.id == "rho-oph" }
+        assertTrue("top suggestions were ${shown.map { it.target.id }}", crux != null && rho != null)
+        assertTrue("the example wide kit should frame the Cross", crux!!.exposure?.reachesTarget == true)
+        assertTrue("the example wide kit should frame Rho Ophiuchi", rho!!.exposure?.reachesTarget == true)
+    }
+
+    @Test
+    fun springNightInTheNorthOffersGalaxiesAndAWideLeo() {
+        val eph = NightEphemeris.compute(LocalDate.of(2024, 4, 8), torontoZone, 43.65, -79.38)
+        val galaxies = TargetAdvisor.suggest(
+            eph,
+            bortle = 3,
+            kit = GearCatalog.exampleKit.withInterests(setOf(TargetInterest.GALAXIES)),
+            limit = 50,
+        ).map { it.target.id }
+        assertTrue("expected M81 in April galaxies, got $galaxies", "m81" in galaxies)
+        assertTrue("expected M51 in April galaxies, got $galaxies", "m51" in galaxies)
+        assertTrue("expected the Leo Triplet in April galaxies, got $galaxies", "leo-triplet" in galaxies)
+
+        val shown = TargetAdvisor.suggest(eph, bortle = 3, kit = GearCatalog.exampleKit)
+        val leo = shown.find { it.target.id == "leo" }
+        assertTrue("Leo should be on the April shortlist, got ${shown.map { it.target.id }}", leo != null)
+        assertTrue("the example wide kit should frame Leo", leo!!.exposure?.reachesTarget == true)
+
+        val clusters = TargetAdvisor.suggest(
+            eph,
+            bortle = 3,
+            kit = GearCatalog.exampleKit.withInterests(setOf(TargetInterest.CLUSTERS)),
+            limit = 50,
+        ).map { it.target.id }
+        assertTrue("expected the Beehive (m44) in April, got $clusters", "m44" in clusters)
+    }
+
+    @Test
+    fun winterAndSummerNightsOfferMoreThanOrionAndCygnus() {
+        val winter = NightEphemeris.compute(LocalDate.of(2024, 1, 11), torontoZone, 43.65, -79.38)
+        val winterIds = TargetAdvisor.suggest(winter, bortle = 3, kit = GearCatalog.exampleKit, limit = 50)
+            .map { it.target.id }
+        assertTrue("expected the Rosette in January, got $winterIds", "ngc2237" in winterIds)
+        assertTrue("expected the Horsehead in January, got $winterIds", "ic434" in winterIds)
+
+        val summer = NightEphemeris.compute(LocalDate.of(2024, 7, 5), torontoZone, 43.65, -79.38)
+        val summerIds = TargetAdvisor.suggest(summer, bortle = 3, kit = GearCatalog.exampleKit, limit = 50)
+            .map { it.target.id }
+        assertTrue("expected the Veil in July, got $summerIds", "ngc6992" in summerIds)
+        assertTrue("expected Rho Ophiuchi in July, got $summerIds", "rho-oph" in summerIds)
+        assertTrue("expected the Eagle in July, got $summerIds", "m16" in summerIds)
+
+        val autumn = NightEphemeris.compute(LocalDate.of(2024, 11, 1), torontoZone, 43.65, -79.38)
+        val autumnIds = TargetAdvisor.suggest(autumn, bortle = 3, kit = GearCatalog.exampleKit, limit = 50)
+            .map { it.target.id }
+        assertTrue("expected M33 in November, got $autumnIds", "m33" in autumnIds)
+        assertTrue("expected the California Nebula in November, got $autumnIds", "ngc1499" in autumnIds)
+        assertTrue("expected Heart & Soul in November, got $autumnIds", "ic1805" in autumnIds)
+    }
+
+    @Test
+    fun catalogIdsAreUnique() {
+        val ids = TargetCatalog.all.map { it.id }
+        assertEquals(ids.toSet().size, ids.size)
     }
 
     @Test

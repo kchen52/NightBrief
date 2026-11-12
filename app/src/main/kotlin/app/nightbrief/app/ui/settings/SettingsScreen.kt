@@ -15,6 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,13 +26,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -65,6 +70,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.gear.InterestPicker
+import app.nightbrief.astro.RaDec
+import app.nightbrief.astro.Target
+import app.nightbrief.astro.TargetCatalog
+import app.nightbrief.astro.TargetKind
 import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.UnitSystem
@@ -75,6 +84,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import java.util.UUID
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -239,6 +249,12 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 )
                 Spacer(Modifier.height(8.dp))
                 InterestPicker(s.gear.interests, onChange = { chosen -> vm.updateGear { it.withInterests(chosen) } })
+                Spacer(Modifier.height(12.dp))
+                CustomTargetsEditor(
+                    targets = s.customTargets,
+                    onAdd = vm::addCustomTarget,
+                    onRemove = vm::removeCustomTarget,
+                )
             }
 
             SectionCard(stringResource(R.string.section_morning_digest)) {
@@ -568,4 +584,170 @@ private fun Context.findActivity(): ComponentActivity? {
         current = current.baseContext
     }
     return null
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CustomTargetsEditor(
+    targets: List<Target>,
+    onAdd: (Target) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    var adding by rememberSaveable { mutableStateOf(false) }
+    Text(stringResource(R.string.custom_targets_title), style = MaterialTheme.typography.titleSmall)
+    Text(
+        stringResource(R.string.custom_targets_summary),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    targets.forEachIndexed { index, target ->
+        if (index > 0) {
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(target.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(
+                        R.string.custom_target_spec,
+                        target.kind.label,
+                        "%.1f".format(Locale.ROOT, target.position.raDeg),
+                        "%.1f".format(Locale.ROOT, target.position.decDeg),
+                        target.maxBortle,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { onRemove(target.id) }) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.remove_named, target.name),
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    if (!adding) {
+        OutlinedButton(
+            onClick = { adding = true },
+            modifier = Modifier.fillMaxWidth().testTag("add-custom-target"),
+        ) {
+            Text(stringResource(R.string.add_custom_target))
+        }
+    } else {
+        var name by rememberSaveable { mutableStateOf("") }
+        var kindName by rememberSaveable { mutableStateOf(TargetKind.EMISSION_NEBULA.name) }
+        var raText by rememberSaveable { mutableStateOf("") }
+        var decText by rememberSaveable { mutableStateOf("") }
+        var bortleText by rememberSaveable { mutableStateOf("6") }
+        var focalText by rememberSaveable { mutableStateOf("135") }
+        var tipText by rememberSaveable { mutableStateOf("") }
+        val kind = TargetKind.customKinds.firstOrNull { it.name == kindName } ?: TargetKind.EMISSION_NEBULA
+        val ra = raText.toDoubleOrNull()?.takeIf { it in 0.0..360.0 }
+        val dec = decText.toDoubleOrNull()?.takeIf { it in -90.0..90.0 }
+        val bortle = bortleText.toIntOrNull()?.takeIf { it in 1..9 }
+        val focal = focalText.toIntOrNull()?.takeIf { it > 0 }
+        val valid = name.isNotBlank() && ra != null && dec != null && bortle != null && focal != null
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.custom_target_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("custom-target-name"),
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                TargetKind.customKinds.forEach { option ->
+                    FilterChip(
+                        selected = option == kind,
+                        onClick = { kindName = option.name },
+                        label = { Text(option.label) },
+                        modifier = Modifier.testTag("custom-target-kind-${option.name}"),
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = raText,
+                    onValueChange = { raText = it },
+                    label = { Text(stringResource(R.string.custom_target_ra)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("custom-target-ra"),
+                )
+                OutlinedTextField(
+                    value = decText,
+                    onValueChange = { decText = it },
+                    label = { Text(stringResource(R.string.custom_target_dec)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("custom-target-dec"),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = bortleText,
+                    onValueChange = { bortleText = it },
+                    label = { Text(stringResource(R.string.custom_target_bortle)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("custom-target-bortle"),
+                )
+                OutlinedTextField(
+                    value = focalText,
+                    onValueChange = { focalText = it },
+                    label = { Text(stringResource(R.string.custom_target_focal)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("custom-target-focal"),
+                )
+            }
+            OutlinedTextField(
+                value = tipText,
+                onValueChange = { tipText = it },
+                label = { Text(stringResource(R.string.custom_target_tip)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("custom-target-tip"),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { adding = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+                Button(
+                    onClick = {
+                        val trimmed = name.trim()
+                        val custom = Target(
+                            id = "custom-${UUID.randomUUID()}",
+                            name = trimmed,
+                            kind = kind,
+                            position = RaDec(ra!!, dec!!),
+                            maxBortle = bortle!!,
+                            maxMoonIllumination = TargetCatalog.defaultMaxMoonIllumination(kind),
+                            minFocalMm = (focal!! / 2).coerceAtLeast(10),
+                            idealFocalMm = focal,
+                            minAltitudeDeg = 20.0,
+                            tip = tipText.trim().ifBlank {
+                                "Custom ${kind.label.lowercase(Locale.ROOT)} target."
+                            },
+                            tracksMoon = false,
+                            requiresBrightMoon = false,
+                        )
+                        onAdd(custom)
+                        adding = false
+                    },
+                    enabled = valid,
+                    modifier = Modifier.testTag("save-custom-target"),
+                ) {
+                    Text(stringResource(R.string.save_custom_target))
+                }
+            }
+        }
+    }
 }

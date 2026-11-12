@@ -1,5 +1,6 @@
 package app.nightbrief.data
 
+import app.nightbrief.astro.Target
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.AuroraAlerts
@@ -90,6 +91,11 @@ data class AppState(
      * request code 1002). Null when no reminder is armed, so older files decode with none set.
      */
     val windowAlarm: WindowAlarm? = null,
+    /**
+     * User-defined fixed-position imaging targets added in Settings. Appended to
+     * `TargetCatalog.all` when scoring Tonight and the planner; default empty so older files decode.
+     */
+    val customTargets: List<Target> = emptyList(),
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 

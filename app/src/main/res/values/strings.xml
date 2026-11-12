@@ -153,6 +153,17 @@
     <string name="night_vision">Night vision</string>
     <string name="night_vision_summary">Red on black, so your eyes stay adapted to the dark.</string>
     <string name="section_what_i_shoot">What I shoot</string>
+    <string name="custom_targets_title">Custom targets</string>
+    <string name="custom_targets_summary">Fixed-position objects added alongside the built-in catalog.</string>
+    <string name="custom_target_spec">%1$s · RA %2$s° Dec %3$s° · ≤ Bortle %4$d</string>
+    <string name="add_custom_target">Add custom target</string>
+    <string name="custom_target_name">Target name</string>
+    <string name="custom_target_ra">Right ascension (0–360°)</string>
+    <string name="custom_target_dec">Declination (−90–90°)</string>
+    <string name="custom_target_bortle">Max Bortle (1–9)</string>
+    <string name="custom_target_focal">Ideal focal length (mm)</string>
+    <string name="custom_target_tip">Tip (optional)</string>
+    <string name="save_custom_target">Save target</string>
     <string name="interests_summary_all">No preference: Tonight suggests every kind of target. Pick some to narrow it.</string>
     <string name="interests_summary_chosen">Tonight, the digest, the widget and the watch suggest only these, when they are up.</string>
     <string name="onboarding_interests_title">What do you like to shoot? (optional)</string>

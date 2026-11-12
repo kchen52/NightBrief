@@ -1,5 +1,8 @@
 package app.nightbrief.data
 
+import app.nightbrief.astro.RaDec
+import app.nightbrief.astro.Target
+import app.nightbrief.astro.TargetKind
 import app.nightbrief.gear.GearCatalog
 import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.SessionEntry
@@ -104,6 +107,33 @@ class AppStateSerializerTest {
                 windowScore = 88,
             ),
         )
+        val out = ByteArrayOutputStream()
+        AppStateSerializer.writeTo(state, out)
+        assertEquals(state, AppStateSerializer.readFrom(ByteArrayInputStream(out.toByteArray())))
+    }
+
+    @Test
+    fun olderFileWithoutCustomTargetsDecodesAsEmpty() = runTest {
+        val json = """{"onboardingComplete":true}"""
+        val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
+        assertEquals(emptyList<Target>(), state.customTargets)
+    }
+
+    @Test
+    fun customTargetsRoundTrip() = runTest {
+        val veil = Target(
+            id = "custom-veil",
+            name = "Eastern Veil Nebula",
+            kind = TargetKind.EMISSION_NEBULA,
+            position = RaDec(314.0, 31.7),
+            maxBortle = 5,
+            maxMoonIllumination = 0.5,
+            minFocalMm = 68,
+            idealFocalMm = 135,
+            minAltitudeDeg = 20.0,
+            tip = "Custom emission nebula target.",
+        )
+        val state = AppState(customTargets = listOf(veil))
         val out = ByteArrayOutputStream()
         AppStateSerializer.writeTo(state, out)
         assertEquals(state, AppStateSerializer.readFrom(ByteArrayInputStream(out.toByteArray())))

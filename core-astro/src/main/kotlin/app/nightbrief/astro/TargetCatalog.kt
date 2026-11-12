@@ -1,5 +1,8 @@
 package app.nightbrief.astro
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class TargetKind(val label: String) {
     MILKY_WAY("Milky Way"),
     GALAXY("Galaxy"),
@@ -8,7 +11,12 @@ enum class TargetKind(val label: String) {
     STAR_CLUSTER("Star cluster"),
     CONSTELLATION("Constellation / asterism"),
     MOON("Moon"),
-    MOONLIT("Moonlit landscape"),
+    MOONLIT("Moonlit landscape");
+
+    companion object {
+        /** Fixed-position kinds a user-added target may pick (never lunar). */
+        val customKinds: List<TargetKind> = entries.filter { it != MOON && it != MOONLIT }
+    }
 }
 
 /**
@@ -17,6 +25,7 @@ enum class TargetKind(val label: String) {
  * [maxBortle] and [maxMoonIllumination] are the worst conditions under which the target is
  * still worth shooting; [minFocalMm]..[idealFocalMm] is the useful focal-length range (full-frame equivalent).
  */
+@Serializable
 data class Target(
     val id: String,
     val name: String,
@@ -123,6 +132,30 @@ object TargetCatalog {
             untrackedOnly = true,
         ),
         Target(
+            "ngc3372", "Carina Nebula (NGC 3372)", TargetKind.EMISSION_NEBULA,
+            RaDec(161.285, -59.867), maxBortle = 6, maxMoonIllumination = 0.5,
+            minFocalMm = 50, idealFocalMm = 200, minAltitudeDeg = 20.0,
+            tip = "Southern showpiece emission complex; an H-alpha or dual-band filter makes the dust pillars pop.",
+        ),
+        Target(
+            "lmc", "Large Magellanic Cloud (LMC)", TargetKind.GALAXY,
+            RaDec(80.894, -69.756), maxBortle = 5, maxMoonIllumination = 0.4,
+            minFocalMm = 35, idealFocalMm = 135, minAltitudeDeg = 20.0,
+            tip = "Sprawling satellite galaxy with the Tarantula Nebula inside; frame wide at 50–135mm.",
+        ),
+        Target(
+            "smc", "Small Magellanic Cloud (SMC)", TargetKind.GALAXY,
+            RaDec(13.187, -72.828), maxBortle = 5, maxMoonIllumination = 0.4,
+            minFocalMm = 50, idealFocalMm = 135, minAltitudeDeg = 20.0,
+            tip = "Pair it with the bright globular 47 Tucanae right beside the cloud.",
+        ),
+        Target(
+            "ngc5139", "Omega Centauri (NGC 5139)", TargetKind.STAR_CLUSTER,
+            RaDec(201.697, -47.480), maxBortle = 7, maxMoonIllumination = 0.7,
+            minFocalMm = 135, idealFocalMm = 400, minAltitudeDeg = 20.0,
+            tip = "The sky's largest globular cluster — resolves into a swarm of stars at 200mm and up.",
+        ),
+        Target(
             id = "moon-closeup",
             name = "Moon close-up",
             kind = TargetKind.MOON,
@@ -151,4 +184,30 @@ object TargetCatalog {
             requiresBrightMoon = true,
         ),
     )
+
+    /**
+     * Appends user-defined [customTargets] to [all].
+     *
+     * Customs are fixed-position targets only: any entry with [Target.tracksMoon],
+     * [Target.requiresBrightMoon], or a lunar [TargetKind] is stripped so [all]'s built-in
+     * lunar rules stay authoritative and every custom maps through `TargetAdvisor.interestOf`.
+     */
+    fun withCustoms(customTargets: List<Target>): List<Target> {
+        if (customTargets.isEmpty()) return all
+        val fixed = customTargets.filter {
+            !it.tracksMoon && !it.requiresBrightMoon && it.kind in TargetKind.customKinds
+        }
+        return if (fixed.isEmpty()) all else all + fixed
+    }
+
+    /** Sensible default moon ceiling when the user adds a custom target of [kind]. */
+    fun defaultMaxMoonIllumination(kind: TargetKind): Double = when (kind) {
+        TargetKind.MILKY_WAY -> 0.35
+        TargetKind.EMISSION_NEBULA -> 0.5
+        TargetKind.GALAXY -> 0.5
+        TargetKind.REFLECTION_NEBULA -> 0.6
+        TargetKind.STAR_CLUSTER -> 0.7
+        TargetKind.CONSTELLATION -> 1.0
+        TargetKind.MOON, TargetKind.MOONLIT -> 1.0
+    }
 }

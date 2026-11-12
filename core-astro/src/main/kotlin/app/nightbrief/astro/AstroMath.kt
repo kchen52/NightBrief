@@ -1,5 +1,6 @@
 package app.nightbrief.astro
 
+import kotlinx.serialization.Serializable
 import java.time.Instant
 import kotlin.math.PI
 import kotlin.math.asin
@@ -23,6 +24,7 @@ internal fun norm360(x: Double): Double {
 }
 
 /** Equatorial coordinates in degrees. */
+@Serializable
 data class RaDec(val raDeg: Double, val decDeg: Double)
 
 /** Horizontal coordinates in degrees; azimuth measured from north through east. */

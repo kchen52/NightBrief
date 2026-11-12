@@ -5,6 +5,7 @@ import app.nightbrief.astro.IssPasses
 import app.nightbrief.astro.MoonPhase
 import app.nightbrief.astro.SkyEvent
 import app.nightbrief.astro.SkyEvents
+import app.nightbrief.astro.Target
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.AirQualitySeries
@@ -86,7 +87,22 @@ interface BriefingSource {
         forceRefresh: Boolean = false,
     ): Briefing
 
+    suspend fun brief(
+        sites: List<Site>,
+        kit: GearKit,
+        outlookDays: Int = 7,
+        forceRefresh: Boolean = false,
+        customTargets: List<Target>,
+    ): Briefing = brief(sites, kit, outlookDays, forceRefresh)
+
     suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport
+
+    suspend fun plan(
+        site: Site,
+        date: LocalDate,
+        kit: GearKit,
+        customTargets: List<Target>,
+    ): NightReport = plan(site, date, kit)
 }
 
 class BriefingService(
@@ -107,6 +123,14 @@ class BriefingService(
         kit: GearKit,
         outlookDays: Int,
         forceRefresh: Boolean,
+    ): Briefing = brief(sites, kit, outlookDays, forceRefresh, emptyList())
+
+    override suspend fun brief(
+        sites: List<Site>,
+        kit: GearKit,
+        outlookDays: Int,
+        forceRefresh: Boolean,
+        customTargets: List<Target>,
     ): Briefing = coroutineScope {
         val now = clock.instant()
         val kpDeferred = async { fetchKp() }
@@ -146,6 +170,7 @@ class BriefingService(
                     forecastStatus = fr?.status,
                     warnings = warnings,
                     includeSuggestions = offset == 0,
+                    customTargets = customTargets,
                 ).withAurora(kpForecast).withIss(issTle).withSmoke(airQualityBySite[site.id])
             }
             tonight += nights.first()
@@ -175,7 +200,15 @@ class BriefingService(
     }
 
     /** Plans a single site for a specific date (planning mode). */
-    override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport = coroutineScope {
+    override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport =
+        plan(site, date, kit, emptyList())
+
+    override suspend fun plan(
+        site: Site,
+        date: LocalDate,
+        kit: GearKit,
+        customTargets: List<Target>,
+    ): NightReport = coroutineScope {
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
         val airQualityDeferred = async { fetchAirQuality(site) }
@@ -188,6 +221,7 @@ class BriefingService(
         NightPlanner.plan(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(failure),
+            customTargets = customTargets,
         ).withAurora(kpForecast).withIss(issTle).withSmoke(airQuality)
     }
 

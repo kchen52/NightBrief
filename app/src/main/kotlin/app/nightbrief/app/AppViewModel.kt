@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import app.nightbrief.astro.Target
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.data.LibraryTransfer
@@ -93,9 +94,9 @@ class AppViewModel(
     init {
         viewModelScope.launch {
             state.filterNotNull()
-                .map { Triple(it.onboardingComplete, it.sites, it.gear) }
+                .map { listOf(it.onboardingComplete, it.sites, it.gear, it.customTargets) }
                 .distinctUntilChanged()
-                .collectLatest { (done, _, _) -> if (done) refresh(force = false) }
+                .collectLatest { if (it.first() == true) refresh(force = false) }
         }
     }
 
@@ -108,7 +109,12 @@ class AppViewModel(
             try {
                 val started = System.nanoTime()
                 val result = withContext(Dispatchers.Default) {
-                    graph.briefings.brief(s.sites.primaryFirst(), s.gear, forceRefresh = force)
+                    graph.briefings.brief(
+                        sites = s.sites.primaryFirst(),
+                        kit = s.gear,
+                        forceRefresh = force,
+                        customTargets = s.customTargets,
+                    )
                 }
                 val tookMs = (System.nanoTime() - started) / 1_000_000
                 val statuses = result.tonight.joinToString(",") { it.forecastStatus?.name ?: "null" }
@@ -133,7 +139,9 @@ class AppViewModel(
         val s = state.value ?: return null
         val site = s.sites[siteId] ?: return null
         val started = System.nanoTime()
-        val report = withContext(Dispatchers.Default) { graph.briefings.plan(site, date, s.gear) }
+        val report = withContext(Dispatchers.Default) {
+            graph.briefings.plan(site, date, s.gear, customTargets = s.customTargets)
+        }
         val tookMs = (System.nanoTime() - started) / 1_000_000
         Log.d(AppGraph.NET_LOG_TAG, "plan done date=$date took=${tookMs}ms status=${report.forecastStatus}")
         return report
@@ -294,6 +302,16 @@ class AppViewModel(
     fun moveSite(from: Int, to: Int) = mutate { it.copy(sites = it.sites.move(from, to)) }
 
     fun updateGear(transform: (GearKit) -> GearKit) = mutate { it.copy(gear = transform(it.gear)) }
+
+    fun addCustomTarget(target: Target) = mutate { current ->
+        val cleaned = target.copy(tracksMoon = false, requiresBrightMoon = false)
+        if (cleaned.id in current.customTargets.map { it.id }) current
+        else current.copy(customTargets = current.customTargets + cleaned)
+    }
+
+    fun removeCustomTarget(id: String) = mutate { current ->
+        current.copy(customTargets = current.customTargets.filterNot { it.id == id })
+    }
 
     fun setDigestTime(time: String) = mutate { it.copy(digestTime = time) }
     fun setDigestEnabled(enabled: Boolean) = mutate { it.copy(digestEnabled = enabled) }

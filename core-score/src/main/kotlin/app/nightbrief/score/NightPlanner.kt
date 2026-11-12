@@ -3,6 +3,8 @@ package app.nightbrief.score
 import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.IssPass
 import app.nightbrief.astro.NightEphemeris
+import app.nightbrief.astro.Target
+import app.nightbrief.astro.TargetCatalog
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
@@ -118,6 +120,7 @@ object NightPlanner {
         forecastStatus: ForecastStatus? = null,
         warnings: List<String> = emptyList(),
         includeSuggestions: Boolean = true,
+        customTargets: List<Target> = emptyList(),
     ): NightReport {
         val horizon = { azimuthDeg: Double -> site.horizon.obstructionDeg(azimuthDeg) }
         val eph = NightEphemeris.compute(
@@ -195,7 +198,13 @@ object NightPlanner {
             score = score,
             timeline = timeline,
             suggestions = if (includeSuggestions) {
-                TargetAdvisor.suggest(eph, bortle, kit, horizonObstructionDeg = horizon)
+                TargetAdvisor.suggest(
+                    eph,
+                    bortle,
+                    kit,
+                    catalog = TargetCatalog.withCustoms(customTargets),
+                    horizonObstructionDeg = horizon,
+                )
             } else {
                 emptyList()
             },

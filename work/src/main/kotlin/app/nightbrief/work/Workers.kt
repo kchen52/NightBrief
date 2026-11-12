@@ -68,6 +68,7 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             kit = ready.gear,
             outlookDays = 1,
             forceRefresh = true,
+            customTargets = ready.customTargets,
         )
         try {
             WindowAlarmScheduler.onBriefingRefreshed(applicationContext, briefing)
@@ -208,6 +209,7 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
             kit = current.gear,
             outlookDays = 1,
             forceRefresh = false,
+            customTargets = current.customTargets,
         )
         BigNightPosts.withLock {
             val latest = graph.settings.current()

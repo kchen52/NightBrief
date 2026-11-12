@@ -24,6 +24,21 @@ class RescheduleReceiver : BroadcastReceiver() {
     }
 }
 
+/** Fires at `bestWindow.start` when the user armed a reminder on Tonight, and clears the one-shot state. */
+class WindowAlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != WindowAlarmScheduler.ACTION_WINDOW_ALARM) return
+        val pending = goAsync()
+        AppGraph.get(context).appScope.launch {
+            try {
+                WindowAlarmScheduler.fire(context)
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+}
+
 private fun BroadcastReceiver.rescheduleAsync(context: Context) {
     val pending = goAsync()
     AppGraph.get(context).appScope.launch {

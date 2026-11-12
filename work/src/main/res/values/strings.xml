@@ -10,6 +10,10 @@
     <string name="channel_aurora_description">Posted at night when the observed Kp reaches your alert threshold</string>
     <string name="aurora_title_likely">Aurora likely at %1$s</string>
     <string name="aurora_title_possible">Aurora possible at %1$s</string>
+    <string name="channel_window_name">Imaging window</string>
+    <string name="channel_window_description">Fires when the best window you asked to be reminded about opens</string>
+    <string name="window_open_title">The window is open at %1$s</string>
+    <string name="window_open_text">Best window %1$s (score %2$d)</string>
     <string name="big_night_title">Big Night at %1$s</string>
     <string name="big_night_text">Tonight scores %1$d. %2$s</string>
     <string name="collapse_title">Tonight collapsed at %1$s</string>

@@ -48,6 +48,7 @@ object DigestScheduler {
 
     fun reschedule(context: Context, state: AppState) {
         val alarms = context.getSystemService<AlarmManager>() ?: return
+        WindowAlarmScheduler.reschedule(context, state)
         val next = DigestTimes.next(state, Instant.now(), ZoneId.systemDefault())
         if (next == null || !state.onboardingComplete) {
             alarms.cancel(alarmIntent(context, null))

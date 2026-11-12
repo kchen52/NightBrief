@@ -149,6 +149,10 @@ Aurora is a nowcast: by the 08:00 digest the show is over. When **Aurora alerts*
 
 Each run reads the observed product (`noaa-planetary-k-index.json`) through `SwpcObservedKpClient`, cached for 10 minutes, and takes the 3-hour bin that contains now. A site is pushed when that Kp is at or above the saved threshold (Kp 3–9, default 5) and `Aurora.chance` grades it above `UNLIKELY` — high latitude stays |latitude| ≥ 55°. The post lands on the `aurora` channel with the `Observed Kp 6.3 — look north now` line, and opens Tonight for that site. One post per site per 3-hour bin: `lastAuroraAlerts` stores the bin's epoch second, so a revised reading inside the bin does not post again. An offline fetch is not a retry storm — the next 15-minute run tries again. Nothing here is a score factor, and the Today card and digest are unchanged.
 
+### Window-start alarm
+
+When Tonight shows a `bestWindow`, the hero card offers a **Remind me at the window** chip (`AppState.windowAlarm`). Tapping it arms a one-shot `AlarmManager` alarm (`RTC_WAKEUP`) at `bestWindow.start` through `WindowAlarmScheduler` (request code 1002, `WindowAlarmReceiver`) — a separate `PendingIntent` beside the morning digest's request code 1001 so arming or cancelling the reminder never disturbs the digest. It uses the same `DigestScheduler.armDigestAlarm` path (`setAndAllowWhileIdle` on API 31+ so `SCHEDULE_EXACT_ALARM` stays out of the manifest, and `setExactAndAllowWhileIdle` with an inexact fallback below API 31). When a refreshed briefing (`AppViewModel.refresh`, `DigestWorker`, or `PrefetchWorker`) shifts `bestWindow`, `WindowAlarmScheduler` re-arms 1002 at the new start; when a refreshed briefing loses the window, or the site is deleted, it cancels 1002. When the alarm fires, `WindowAlarmReceiver` posts on the `window_start` channel with a `PendingIntent` carrying `EXTRA_SITE_ID` (opening Tonight for that site) and clears `windowAlarm` so the one-shot reminder does not fire again.
+
 ## Build and test
 
 JDK 21 and an Android SDK are required (`compileSdk` 36 for the phone, 35 for the watch).

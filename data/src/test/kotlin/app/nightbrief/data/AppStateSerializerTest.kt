@@ -4,6 +4,7 @@ import app.nightbrief.gear.GearCatalog
 import app.nightbrief.score.AuroraAlerts
 import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.UnitSystem
+import app.nightbrief.score.WindowAlarm
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import kotlinx.coroutines.test.runTest
@@ -79,6 +80,29 @@ class AppStateSerializerTest {
             auroraAlertsEnabled = true,
             auroraKpThreshold = 6,
             lastAuroraAlerts = mapOf("home" to 1_762_920_000L),
+        )
+        val out = ByteArrayOutputStream()
+        AppStateSerializer.writeTo(state, out)
+        assertEquals(state, AppStateSerializer.readFrom(ByteArrayInputStream(out.toByteArray())))
+    }
+
+    @Test
+    fun olderFileWithoutWindowAlarmDecodesAsNull() = runTest {
+        val json = """{"onboardingComplete":true}"""
+        val state = AppStateSerializer.readFrom(ByteArrayInputStream(json.toByteArray()))
+        assertEquals(null, state.windowAlarm)
+    }
+
+    @Test
+    fun windowAlarmRoundTrips() = runTest {
+        val state = AppState(
+            windowAlarm = WindowAlarm(
+                siteId = "home",
+                nightDate = "2026-08-12",
+                startEpochSecond = 1_786_500_000L,
+                endEpochSecond = 1_786_510_800L,
+                windowScore = 88,
+            ),
         )
         val out = ByteArrayOutputStream()
         AppStateSerializer.writeTo(state, out)

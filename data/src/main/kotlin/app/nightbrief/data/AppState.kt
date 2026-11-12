@@ -7,6 +7,7 @@ import app.nightbrief.score.BigNightAlerts
 import app.nightbrief.score.SessionEntry
 import app.nightbrief.score.SiteComparison
 import app.nightbrief.score.UnitSystem
+import app.nightbrief.score.WindowAlarm
 import app.nightbrief.sites.SiteBook
 import kotlinx.serialization.Serializable
 import java.time.LocalTime
@@ -84,6 +85,11 @@ data class AppState(
      * and night. Unknown ids are harmless, so a card removed later leaves nothing to migrate.
      */
     val collapsedCards: Set<String> = emptySet(),
+    /**
+     * One-shot reminder armed from Tonight for the start of `bestWindow` (`WindowAlarmScheduler`,
+     * request code 1002). Null when no reminder is armed, so older files decode with none set.
+     */
+    val windowAlarm: WindowAlarm? = null,
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 

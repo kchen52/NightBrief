@@ -69,6 +69,13 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             outlookDays = 1,
             forceRefresh = true,
         )
+        try {
+            WindowAlarmScheduler.onBriefingRefreshed(applicationContext, briefing)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Syncing the window reminder must not block the morning digest.
+        }
         val timeFormat = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
         val notifier = DigestNotifier(applicationContext)
         val needsRetry = mutableListOf<String>()
@@ -155,8 +162,8 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
         if (failures > 0 && failures == sites.size) return Result.retry()
 
+        var briefing: Briefing? = null
         if (state.bigNightAlertsEnabled) {
-            var briefing: Briefing? = null
             try {
                 briefing = postBigNightAlerts(graph)
             } catch (e: CancellationException) {
@@ -171,6 +178,21 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 throw e
             } catch (_: Exception) {
                 // A failed collapse check must not fail the prefetch either.
+            }
+        }
+        if (state.windowAlarm != null) {
+            try {
+                val refreshed = briefing ?: graph.briefings.brief(
+                    sites = state.sites.primaryFirst(),
+                    kit = state.gear,
+                    outlookDays = 1,
+                    forceRefresh = false,
+                )
+                WindowAlarmScheduler.onBriefingRefreshed(applicationContext, refreshed)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Re-arming the window reminder must not turn a saved prefetch into a retry.
             }
         }
         WidgetRefresh.request(applicationContext)

@@ -133,6 +133,10 @@ fun NightDetail(
     clock: Clock = Clock.systemUTC(),
     /** ISS is opt-in (`AppState.issEnabled`). Off, the card is left out even when the report has passes. */
     showIss: Boolean = false,
+    /** Whether the one-shot window reminder (`WindowAlarmScheduler`, request code 1002) is armed for [report]. */
+    windowAlarmArmed: Boolean = false,
+    /** Passed on Tonight so the user can arm or cancel a one-shot alarm at `bestWindow.start`. */
+    onToggleWindowAlarm: (() -> Unit)? = null,
 ) {
     val form = rememberWindowForm()
     // Stacked, lead, and panes are three different composition positions. Keeping the
@@ -159,7 +163,7 @@ fun NightDetail(
         }
         when (form.detail) {
             WindowForm.Detail.Stacked -> {
-                HeroCard(report, clock)
+                HeroCard(report, clock, windowAlarmArmed, onToggleWindowAlarm)
                 SkyCard(report)
                 ConditionCards(report, units, showIss, ui)
                 ScoreCards(report, units, ui)
@@ -170,7 +174,7 @@ fun NightDetail(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        HeroCard(report, clock)
+                        HeroCard(report, clock, windowAlarmArmed, onToggleWindowAlarm)
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         SkyCard(report)
@@ -183,7 +187,7 @@ fun NightDetail(
                 FoldColumns(
                     fold = form.fold,
                     left = {
-                        HeroCard(report, clock)
+                        HeroCard(report, clock, windowAlarmArmed, onToggleWindowAlarm)
                         ScoreCards(report, units, ui)
                     },
                     right = {
@@ -306,7 +310,12 @@ private fun StatusBanners(report: NightReport) {
 }
 
 @Composable
-private fun HeroCard(report: NightReport, clock: Clock) {
+private fun HeroCard(
+    report: NightReport,
+    clock: Clock,
+    windowAlarmArmed: Boolean = false,
+    onToggleWindowAlarm: (() -> Unit)? = null,
+) {
     val score = report.score
     AliveHeroCard(report, clock = clock) {
         // The gauge is 148dp. Beside it, the copy needs another line of width.
@@ -316,7 +325,7 @@ private fun HeroCard(report: NightReport, clock: Clock) {
                 Row(Modifier.testTag("hero-row"), verticalAlignment = Alignment.CenterVertically) {
                     CountingScoreGauge(score?.score)
                     Spacer(Modifier.width(18.dp))
-                    Column(Modifier.weight(1f)) { HeroCopy(report) }
+                    Column(Modifier.weight(1f)) { HeroCopy(report, windowAlarmArmed, onToggleWindowAlarm) }
                 }
             } else {
                 Column(
@@ -325,7 +334,7 @@ private fun HeroCard(report: NightReport, clock: Clock) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     CountingScoreGauge(score?.score)
-                    Column(Modifier.fillMaxWidth()) { HeroCopy(report) }
+                    Column(Modifier.fillMaxWidth()) { HeroCopy(report, windowAlarmArmed, onToggleWindowAlarm) }
                 }
             }
         }
@@ -369,7 +378,11 @@ private fun HeroCard(report: NightReport, clock: Clock) {
 }
 
 @Composable
-private fun HeroCopy(report: NightReport) {
+private fun HeroCopy(
+    report: NightReport,
+    windowAlarmArmed: Boolean = false,
+    onToggleWindowAlarm: (() -> Unit)? = null,
+) {
     val score = report.score
     Text(report.site.name, style = MaterialTheme.typography.titleLarge)
     Text(
@@ -399,6 +412,19 @@ private fun HeroCopy(report: NightReport) {
                     stringResource(R.string.best_window, Format.window(it, report.site.zone), score.bestWindowScore),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (onToggleWindowAlarm != null) {
+                Spacer(Modifier.height(6.dp))
+                val label = if (windowAlarmArmed) {
+                    stringResource(R.string.window_reminder_set, Format.time(it.start, report.site.zone))
+                } else {
+                    stringResource(R.string.remind_at_window)
+                }
+                AssistChip(
+                    onClick = onToggleWindowAlarm,
+                    label = { Text(label) },
+                    modifier = Modifier.testTag("window-alarm"),
                 )
             }
         }

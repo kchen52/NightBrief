@@ -68,6 +68,7 @@ import app.nightbrief.score.ConstellationStreaks
 import app.nightbrief.score.Passport
 import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.SiteComparison
+import app.nightbrief.score.WindowAlarms
 import app.nightbrief.sites.Site
 import java.time.LocalDate
 
@@ -202,7 +203,15 @@ fun TonightScreen(
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                     }
-                    NightDetail(report, alternative, onOpenAlternative = vm::selectSite, units = units, showIss = current.issEnabled)
+                    NightDetail(
+                        report = report,
+                        alternative = alternative,
+                        onOpenAlternative = vm::selectSite,
+                        units = units,
+                        showIss = current.issEnabled,
+                        windowAlarmArmed = WindowAlarms.isArmedFor(current.windowAlarm, report),
+                        onToggleWindowAlarm = { vm.toggleWindowAlarm(report) },
+                    )
                     val darkerSky by vm.darkerSky.collectAsStateWithLifecycle()
                     DarkerSkyCard(
                         site = report.site,

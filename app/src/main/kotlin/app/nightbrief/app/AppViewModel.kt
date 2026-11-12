@@ -19,10 +19,12 @@ import app.nightbrief.score.SessionPrompt
 import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
+import app.nightbrief.score.WindowAlarms
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.PlaceSearchResult
 import app.nightbrief.work.DigestScheduler
 import app.nightbrief.work.WidgetRefresh
+import app.nightbrief.work.WindowAlarmScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,6 +114,7 @@ class AppViewModel(
                 val statuses = result.tonight.joinToString(",") { it.forecastStatus?.name ?: "null" }
                 Log.d(AppGraph.NET_LOG_TAG, "brief done sites=${s.sites.sites.size} force=$force took=${tookMs}ms statuses=[$statuses]")
                 _briefing.value = BriefingUiState(result, loading = false)
+                WindowAlarmScheduler.onBriefingRefreshed(getApplication(), result)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -275,7 +278,12 @@ class AppViewModel(
         }
     }
 
-    fun deleteSite(id: String) = mutate { it.copy(sites = it.sites.delete(id)) }
+    fun deleteSite(id: String) = mutate {
+        val sites = it.sites.delete(id)
+        it.copy(sites = sites, windowAlarm = WindowAlarms.syncWithSites(it.windowAlarm, sites))
+    }
+
+    fun toggleWindowAlarm(report: NightReport) = mutate { WindowAlarmScheduler.toggle(it, report) }
     /**
      * Puts [previous] back after a delete, but only while the book is still exactly [expected]
      * (the book right after that delete). Any edit in between wins and the undo is dropped.

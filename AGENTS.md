@@ -94,7 +94,7 @@ Ephemeris is planning-grade (`Bodies`, Astronomical Almanac low precision). `cor
 - ISS elements cache for 12 hours, and up to 7 days when a later fetch fails.
 - Bortle lookup does blocking I/O and can take about a second. Call it on `Dispatchers.IO`. Do not cache the grids in memory. The site form waits about 400 ms after coordinates settle before looking up.
 - Darker-sky search drops open water before scoring (`OpenWater`, `water_mask.wmsk.gzip`). That mask is inflated once per process. Do not stream it like the Bortle grids, and do not cache those grids to match it. A mask that cannot be read reports land so the search still returns.
-- There is one digest `PendingIntent` (request code 1001). The receiver re-arms the next instant after it fires. Do not add a second alarm slot unless the task is to fix that.
+- There are two alarm `PendingIntent`s: the morning digest (request code 1001, `DigestScheduler`) and the one-shot window-start reminder from Tonight (request code 1002, `WindowAlarmScheduler`). The digest receiver re-arms the next instant after it fires; the window alarm clears itself when it fires and re-arms or cancels when a refreshed briefing moves the window or the site is deleted. Do not add another alarm slot unless the task is to change that.
 
 ## Bortle grids and licences
 

@@ -76,6 +76,7 @@ object DigestComposer {
             lines += "${it.report.site.name} +${it.delta}" + if (why.isNotEmpty()) ": $why" else ""
         }
         report.meteor?.takeIf { it.worthWatching }?.let { lines += MeteorAdvisor.digestLine(it) }
+        report.comet?.takeIf { it.worthShowing }?.let { lines += CometAdvisor.digestLine(it) }
         issLine(report.issPasses, ::fmt)?.let { lines += it }
         report.aurora?.let { aurora ->
             val line = AuroraCopy.digestLine(aurora)

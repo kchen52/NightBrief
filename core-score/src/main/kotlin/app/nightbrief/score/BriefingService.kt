@@ -3,6 +3,7 @@ package app.nightbrief.score
 import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.IssPasses
 import app.nightbrief.astro.MoonPhase
+import app.nightbrief.astro.MpcComets
 import app.nightbrief.astro.SkyEvent
 import app.nightbrief.astro.SkyEvents
 import app.nightbrief.astro.Target
@@ -10,6 +11,8 @@ import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.AirQualitySeries
 import app.nightbrief.weather.AirQualitySource
+import app.nightbrief.weather.CometElementsFile
+import app.nightbrief.weather.CometSource
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastRepository
@@ -117,6 +120,11 @@ class BriefingService(
      * does not fail the briefing. Unlike Kp this is per site, so the brief fetches each saved site.
      */
     private val airQuality: AirQualitySource? = null,
+    /**
+     * MPC observable-comet elements. Null or a failed fetch leaves [NightReport.comet]
+     * empty and does not fail the briefing.
+     */
+    private val comets: CometSource? = null,
 ) : BriefingSource {
     override suspend fun brief(
         sites: List<Site>,
@@ -135,6 +143,7 @@ class BriefingService(
         val now = clock.instant()
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
+        val cometDeferred = async { fetchComets() }
         val airQualityDeferred = async { fetchAirQualityForSites(sites) }
         // Sites in the same ~1 km cache cell share one fetch; ephemeris and scoring still run per site.
         val keys = sites.map { ForecastRepository.cacheKey(it.latitude, it.longitude) }
@@ -149,6 +158,7 @@ class BriefingService(
         }
         val kpForecast = kpDeferred.await()
         val issTle = issDeferred.await()
+        val cometFile = cometDeferred.await()
         val airQualityBySite = airQualityDeferred.await()
 
         val tonight = mutableListOf<NightReport>()
@@ -171,7 +181,7 @@ class BriefingService(
                     warnings = warnings,
                     includeSuggestions = offset == 0,
                     customTargets = customTargets,
-                ).withAurora(kpForecast).withIss(issTle).withSmoke(airQualityBySite[site.id])
+                ).withAurora(kpForecast).withIss(issTle).withSmoke(airQualityBySite[site.id]).withComet(cometFile)
             }
             tonight += nights.first()
             outlooks += WeeklyOutlook(
@@ -211,10 +221,12 @@ class BriefingService(
     ): NightReport = coroutineScope {
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
+        val cometDeferred = async { fetchComets() }
         val airQualityDeferred = async { fetchAirQuality(site) }
         val forecastDeferred = async { fetchForecast(site, forceRefresh = false) }
         val kpForecast = kpDeferred.await()
         val issTle = issDeferred.await()
+        val cometFile = cometDeferred.await()
         val airQuality = airQualityDeferred.await()
         val fr = forecastDeferred.await()
         val failure = fr.exceptionOrNull()?.let { forecastUserText(it) }
@@ -222,7 +234,7 @@ class BriefingService(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(failure),
             customTargets = customTargets,
-        ).withAurora(kpForecast).withIss(issTle).withSmoke(airQuality)
+        ).withAurora(kpForecast).withIss(issTle).withSmoke(airQuality).withComet(cometFile)
     }
 
     private fun forecastUserText(error: Throwable): String =
@@ -250,6 +262,17 @@ class BriefingService(
 
     private suspend fun fetchKp(): KpForecast? {
         val source = kp ?: return null
+        return try {
+            source.fetch()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private suspend fun fetchComets(): CometElementsFile? {
+        val source = comets ?: return null
         return try {
             source.fetch()
         } catch (e: CancellationException) {
@@ -328,5 +351,24 @@ class BriefingService(
         val darkHours = if (inside.isNotEmpty()) inside else listOf(dark.start.plus(dark.duration.dividedBy(2)))
         val smoke = Smoke.assess(darkHours, series) ?: return this
         return copy(smoke = smoke)
+    }
+
+    private fun NightReport.withComet(file: CometElementsFile?): NightReport {
+        if (file == null) return this
+        val orbits = try {
+            MpcComets.parse(file.text)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return this
+        }
+        val outlook = try {
+            CometAdvisor.forNight(ephemeris, orbits)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return this
+        } ?: return this
+        return copy(comet = outlook)
     }
 }

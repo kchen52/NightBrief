@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.SatelliteAlt
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Timeline
@@ -98,6 +99,8 @@ import app.nightbrief.score.AuroraChance
 import app.nightbrief.score.AuroraCopy
 import app.nightbrief.score.AuroraOutlook
 import app.nightbrief.score.CloudReason
+import app.nightbrief.score.CometAdvisor
+import app.nightbrief.score.CometOutlook
 import app.nightbrief.score.DewCopy
 import app.nightbrief.score.DewOutlook
 import app.nightbrief.score.DigestComposer
@@ -212,6 +215,7 @@ private fun ColumnScope.ConditionCards(
     report.smoke?.let { SmokeCard(it, report.site.zone, ui) }
     report.aurora?.let { AuroraCard(it, ui) }
     report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report, ui) }
+    report.comet?.takeIf { it.worthShowing }?.let { CometCard(it, report, ui) }
     if (showIss && report.issPasses.isNotEmpty()) IssCard(report)
     MilkyWayCard(report)
 }
@@ -711,6 +715,38 @@ private fun WhyBlock(title: String, detail: String, ui: DetailUiState) {
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun CometCard(comet: CometOutlook, report: NightReport, ui: DetailUiState) {
+    val title = stringResource(R.string.section_comet)
+    SectionCard(title, icon = Icons.Filled.Star, collapseId = CardIds.COMET) {
+        EmphasizedText(
+            CometAdvisor.digestLine(comet),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Filled.Explore,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(6.dp))
+            EmphasizedText(
+                stringResource(
+                    R.string.comet_position,
+                    Format.azimuth(comet.peakAzimuthDeg),
+                    Format.time(comet.peakTime, report.site.zone),
+                ),
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        WhyBlock(title, CometAdvisor.detail(comet), ui)
     }
 }
 

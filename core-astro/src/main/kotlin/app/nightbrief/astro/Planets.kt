@@ -79,7 +79,7 @@ object Planets {
     private val EARTH = Elements(1.00000261, 0.00000562, 0.01671123, -0.00004392, -0.00001531, -0.01294668, 100.46457166, 35999.37244981, 102.93768193, 0.32327364, 0.0, 0.0)
 
     /** J2000 mean obliquity, matching the J2000 ecliptic frame above. */
-    private const val J2000_OBLIQUITY = 23.43928
+    internal const val J2000_OBLIQUITY = 23.43928
 
     fun position(planet: Planet, instant: Instant): PlanetPosition {
         val t = AstroTime.daysSinceJ2000(instant) / 36525.0
@@ -113,6 +113,15 @@ object Planets {
 
     fun all(instant: Instant): Map<Planet, PlanetPosition> =
         Planet.entries.associateWith { position(it, instant) }
+
+    /**
+     * Heliocentric J2000 ecliptic position of the Earth/Moon barycentre, AU.
+     * The same stand-in [position] uses for Earth. Index 0, 1, 2 are x, y, z.
+     */
+    fun earthBarycentre(instant: Instant): DoubleArray {
+        val t = AstroTime.daysSinceJ2000(instant) / 36525.0
+        return heliocentric(EARTH, t)
+    }
 
     /** Heliocentric J2000 ecliptic position, AU. */
     private fun heliocentric(e: Elements, t: Double): DoubleArray {

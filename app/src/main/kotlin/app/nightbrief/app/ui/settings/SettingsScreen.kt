@@ -472,6 +472,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 Text(stringResource(R.string.about_7timer), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_swpc), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_iss), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_comets), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_meteors), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_osm), style = MaterialTheme.typography.bodyMedium)
                 Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)

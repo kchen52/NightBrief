@@ -70,6 +70,11 @@ data class NightReport(
     val cloudReason: CloudReason? = null,
     /** When [forecast] was fetched. Set whenever a forecast was available, including a stale file. */
     val forecastFetchedAt: Instant? = null,
+    /**
+     * Brightest comet that clears the magnitude bar and 10° during the dark window.
+     * Null when none does, or when no element file was available. Not a score input.
+     */
+    val comet: CometOutlook? = null,
 ) {
     val scoreValue: Int? get() = score?.score
 

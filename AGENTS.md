@@ -21,11 +21,11 @@ Dependencies point inward. A module may use the ones it lists, and nothing else.
 
 | Module | Kind | May depend on | Put here |
 | --- | --- | --- | --- |
-| `:core-astro` | JVM | — | Sun, Moon, galactic centre, night windows, meteor table, SGP4, ISS passes |
-| `:core-weather` | JVM | — | Open-Meteo, 7Timer, SWPC, Celestrak, air quality, forecast and TLE caches |
+| `:core-astro` | JVM | — | Sun, Moon, galactic centre, night windows, meteor table, comet orbits, SGP4, ISS passes |
+| `:core-weather` | JVM | — | Open-Meteo, 7Timer, SWPC, Celestrak, MPC comet elements, air quality, forecast, TLE, and comet caches |
 | `:core-sites` | JVM | — | Sites, Bortle class, grid lookup |
 | `:core-gear` | JVM | — | Bodies, lenses, NPF / 500-rule exposure |
-| `:core-score` | JVM | the four cores above | Night Score, tonight's plan, meteors, ISS and aurora outlooks, digest text, site comparison, widget and Wear copy |
+| `:core-score` | JVM | the four cores above | Night Score, tonight's plan, meteors, comets, ISS and aurora outlooks, digest text, site comparison, widget and Wear copy |
 | `:data` | Android | `:core-score` | `AppState`, `SettingsRepository`, process-wide `AppGraph` |
 | `:work` | Android | `:data` | Alarms, `DigestWorker`, `PrefetchWorker`, notifications, the widget-refresh broadcast |
 | `:app` | Android | `:work` only | Compose UI, home-screen widget, Wear data-layer publish |

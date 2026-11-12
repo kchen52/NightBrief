@@ -176,6 +176,7 @@ object CardIds {
     const val SMOKE = "smoke"
     const val AURORA = "aurora"
     const val METEORS = "meteors"
+    const val COMET = "comet"
     const val ISS = "iss"
     const val MILKY_WAY = "milky-way"
     const val BREAKDOWN = "breakdown"

@@ -97,6 +97,8 @@
     <string name="section_overnight">Overnight</string>
     <string name="section_meteors">Meteors</string>
     <string name="meteor_radiant">Radiant %1$s at %2$s</string>
+    <string name="section_comet">Comet</string>
+    <string name="comet_position">%1$s at %2$s</string>
     <string name="section_iss">ISS</string>
     <string name="iss_span">%1$s – %2$s</string>
     <string name="iss_from">From %1$s</string>
@@ -232,6 +234,7 @@
     <string name="about_7timer">Seeing and transparency by 7Timer!.</string>
     <string name="about_swpc">Planetary Kp by NOAA SWPC.</string>
     <string name="about_iss">ISS orbits by Celestrak.</string>
+    <string name="about_comets">Comet orbits by the IAU Minor Planet Center.</string>
     <string name="about_meteors">Meteor rates are a static annual table, not a live feed.</string>
     <string name="about_osm">Map data © OpenStreetMap contributors.</string>
     <string name="map_osm">Map data © OpenStreetMap contributors</string>

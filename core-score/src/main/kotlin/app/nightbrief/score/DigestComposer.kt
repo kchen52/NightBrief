@@ -85,6 +85,7 @@ object DigestComposer {
             DewCopy.riskLine(dew, ::fmt)?.let { lines += it }
             lines += DewCopy.lowLine(dew, units, ::fmt)
         }
+        report.smoke?.let { smoke -> SmokeCopy.riskLine(smoke, ::fmt)?.let { lines += it } }
         if (report.forecastStatus == ForecastStatus.STALE) {
             val reason = report.warnings.firstOrNull()?.takeIf { it.isNotBlank() }
             val savedAt = report.forecastFetchedAt

@@ -110,6 +110,8 @@ import app.nightbrief.score.NightSummary
 import app.nightbrief.score.SavedForecast
 import app.nightbrief.score.SiteAlternative
 import app.nightbrief.score.SiteComparison
+import app.nightbrief.score.SmokeCopy
+import app.nightbrief.score.SmokeOutlook
 import app.nightbrief.score.TargetSuggestion
 import app.nightbrief.score.TimelineHour
 import app.nightbrief.score.UnitSystem
@@ -203,6 +205,7 @@ private fun ColumnScope.ConditionCards(
     ui: DetailUiState,
 ) {
     report.dew?.let { DewCard(it, report.site.zone, units, ui) }
+    report.smoke?.let { SmokeCard(it, report.site.zone, ui) }
     report.aurora?.let { AuroraCard(it, ui) }
     report.meteor?.takeIf { it.worthWatching }?.let { MeteorCard(it, report, ui) }
     if (showIss && report.issPasses.isNotEmpty()) IssCard(report)
@@ -572,6 +575,31 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem, ui: Detail
             fontWeight = if (dew.risk) FontWeight.Normal else FontWeight.SemiBold,
         )
         WhyBlock(stringResource(titleRes), DewCopy.detail(dew, units), ui)
+    }
+}
+
+@Composable
+private fun SmokeCard(smoke: SmokeOutlook, zone: ZoneId, ui: DetailUiState) {
+    val title = stringResource(R.string.section_smoke)
+    val smoky = smoke.smoky
+    SectionCard(title, icon = Icons.Filled.FilterDrama, collapseId = CardIds.SMOKE) {
+        SmokeCopy.riskLine(smoke) { Format.time(it, zone) }?.let { line ->
+            EmphasizedText(
+                line,
+                style = MaterialTheme.typography.titleMedium,
+                color = NightColors.Amber,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+        SmokeCopy.peakLine(smoke).let { line ->
+            EmphasizedText(
+                line,
+                style = if (smoky) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
+                fontWeight = if (smoky) FontWeight.Normal else FontWeight.SemiBold,
+            )
+        }
+        WhyBlock(title, SmokeCopy.detail(smoke), ui)
     }
 }
 

@@ -7,14 +7,16 @@ import app.nightbrief.astro.SkyEvent
 import app.nightbrief.astro.SkyEvents
 import app.nightbrief.gear.GearKit
 import app.nightbrief.sites.Site
+import app.nightbrief.weather.AirQualitySeries
+import app.nightbrief.weather.AirQualitySource
 import app.nightbrief.weather.ForecastResult
 import app.nightbrief.weather.ForecastSource
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.IssTle
-import app.nightbrief.weather.WeatherApiException
 import app.nightbrief.weather.KpForecast
 import app.nightbrief.weather.KpSource
 import app.nightbrief.weather.TleSource
+import app.nightbrief.weather.WeatherApiException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -94,6 +96,11 @@ class BriefingService(
     private val kp: KpSource? = null,
     /** ISS elements. Null or a failed fetch leaves [NightReport.issPasses] empty and does not fail the briefing. */
     private val iss: TleSource? = null,
+    /**
+     * Open-Meteo air quality (CAMS). Null or a failed fetch leaves [NightReport.smoke] empty and
+     * does not fail the briefing. Unlike Kp this is per site, so the brief fetches each saved site.
+     */
+    private val airQuality: AirQualitySource? = null,
 ) : BriefingSource {
     override suspend fun brief(
         sites: List<Site>,
@@ -104,6 +111,7 @@ class BriefingService(
         val now = clock.instant()
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
+        val airQualityDeferred = async { fetchAirQualityForSites(sites) }
         // Sites in the same ~1 km cache cell share one fetch; ephemeris and scoring still run per site.
         val keys = sites.map { ForecastRepository.cacheKey(it.latitude, it.longitude) }
         val fetchedByKey = keys.distinct().map { key ->
@@ -117,6 +125,7 @@ class BriefingService(
         }
         val kpForecast = kpDeferred.await()
         val issTle = issDeferred.await()
+        val airQualityBySite = airQualityDeferred.await()
 
         val tonight = mutableListOf<NightReport>()
         val outlooks = mutableListOf<WeeklyOutlook>()
@@ -137,7 +146,7 @@ class BriefingService(
                     forecastStatus = fr?.status,
                     warnings = warnings,
                     includeSuggestions = offset == 0,
-                ).withAurora(kpForecast).withIss(issTle)
+                ).withAurora(kpForecast).withIss(issTle).withSmoke(airQualityBySite[site.id])
             }
             tonight += nights.first()
             outlooks += WeeklyOutlook(
@@ -169,15 +178,17 @@ class BriefingService(
     override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport = coroutineScope {
         val kpDeferred = async { fetchKp() }
         val issDeferred = async { fetchIss() }
+        val airQualityDeferred = async { fetchAirQuality(site) }
         val forecastDeferred = async { fetchForecast(site, forceRefresh = false) }
         val kpForecast = kpDeferred.await()
         val issTle = issDeferred.await()
+        val airQuality = airQualityDeferred.await()
         val fr = forecastDeferred.await()
         val failure = fr.exceptionOrNull()?.let { forecastUserText(it) }
         NightPlanner.plan(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(failure),
-        ).withAurora(kpForecast).withIss(issTle)
+        ).withAurora(kpForecast).withIss(issTle).withSmoke(airQuality)
     }
 
     private fun forecastUserText(error: Throwable): String =
@@ -225,6 +236,36 @@ class BriefingService(
         }
     }
 
+    private suspend fun fetchAirQuality(site: Site): AirQualitySeries? {
+        val source = airQuality ?: return null
+        return try {
+            source.fetch(site.latitude, site.longitude)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Air quality is per site, so each fetched site gets its own request. One failure only drops that site. */
+    private suspend fun fetchAirQualityForSites(sites: List<Site>): Map<String, AirQualitySeries> {
+        val source = airQuality ?: return emptyMap()
+        return coroutineScope {
+            sites.map { site ->
+                async {
+                    val series = try {
+                        source.fetch(site.latitude, site.longitude)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                    site.id to series
+                }
+            }.awaitAll().mapNotNull { (id, series) -> series?.let { id to it } }.toMap()
+        }
+    }
+
     private fun NightReport.withAurora(forecast: KpForecast?): NightReport {
         if (forecast == null) return this
         return copy(aurora = Aurora.forNight(site, ephemeris, forecast))
@@ -244,5 +285,14 @@ class BriefingService(
             )
         }.getOrDefault(emptyList())
         return copy(issPasses = passes)
+    }
+
+    private fun NightReport.withSmoke(series: AirQualitySeries?): NightReport {
+        if (series == null) return this
+        val dark = ephemeris.darkWindow ?: return this
+        val inside = timeline.map { it.time }.filter { it in dark }
+        val darkHours = if (inside.isNotEmpty()) inside else listOf(dark.start.plus(dark.duration.dividedBy(2)))
+        val smoke = Smoke.assess(darkHours, series) ?: return this
+        return copy(smoke = smoke)
     }
 }

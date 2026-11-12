@@ -22,7 +22,7 @@ Dependencies point inward. A module may use the ones it lists, and nothing else.
 | Module | Kind | May depend on | Put here |
 | --- | --- | --- | --- |
 | `:core-astro` | JVM | — | Sun, Moon, galactic centre, night windows, meteor table, SGP4, ISS passes |
-| `:core-weather` | JVM | — | Open-Meteo, 7Timer, SWPC, Celestrak, forecast and TLE caches |
+| `:core-weather` | JVM | — | Open-Meteo, 7Timer, SWPC, Celestrak, air quality, forecast and TLE caches |
 | `:core-sites` | JVM | — | Sites, Bortle class, grid lookup |
 | `:core-gear` | JVM | — | Bodies, lenses, NPF / 500-rule exposure |
 | `:core-score` | JVM | the four cores above | Night Score, tonight's plan, meteors, ISS and aurora outlooks, digest text, site comparison, widget and Wear copy |

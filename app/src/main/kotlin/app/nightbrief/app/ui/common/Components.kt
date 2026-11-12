@@ -172,6 +172,7 @@ val LocalCardCollapse = compositionLocalOf<CardCollapse?> { null }
 object CardIds {
     const val SKY = "sky"
     const val DEW = "dew"
+    const val SMOKE = "smoke"
     const val AURORA = "aurora"
     const val METEORS = "meteors"
     const val ISS = "iss"

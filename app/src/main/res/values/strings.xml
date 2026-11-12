@@ -88,6 +88,7 @@
     <string name="moon_free_darkness">Moon-free darkness: %1$s · Bortle %2$s</string>
     <string name="section_aurora">Aurora</string>
     <string name="section_dew">Dew</string>
+    <string name="section_smoke">Smoke</string>
     <string name="section_frost">Frost</string>
     <string name="section_overnight">Overnight</string>
     <string name="section_meteors">Meteors</string>
@@ -205,6 +206,7 @@
     <string name="pale_blue_dot">Look again at that dot. That\'s here. That\'s home. That\'s us.</string>
     <string name="pale_blue_dot_attribution">Carl Sagan, Pale Blue Dot, 1994</string>
     <string name="about_open_meteo">Weather by Open-Meteo.com (CC BY 4.0).</string>
+    <string name="about_air_quality">Air quality (CAMS) by Open-Meteo.com (CC BY 4.0).</string>
     <string name="about_places">Place names by Open-Meteo and GeoNames (CC BY 4.0).</string>
     <string name="about_7timer">Seeing and transparency by 7Timer!.</string>
     <string name="about_swpc">Planetary Kp by NOAA SWPC.</string>

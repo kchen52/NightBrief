@@ -9,6 +9,8 @@ import app.nightbrief.sites.CompositeBortleLookup
 import app.nightbrief.sites.GridOpenWater
 import app.nightbrief.sites.OpenWater
 import app.nightbrief.sites.StreamingGridBortleLookup
+import app.nightbrief.weather.AirQualityClient
+import app.nightbrief.weather.CachingAirQualitySource
 import app.nightbrief.weather.CachingKpSource
 import app.nightbrief.weather.CachingTleSource
 import app.nightbrief.weather.CelestrakClient
@@ -73,7 +75,12 @@ class AppGraph private constructor(context: Context) {
     val issTles = CachingTleSource(CelestrakClient(http = http), File(context.filesDir, "tle/iss.txt"))
 
     private val realBriefings: BriefingSource =
-        BriefingService(realForecasts, kp = CachingKpSource(SwpcKpClient(http = http)), iss = issTles)
+        BriefingService(
+            realForecasts,
+            kp = CachingKpSource(SwpcKpClient(http = http)),
+            iss = issTles,
+            airQuality = CachingAirQualitySource(AirQualityClient(http = http)),
+        )
 
     var briefings: BriefingSource = realBriefings
         private set

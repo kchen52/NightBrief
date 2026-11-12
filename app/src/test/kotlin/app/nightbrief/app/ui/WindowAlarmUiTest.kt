@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
@@ -89,8 +90,8 @@ class WindowAlarmUiTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithText("Remind me at the window").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Remind me at the window").assertIsDisplayed()
-        compose.onNodeWithTag("window-alarm").performClick()
+        compose.onNodeWithText("Remind me at the window").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("window-alarm").performScrollTo().performClick()
 
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithText("Reminder set for", substring = true).fetchSemanticsNodes().isNotEmpty()

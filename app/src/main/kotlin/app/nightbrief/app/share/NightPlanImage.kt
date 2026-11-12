@@ -112,7 +112,10 @@ object NightPlanImage {
         val detailRows = listOfNotNull(
             card.bestWindow?.let { "•  Best $it" to true },
             card.milkyWay.takeIf { it.isNotBlank() }?.let { "•  $it" to false },
-            card.target?.let { "•  Try $it" to false },
+            card.target?.let { name ->
+                val span = card.targetWindow?.let { " ($it)" }.orEmpty()
+                "•  Try $name$span" to false
+            },
         ).map { (value, bold) ->
             text(value, paint(34f, onBackground, bold = bold), cardInnerWidth, maxLines = 2)
         }

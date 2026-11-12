@@ -2,6 +2,7 @@ package app.nightbrief.score
 
 import app.nightbrief.astro.NightEphemeris
 import app.nightbrief.gear.GearCatalog
+import app.nightbrief.gear.TargetInterest
 import app.nightbrief.sites.LocalHorizon
 import app.nightbrief.sites.Site
 import org.junit.Assert.assertEquals
@@ -98,5 +99,22 @@ class BrightMoonAndHorizonTest {
         assertTrue(report.suggestions.none { it.target.id == "mw-core" })
         assertTrue(DigestComposer.compose(report, emptyList()).lines.contains(WidgetCopy.BEHIND_TREELINE))
         assertEquals(WidgetCopy.BEHIND_TREELINE, WidgetCopy.milkyWayLine(null, zone, blockedByHorizon = true))
+    }
+
+    @Test
+    fun localHorizonSetsClearsHorizonAtForNonCoreTarget() {
+        val date = LocalDate.of(2024, 8, 5)
+        val galaxyKit = kit.withInterests(setOf(TargetInterest.GALAXIES))
+        val flatReport = NightPlanner.plan(toronto, date, forecast = null, galaxyKit)
+        val flatM31 = flatReport.suggestions.first { it.target.id == "m31" }
+        assertNull("a flat horizon does not delay M31", flatM31.clearsHorizonAt)
+
+        // M31 rises in the northeast on August evenings and climbs past 50° later in the night.
+        val eastTrees = LocalHorizon(northEast = 42.0, east = 42.0)
+        val treeReport = NightPlanner.plan(toronto.copy(horizon = eastTrees), date, forecast = null, galaxyKit)
+        val delayedM31 = treeReport.suggestions.first { it.target.id == "m31" }
+        assertNotNull("eastern trees should delay M31 and set clearsHorizonAt", delayedM31.clearsHorizonAt)
+        assertEquals(delayedM31.window.start, delayedM31.clearsHorizonAt)
+        assertTrue(delayedM31.window.start.isAfter(flatM31.window.start))
     }
 }

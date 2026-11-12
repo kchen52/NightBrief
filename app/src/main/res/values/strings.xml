@@ -136,6 +136,8 @@
     <string name="show_target_details">Show details for %1$s</string>
     <string name="hide_target_details">Hide details for %1$s</string>
     <string name="target_kind_window">%1$s · %2$s</string>
+    <string name="target_clears_treeline">Clears your treeline at %1$s</string>
+    <string name="target_moon_free_windows">Moon-free: %1$s</string>
     <string name="compass_at">%1$s at %2$s</string>
     <string name="exposure_rule">%1$s on %2$s · NPF %3$ss</string>
     <string name="needs_focal">Needs ~%1$dmm+ (full-frame equiv.) to frame well</string>

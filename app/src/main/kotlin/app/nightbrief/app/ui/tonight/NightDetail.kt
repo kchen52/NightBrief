@@ -1055,6 +1055,25 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
         if (expanded) {
             Spacer(Modifier.height(8.dp))
             EmphasizedText(s.reason)
+            s.clearsHorizonAt?.let { clears ->
+                Spacer(Modifier.height(4.dp))
+                EmphasizedText(
+                    stringResource(R.string.target_clears_treeline, Format.time(clears, zone)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (s.hasDistinctMoonFreeWindows) {
+                Spacer(Modifier.height(4.dp))
+                EmphasizedText(
+                    stringResource(
+                        R.string.target_moon_free_windows,
+                        s.moonFreeWindows.joinToString(", ") { Format.window(it, zone) },
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             s.exposure?.let { ex ->
                 Spacer(Modifier.height(6.dp))
                 Box(

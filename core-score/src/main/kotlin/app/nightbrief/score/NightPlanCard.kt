@@ -30,6 +30,11 @@ data class NightPlanCard(
     val milkyWay: String,
     /** Name of the first imaging suggestion, or null when there is nothing to try. */
     val target: String?,
+    /**
+     * `HH:mm–HH:mm` in the site zone for the first imaging suggestion's window,
+     * or null when [target] is null.
+     */
+    val targetWindow: String? = null,
     /** Set when the score comes from a saved forecast, so the picture is not read as fresh. */
     val saved: String?,
     /**
@@ -43,12 +48,15 @@ data class NightPlanCard(
     val caption: String
         get() {
             val headline = if (score == null) verdictLabel else "$scoreText $verdictLabel"
+            val tryLine = target?.let { name ->
+                if (targetWindow != null) "Try: $name ($targetWindow)" else "Try: $name"
+            }
             return listOfNotNull(
                 siteName,
                 headline,
                 bestWindow?.let { "Best $it" },
                 milkyWay,
-                target?.let { "Try: $it" },
+                tryLine,
                 saved,
                 if (estimated) "Estimated" else null,
                 "NightBrief",
@@ -84,6 +92,9 @@ data class NightPlanCard(
                 clearsHorizonAt = report.ephemeris.milkyWay?.clearsHorizonAt,
                 blockedByHorizon = report.ephemeris.milkyWayBlockedByHorizon,
             )
+            val firstSuggestion = report.suggestions.firstOrNull()
+            val fmt = clockFormat.withZone(zone)
+            val targetWindow = firstSuggestion?.window?.let { "${fmt.format(it.start)}–${fmt.format(it.end)}" }
             return NightPlanCard(
                 siteName = report.site.name,
                 place = place(report.site.latitude, report.site.longitude),
@@ -93,7 +104,8 @@ data class NightPlanCard(
                 verdictLabel = if (score == null) "No score" else "${score.verdict.label} · ${score.band.label}",
                 bestWindow = score?.let { bestWindow(it, zone) },
                 milkyWay = milkyWay,
-                target = report.suggestions.firstOrNull()?.target?.name,
+                target = firstSuggestion?.target?.name,
+                targetWindow = targetWindow,
                 saved = SavedForecast.shortLabel(report.forecastStatus, report.forecastFetchedAt, zone),
                 estimated = score?.factors?.any { it.estimated } == true,
             )

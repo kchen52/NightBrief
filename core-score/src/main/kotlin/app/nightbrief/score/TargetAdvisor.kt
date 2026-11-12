@@ -27,7 +27,21 @@ data class TargetSuggestion(
     val moonUpDuringWindow: Boolean,
     val exposure: ExposureSuggestion?,
     val reason: String,
-)
+    /**
+     * Moon-free sub-windows inside [window]. When [window] spans a moon-blocked gap (or the Moon
+     * is up for part of it), these name the dark stretches separately. Empty for lunar targets.
+     */
+    val moonFreeWindows: List<TimeWindow> = emptyList(),
+    /**
+     * When the site's local horizon delays [window]'s start by at least 10 minutes compared with
+     * a flat horizon, the instant the target clears the treeline. Null otherwise.
+     */
+    val clearsHorizonAt: Instant? = null,
+) {
+    /** True when [moonFreeWindows] refines [window] rather than repeating the whole span. */
+    val hasDistinctMoonFreeWindows: Boolean
+        get() = moonFreeWindows.isNotEmpty() && (moonUpDuringWindow || moonFreeWindows != listOf(window))
+}
 
 /** Suggests targets for a night based on moon phase, Bortle class, target altitude and the user's gear. */
 object TargetAdvisor {
@@ -99,6 +113,7 @@ object TargetAdvisor {
         val lat = eph.latitudeDeg
         val lon = eph.longitudeDeg
         val usable = mutableListOf<Instant>()
+        var firstFlatUsable: Instant? = null
         var moonUp = false
         var moonUpAtBest = false
         var bestTime: Instant? = null
@@ -118,6 +133,9 @@ object TargetAdvisor {
                 skyAz = pos.azimuthDeg
             }
             val moonOk = target.tracksMoon || moon.altitudeDeg <= 0 || moon.illumination <= effectiveMaxMoon(target, kit)
+            if (skyAlt >= target.minAltitudeDeg && moonOk && firstFlatUsable == null) {
+                firstFlatUsable = t
+            }
             val floor = maxOf(target.minAltitudeDeg, horizonObstructionDeg(skyAz))
             if (skyAlt >= floor && moonOk) {
                 usable += t
@@ -133,6 +151,17 @@ object TargetAdvisor {
             t = t.plus(STEP)
         }
         if (usable.size < 3 || bestTime == null) return null
+
+        val window = TimeWindow(usable.first(), usable.last())
+        val usableWindows = contiguousWindows(usable)
+        val moonFreeWindows = if (target.tracksMoon) {
+            emptyList()
+        } else {
+            usableWindows.flatMap { uw -> eph.moonFreeDark.mapNotNull { mf -> uw.intersect(mf) } }
+        }
+        val clearsHorizonAt = firstFlatUsable?.let { flatStart ->
+            if (Duration.between(flatStart, window.start) >= STEP) window.start else null
+        }
 
         val brightMoon = moonUp && eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION
         val declination = if (target.tracksMoon) Ephemeris.moonDeclination(bestTime) else target.position.decDeg
@@ -164,14 +193,36 @@ object TargetAdvisor {
         }
         return TargetSuggestion(
             target = target,
-            window = TimeWindow(usable.first(), usable.last()),
+            window = window,
             bestTime = bestTime,
             peakAltitudeDeg = bestAlt,
             peakAzimuthDeg = bestAz,
             moonUpDuringWindow = moonUp,
             exposure = exposure,
             reason = reason(target, eph, bortle, moonUp, moonUpAtBest, terminator, kit, trackedName),
+            moonFreeWindows = moonFreeWindows,
+            clearsHorizonAt = clearsHorizonAt,
         )
+    }
+
+    /** Splits 10-minute usable samples into contiguous sub-windows across any moon-blocked gap. */
+    internal fun contiguousWindows(samples: List<Instant>, step: Duration = STEP): List<TimeWindow> {
+        if (samples.size < 2) return emptyList()
+        val windows = mutableListOf<TimeWindow>()
+        var runStart = samples.first()
+        var prev = runStart
+        for (i in 1 until samples.size) {
+            val current = samples[i]
+            if (Duration.between(prev, current) <= step) {
+                prev = current
+            } else {
+                if (prev.isAfter(runStart)) windows += TimeWindow(runStart, prev)
+                runStart = current
+                prev = current
+            }
+        }
+        if (prev.isAfter(runStart)) windows += TimeWindow(runStart, prev)
+        return windows
     }
 
     private fun reason(

@@ -8,6 +8,8 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
 
 ### Added
 
+- Suggested targets on Tonight and the planner show a sample photo of the object. Open a target for a
+  larger view and the photographer credit. A target you add yourself has no photo.
 - A second imaging-mode readout on Tonight and the planner. When the planetary weighting lands in a
   different band from the published score, the hero shows `62 overall · 78 for planets`. It uses the
   same per-hour qualities and gates with a documented alternate weight table. The deep-sky score stays

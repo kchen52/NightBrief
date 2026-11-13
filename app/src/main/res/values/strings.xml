@@ -141,6 +141,9 @@
     <string name="expand_card">Expand %1$s card</string>
     <string name="show_target_details">Show details for %1$s</string>
     <string name="hide_target_details">Hide details for %1$s</string>
+    <string name="target_sample_photo">Sample photo of %1$s</string>
+    <string name="target_sample_credit">Sample photo · %1$s</string>
+    <string name="target_sample_open_credit">Open the photo source page</string>
     <string name="target_kind_window">%1$s · %2$s</string>
     <string name="target_clears_treeline">Clears your treeline at %1$s</string>
     <string name="target_moon_free_windows">Moon-free: %1$s</string>
@@ -243,6 +246,7 @@
     <string name="map_places">Place names by Open-Meteo and GeoNames</string>
     <string name="about_license">The light-pollution data is licensed for non-commercial use only.</string>
     <string name="about_ephemeris">Ephemeris uses Astronomical Almanac low-precision formulas.</string>
+    <string name="about_target_samples">Sample photos of suggested targets are credited under each photo. The copies in the app are resized.</string>
 
     <string name="site_name">Site name</string>
     <string name="section_location">Location</string>

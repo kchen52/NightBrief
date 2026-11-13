@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ShareNightPlanButton(report: NightReport) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
@@ -82,7 +84,7 @@ internal fun ShareNightPlanButton(report: NightReport) {
                             busy = false
                             picking = false
                             if (!ok) {
-                                snackbarHostState.showSnackbar(context.getString(R.string.share_night_plan_failed))
+                                snackbarHostState.showSnackbar(resources.getString(R.string.share_night_plan_failed))
                             }
                         }
                     },
@@ -99,7 +101,7 @@ internal fun ShareNightPlanButton(report: NightReport) {
                             busy = false
                             picking = false
                             if (!ok) {
-                                snackbarHostState.showSnackbar(context.getString(R.string.print_night_plan_failed))
+                                snackbarHostState.showSnackbar(resources.getString(R.string.print_night_plan_failed))
                             }
                         }
                     },

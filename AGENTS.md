@@ -1,6 +1,6 @@
 # Practices for agents
 
-NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `compileSdk` 37 on `:app` and `:wear`) that scores a night for astrophotography. Read this before changing code. `README.md` is the spec for the score, the Bortle grids, and digest scheduling. `ROADMAP.md` is status, known debt, and ideas that are not committed scope.
+NightBrief is a native Android app (`app.nightbrief`, Kotlin, `minSdk` 26, `compileSdk` 37 on `:app` and `:wear`) that scores a night for astrophotography. Read this before changing code. `README.md` is the spec for the score, the Bortle grids, and digest scheduling. `ROADMAP.md` tracks only open work, known debt, and decisions. `CHANGELOG.md` holds shipped history. `context.md` is a short orientation and handoff note.
 
 Match the code that is already here. A change that "cleans up" an intentional constraint is a bug.
 
@@ -8,12 +8,32 @@ Match the code that is already here. A change that "cleans up" an intentional co
 
 Start the PR body with a non-technical one-liner that explains what the change does for a reader who does not know the codebase. Put it above any technical detail.
 
+## Docs and versioning
+
+Each document has one job. Put a fact in the first place that owns it and link from the others; do not copy a shipped feature list into the roadmap.
+
+| File | Owns |
+| --- | --- |
+| `README.md` | Product spec: score weights and gates, Bortle grids, data sources, scheduling, build steps. |
+| `ROADMAP.md` | Open work, known gaps and tech debt, decisions needed, and review guidance. Shipped items leave this file. |
+| `CHANGELOG.md` | User-visible history, newest first, in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) form. |
+| `context.md` | Short orientation: what the app is, module map, source-of-truth docs, and current state. Keep it current, not exhaustive. |
+| `AGENTS.md` | Working rules for agents. This file. |
+
+The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0/) from `0.1.1` onward.
+
+- `versionName` is the SemVer string; `versionCode` is a positive integer that increases with every upload. Bump `nightbrief.versionCode` and `nightbrief.versionName` together in `gradle.properties` at release. The watch keeps its own version.
+- While pre-1.0, a change that breaks saved data, module APIs, or the score model may bump the minor version. A compatible fix bumps the patch version.
+- From 1.0, a breaking saved-data or API change bumps the major version; new behavior bumps the minor; fixes bump the patch.
+- While a change is open, add it under `## [Unreleased]` in the `Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security` groups. At release, retitle that block with the version and date and start a fresh empty `Unreleased`.
+- Write changelog entries for what a user can observe, not for the file you touched. A release consolidates related work into one entry instead of one line per commit.
+
 ## Read the matching spec first
 
 - Score weights, gates, bands, or verdicts: `README.md` (Night Score) and `NightScoreEngine`.
 - Bortle grids or lookup: `README.md` (Data sources) and `Bortle.kt`.
 - Digest alarms, prefetch, Big Night, or the widget refresh: `README.md` (Digest scheduling) and `work/`.
-- Anything under "Proposed" in `ROADMAP.md`: it is not committed work. Do not start it unless the task says so.
+- `ROADMAP.md` open work or decisions: not committed work. Do not start it unless the task says so.
 
 ## Module boundaries
 
@@ -59,7 +79,7 @@ A missing side product must not take down the night score, the digest, or the wi
 - `DigestWorker` and `PrefetchWorker` return `Result.success()` immediately when onboarding is incomplete or there are no sites. They do not fetch.
 - Prefetch retries only when every site's forecast failed. Scoring or notifying after a saved prefetch must not turn that success into `Result.retry()` (see the comment in `PrefetchWorker`).
 - A Wear publish failure is swallowed in `WearPublisher` and must not skip the widget update.
-- Corrupt `app_state.json` is replaced wholesale with `AppState()` (onboarding incomplete, example gear, no sites). That wipe is known debt. Do not make it more likely: every new `@Serializable` field needs a default so an older file still decodes.
+- Corrupt `app_state.json` is restored from `filesDir/datastore/app_state.json.good`; only a missing or unreadable backup falls back to `AppState()` (onboarding incomplete, example gear, no sites). Do not make a fallback more likely: every new `@Serializable` field needs a default so an older file still decodes.
 
 ## Night Score invariants
 
@@ -76,6 +96,8 @@ Fixtures that must keep passing:
 - Full-moon clear night in 49..61 (Maybe).
 
 Missing inputs use the documented proxy and set `estimated`. A night factor is estimated if any dark hour was. Do not treat a proxy as a measurement.
+
+The published score is the deep-sky reading. `ImagingModes` in `:core-score` adds an alternate planetary weighting from the same per-hour qualities and gates; it is display-only on Tonight and the planner and must never replace the primary verdict in the digest, widget, Wear, Sites, or alerts. The alternate table is beside the primary one in `README.md`.
 
 Unknown Bortle scores as class 5 (`Site.effectiveBortle`). `SiteForm` writes a looked-up class only when the grid returns non-null, so a class can stick after a move into a cell with no data. That is current behavior.
 
@@ -165,7 +187,6 @@ Release minify is on for `:app`. `app/proguard-rules.pro` keeps kotlinx.serializ
 
 `ROADMAP.md` already lists them. A drive-by "fix" fights the rest of the app.
 
-- Notification id `1000 + (siteId.hashCode() and 0x0FFF)` can collide.
 - `DigestWorker` scores every site even when only one is due.
 - Lint warnings are not errors. There is no `lint.xml`.
 - CI (`.github/workflows/ci.yml`) runs `assembleDebug lintDebug test verifyPaparazziDebug` on every push and pull request, with `NIGHTBRIEF_SKIP_LIVE_TESTS=1` so `onboardedSitePostsTonightDigest` is skipped. Keep any new live-network test behind that flag. Merge after it is green.

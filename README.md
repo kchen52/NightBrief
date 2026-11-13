@@ -82,6 +82,23 @@ The hour-by-hour timeline leaves that hour's score blank when the hour has no cl
 
 Bands: Excellent ≥ 85, Good ≥ 70, Fair ≥ 50, Marginal ≥ 30, otherwise Poor. Verdict: Go ≥ 70, Maybe ≥ 50, otherwise No-go.
 
+### Imaging modes
+
+The table above is the deep-sky reading and stays the published score everywhere: the digest title, the home-screen widget, the Wear tile, Big Night and collapse alerts, and the Sites list. Tonight and the planner also show a second reading when a different kind of imaging would read the same night differently:
+
+| Factor | Overall / deep sky | Planetary |
+| --- | --- | --- |
+| Cloud cover | 35 | 25 |
+| Moon and twilight | 25 | 5 |
+| Transparency | 15 | 10 |
+| Wind | 10 | 20 |
+| Seeing | 10 | 35 |
+| Light pollution | 5 | 5 |
+
+Planetary moves points off the Moon and transparency and into seeing and wind, which are the factors a lunar or planetary session depends on. Both tables sum to 100. The alternate uses the same per-hour qualities and the same cloud and moon gates as the primary; only the weights change. The 50/50 blend of all dark hours and the best contiguous 3-hour window is applied with the alternate weights, so the best window can land on a different set of hours.
+
+The readout appears only when the alternate crosses a band boundary, as `62 overall · 78 for planets`; a difference inside the same band stays hidden. It is display-only. `NightScoreEngine`, its gates, and the three fixtures are unchanged, and the alternate never feeds the digest, widget, Wear, or an alert. `ImagingModes` in `:core-score` owns the table and the calculation.
+
 ## Data sources
 
 * **Open-Meteo** forecast API, no key. Hourly cloud (including low/mid/high), humidity, temperature, dew point, 10 m wind and direction, and gusts, and wind at 250 hPa. Dark hours where the temperature is within 2 °C of the dew point are flagged on Tonight and in the digest (frost when the temperature is at or below 0 °C), along with the overnight low from sunset to sunrise. That warning is not a night-score factor. The hour-by-hour timeline also splits cloud into low, mid, and high, and says “high thin cloud” when high cloud is more than half the total and thicker than the other layers. The score still uses total cloud cover only. The model is `gem_seamless` (Environment Canada GEM) when latitude ≥ 41.6 and longitude is between −141.1 and −52.5, which covers Canada and the northern US border where GEM's high-resolution domain still applies. Everywhere else the model is `best_match`. Each fetch also asks for German ICON (`icon_seamless`) as a second opinion on cloud; when at least three dark hours carry both values, Tonight shows a Forecast confidence card (“models agree / differ a little / disagree”) and the digest adds the line. That comparison is not a night-score factor, and a failed second fetch leaves the card out without failing the briefing. The same endpoint with `timezone=auto` (latitude and longitude only) returns the IANA zone in `timezone`. `TimeZoneLookup` uses that when a site's coordinates change; a zone typed by hand is left alone, and a failed lookup keeps the device zone. Place search on the map picker uses the geocoding API (`https://geocoding-api.open-meteo.com/v1/search`). The typed name is sent unchanged and matching is that API's fuzzy search. Fewer than 2 characters does not call the network. A failed or empty search leaves the pin to a tap on the map, and a chosen place fills a blank site name only. Place names are credited to Open-Meteo and GeoNames.

@@ -2,6 +2,7 @@ package app.nightbrief.app.ui.tonight
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -176,7 +177,7 @@ internal fun DarkerSkyAccessFilters(
     selected: DarkerSkyAccessFilter,
     onSelect: (DarkerSkyAccessFilter) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(
             selected = selected == DarkerSkyAccessFilter.ALL,
             onClick = { onSelect(DarkerSkyAccessFilter.ALL) },

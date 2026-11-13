@@ -10,6 +10,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -282,7 +285,20 @@ private fun WindowSize(
         screenHeightDp = heightDp
         orientation = if (landscape) Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
     }
-    CompositionLocalProvider(LocalConfiguration provides override, content = content)
+    val density = LocalDensity.current
+    val windowInfo = object : androidx.compose.ui.platform.WindowInfo {
+        override val containerSize: androidx.compose.ui.unit.IntSize
+            get() = androidx.compose.ui.unit.IntSize(
+                (widthDp * density.density).toInt(),
+                (heightDp * density.density).toInt(),
+            )
+        override val isWindowFocused: Boolean = true
+    }
+    CompositionLocalProvider(
+        LocalConfiguration provides override,
+        LocalWindowInfo provides windowInfo,
+        content = content,
+    )
 }
 
 private object QuietForecasts : ForecastSource {

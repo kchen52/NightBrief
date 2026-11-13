@@ -40,6 +40,9 @@ data class AirQualitySample(
 
 /** Air-quality series for one location. The global CAMS domain is 3-hourly, so read it by nearest sample. */
 data class AirQualitySeries(val samples: List<AirQualitySample>) {
+    /** Sorted once per series; [samples] may arrive unsorted. */
+    private val sorted: List<AirQualitySample> by lazy { samples.sortedBy { it.epochSecond } }
+
     /**
      * Nearest sample to [time] within [TOLERANCE_SECONDS]. Ties go to the earlier sample.
      * Null when no sample is close enough, so a forecast hour is never joined to a reading
@@ -47,13 +50,13 @@ data class AirQualitySeries(val samples: List<AirQualitySample>) {
      */
     fun at(time: Instant): AirQualitySample? {
         if (samples.isEmpty()) return null
-        val sorted = samples.sortedBy { it.epochSecond }
-        val epochs = sorted.map { it.epochSecond }
+        val sortedSamples = sorted
+        val epochs = sortedSamples.map { it.epochSecond }
         val hit = epochs.binarySearch(time.epochSecond)
-        if (hit >= 0) return sorted[hit]
+        if (hit >= 0) return sortedSamples[hit]
         val upper = -hit - 1
-        val lower = sorted.getOrNull(upper - 1)
-        val above = sorted.getOrNull(upper)
+        val lower = sortedSamples.getOrNull(upper - 1)
+        val above = sortedSamples.getOrNull(upper)
         val nearest = when {
             lower == null -> above
             above == null -> lower

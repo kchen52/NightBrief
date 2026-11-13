@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">NightBrief</string>
     <string name="tile_label">Tonight</string>
+    <string name="wear_loading">Reading tonight…</string>
 </resources>

@@ -122,7 +122,9 @@ object DarkSkyFinder {
                 val site = candidateSite(primary.site, sample, bortle)
                 val accessDeferred = async { roadAccessFor(roads, sample) }
                 try {
-                    val report = briefings.plan(site, date, kit)
+                    // Candidate rows show the score, delta, access, and name. They never render the
+                    // Tonight-only cards, so the lean plan skips those products and suggestions.
+                    val report = briefings.planLean(site, date, kit)
                     val delta = report.scoreValue?.let { scored ->
                         primary.scoreValue?.let { scored - it }
                     }

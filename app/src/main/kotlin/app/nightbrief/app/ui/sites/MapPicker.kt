@@ -136,7 +136,6 @@ fun MapPickerDialog(
     var searchFailed by remember { mutableStateOf(false) }
     var searchedQuery by remember { mutableStateOf<String?>(null) }
     val keyboardDismissals = remember { mutableIntStateOf(0) }
-    var tilesLoading by remember { mutableStateOf(true) }
     var bias by remember { mutableStateOf(picked) }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -181,21 +180,8 @@ fun MapPickerDialog(
                 override fun longPressHelper(p: GeoPoint): Boolean = singleTapConfirmedHelper(p)
             }),
         )
-        val tiles = object : org.osmdroid.events.MapListener {
-            override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean {
-                tilesLoading = false
-                return false
-            }
-
-            override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
-                tilesLoading = false
-                return false
-            }
-        }
-        mapView.addMapListener(tiles)
         mapView.onResume()
         onDispose {
-            mapView.removeMapListener(tiles)
             mapView.onPause()
             mapView.onDetach()
         }
@@ -381,14 +367,6 @@ fun MapPickerDialog(
                             modifier = Modifier.fillMaxSize().clipToBounds(),
                             update = { map -> (map.parent as? ViewGroup)?.clipChildren = true },
                         )
-                        if (tilesLoading) {
-                            Text(
-                                stringResource(R.string.map_tiles_loading),
-                                modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
                     }
                 }
             }

@@ -404,6 +404,9 @@
     <string name="confidence_detail">Primary model against a second opinion across %1$d dark hours.</string>
     <string name="sky_events_button">Sky events · the year ahead</string>
     <string name="events_title">Sky events</string>
+    <string name="events_loading">Reading the year ahead…</string>
+    <string name="events_error">Couldn\'t read the sky events.</string>
+    <string name="events_empty">No sky events in the year ahead.</string>
     <string name="event_opposition">Opposition</string>
     <string name="event_elongation">Elongation</string>
     <string name="event_conjunction">Conjunction</string>
@@ -418,7 +421,7 @@
     <string name="week_name_big_one">Clears the Big Night bar</string>
     <string name="week_name_ghost">Full moon and clear skies</string>
     <string name="sky_while_loading">Sunset, the Moon, and darkness are on the device. The score waits for the forecast.</string>
-    <string name="map_tiles_loading">Loading map tiles…</string>
+    <string name="sky_loading">Reading sunset and darkness…</string>
     <string name="place_distance">%1$d km away</string>
     <string name="passport_stamps">Stamps</string>
     <string name="passport_new_stamp">New stamp: %1$s</string>

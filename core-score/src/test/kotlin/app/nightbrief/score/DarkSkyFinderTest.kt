@@ -43,10 +43,13 @@ class DarkSkyFinderTest {
         var plans = 0
         override suspend fun brief(sites: List<Site>, kit: app.nightbrief.gear.GearKit, outlookDays: Int, forceRefresh: Boolean): Briefing =
             throw UnsupportedOperationException("unused")
-        override suspend fun plan(site: Site, date: LocalDate, kit: app.nightbrief.gear.GearKit): NightReport {
+        /** Candidate scoring must take the lean path; the full plan is a bug here. */
+        override suspend fun plan(site: Site, date: LocalDate, kit: app.nightbrief.gear.GearKit): NightReport =
+            throw UnsupportedOperationException("darker-sky candidates must use planLean")
+        override suspend fun planLean(site: Site, date: LocalDate, kit: app.nightbrief.gear.GearKit): NightReport {
             plans++
             if (failAt(site)) throw IllegalStateException("offline at ${site.latitude},${site.longitude}")
-            return NightPlanner.plan(site, date, clearForecast(), kit)
+            return NightPlanner.plan(site, date, clearForecast(), kit, includeSuggestions = false)
         }
     }
 

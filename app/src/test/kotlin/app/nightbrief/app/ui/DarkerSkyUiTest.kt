@@ -73,6 +73,32 @@ class DarkerSkyUiTest {
     }
 
     @Test
+    fun aRunningSearchOffersCancel() {
+        var cancelled = 0
+        show(DarkerSkyUiState(searching = true, searchedSiteId = home.id), onCancel = { cancelled++ })
+        compose.onNodeWithText("Cancel").assertIsDisplayed().performClick()
+        assertEquals(1, cancelled)
+    }
+
+    @Test
+    fun aFinishedCardHidesCancel() {
+        // The row must not keep a Cancel control once the search returns, or the button
+        // would look like it could stop a search that is already over.
+        show(
+            DarkerSkyUiState(candidates = listOf(candidate(3, 43.75, -79.10, 28.0, 12)), searchedSiteId = home.id),
+            onCancel = {},
+        )
+        compose.onAllNodesWithText("Cancel").assertCountEquals(0)
+    }
+
+    @Test
+    fun aSearchWithoutACancelCallbackShowsNoCancelControl() {
+        // A static preview passes no callback; the searching row stays read-only.
+        show(DarkerSkyUiState(searching = true, searchedSiteId = home.id))
+        compose.onAllNodesWithText("Cancel").assertCountEquals(0)
+    }
+
+    @Test
     fun theMapStaysOpenAcrossAConfigurationChange() {
         val restoration = StateRestorationTester(compose)
         restoration.setContent {
@@ -158,10 +184,18 @@ class DarkerSkyUiTest {
         onSearch: (String) -> Unit = {},
         onSave: (DarkSkyCandidate) -> Unit = {},
         onAccessFilter: (DarkerSkyAccessFilter) -> Unit = {},
+        onCancel: (() -> Unit)? = null,
     ) {
         compose.setContent {
             NightBriefTheme {
-                DarkerSkyCard(site = home, state = state, onSearch = onSearch, onSave = onSave, onAccessFilter = onAccessFilter)
+                DarkerSkyCard(
+                    site = home,
+                    state = state,
+                    onSearch = onSearch,
+                    onSave = onSave,
+                    onAccessFilter = onAccessFilter,
+                    onCancel = onCancel,
+                )
             }
         }
     }

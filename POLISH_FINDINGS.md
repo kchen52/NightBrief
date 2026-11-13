@@ -47,9 +47,9 @@ below records its resolution. The remaining findings are unchanged.
 | UI-02 | P1 | Events can open a different site from the one used to compute them | Confirmed · addressed in #130 |
 | UI-03 | P1 | Several custom controls have undersized targets or incomplete semantics | Confirmed code; run TalkBack |
 | PERF-01 | P1 | Widget/Wear/app paths independently rebuild the same briefing | Confirmed duplicated path |
-| PERF-02 | P1 | Seven-night briefings enrich and parse products that Week discards | Confirmed duplicated work |
-| PERF-03 | P1 | Loading and Events calculate ephemeris during composition | Confirmed caller thread; measure latency |
-| PERF-04 | P1 | Darker-sky search does full candidate planning and unnecessary serial work | Confirmed code; measure duration |
+| PERF-02 | P1 | Seven-night briefings enrich and parse products that Week discards | Partly addressed: Tonight-only enrichment and one comet parse per brief; step 3 (lean outlook planner) left open |
+| PERF-03 | P1 | Loading and Events calculate ephemeris during composition | Addressed: sky reads run off composition with loading/error states |
+| PERF-04 | P1 | Darker-sky search does full candidate planning and unnecessary serial work | Addressed: lean cancellable pipeline on `Dispatchers.Default` with parallel naming; duration not benchmarked end-to-end |
 | PKG-01 | P2 | Unsigned Wear release is 30.92 MiB, mostly unminified DEX | Measured build result |
 | PERF-08 | P3 | Retained hidden tabs are still measured and composed | Cost present; benefit of change unproven |
 | PERF-09 | P3 | Tonight eagerly composes its expanded timeline below the viewport | Cost present; benefit of change unproven |
@@ -232,23 +232,31 @@ least two locales, including a 12/24-hour distinction and a language with differ
 ## UI-08 — Replace inferential loading indicators with accurate states
 
 **Priority:** P2  
+**Status:** Addressed.
+
 **Evidence:**
 
-- `app/src/main/kotlin/app/nightbrief/app/ui/sites/MapPicker.kt:139, 184-195, 384-391` initializes
-  `tilesLoading = true` and clears it only on a scroll or zoom. That is a gesture signal, not tile completion; an
-  untouched loaded map can retain the message while a first gesture can dismiss it too early.
-- `wear/src/main/kotlin/app/nightbrief/wear/WearActivity.kt:22-31` shows an empty dark box while the phone read
-  and possible full local briefing are in flight.
-- `app/src/main/kotlin/app/nightbrief/app/ui/tonight/DarkerSky.kt:93-104` has searching UI but no cancel action;
-  `AppViewModel.clearDarkerSky` exists at `app/src/main/kotlin/app/nightbrief/app/AppViewModel.kt:221-224` but has
-  no production caller.
+- `app/src/main/kotlin/app/nightbrief/app/ui/sites/MapPicker.kt` initializes `tilesLoading = true` and clears it
+  only on a scroll or zoom. That is a gesture signal, not tile completion; an untouched loaded map can retain the
+  message while a first gesture can dismiss it too early.
+- `wear/src/main/kotlin/app/nightbrief/wear/WearActivity.kt` shows an empty dark box while the phone read and
+  possible full local briefing are in flight.
+- `app/src/main/kotlin/app/nightbrief/app/ui/tonight/DarkerSky.kt` has searching UI but no cancel action;
+  `AppViewModel.clearDarkerSky` had no production caller.
 
 **Recommendation:** either observe a real osmdroid loading/completion signal or remove the misleading map message;
 show a small Wear loading state alongside the existing dark background; expose Cancel for darker-sky search and
 actually cancel its coroutine. Do not replace the map failure behavior that still permits a manual pin.
 
-**Acceptance:** test map ready-before-touch, slow tiles, offline tiles, Wear slow local load, and cancellation during
-each darker-sky phase. A cancelled search must not later publish results or flip another site's card to searching.
+**Resolution:** The darker-sky searching row now exposes Cancel and `clearDarkerSky` is wired from Tonight; a
+cancelled or replaced search does not publish stale results (implemented and tested as part of PERF-04). The
+site-picker map no longer shows the gesture-based "Loading map tiles…" message, avoiding a stuck or premature
+label when there is no reliable completion signal. The watch shows a small loading state over the dark
+background while it reads the phone snapshot or falls back to a local brief.
+
+**Verification:** `DarkerSkyUiTest` covers the Cancel control and finished/no-callback states. `:app` and `:wear`
+unit suites pass. Manual device checks are still needed for map ready-before-touch/slow or offline tiles and for a
+slow Wear local load. Map failure behavior that permits a manual pin is unchanged.
 
 ## UI-09 — Handle an imported zero-site library with a useful empty state
 
@@ -333,7 +341,9 @@ Assert score/band/verdict and widget/Wear fixtures are unchanged.
 ## PERF-02 — Skip optional enrichment for Week-only nights and parse comets once
 
 **Priority:** P1  
-**Evidence:** `core-score/src/main/kotlin/app/nightbrief/score/BriefingService.kt:164-208, 326-373`.
+**Status:** Partly addressed.
+
+**Evidence:** `core-score/src/main/kotlin/app/nightbrief/score/BriefingService.kt`.
 
 Every one of seven nights for every site receives `.withAurora`, `.withIss`, `.withSmoke`, and `.withComet`.
 For every such night, `withComet` reparses the same MPC text. Week reduces these reports to `OutlookNight`, which
@@ -342,7 +352,7 @@ other Week naming fields are Moon phase, meteor, and sky events (`NightNames.kt:
 established by the current data model, not inferred from visuals.
 
 `NightPlanner.plan` also builds a full timeline, dew outlook, and cloud-layer explanation for future nights
-(`NightPlanner.kt:176-226`) even though the `OutlookNight` reducer does not retain them. This second layer needs a
+(`NightPlanner.kt`) even though the `OutlookNight` reducer does not retain them. This second layer needs a
 more careful API change than the first.
 
 **Recommendation:**
@@ -355,18 +365,30 @@ more careful API change than the first.
 Do not use Settings' ISS visibility switch to change the fetch contract; the current specification intentionally
 keeps ISS data in briefings even when the card is hidden.
 
-**Acceptance:** compare all existing seven-night `OutlookNight` fixtures and names before/after; Tonight and
-planner must retain every optional card. Use call counting to prove one comet parse per non-null file per brief,
-and benchmark with multiple sites. Do not retune or reorder scores.
+**Resolution:** Steps 1 and 2 are implemented. `BriefingService` enriches only the Tonight (offset 0) report;
+future nights are planned but not given aurora, ISS, smoke, or comet data because `OutlookNight` discards them.
+A non-null comet file is parsed once per `brief` (and once per `plan`) through an injectable parser, and the
+parsed orbits are reused for Tonight.
+
+**Verification:** `BriefingEnrichmentTest` proves one comet parse per multi-site, multi-night brief, identical
+outlook scores/titles/flags with and without side products, and that a comet parse failure drops the comet card
+without failing the briefing or score. The existing `:core-score` suite and app/work/data/wear unit suites pass.
+On a SM-F731W (Z Flip 5), a saved-site refresh logged `brief done sites=1 force=false took=1015ms` and the Week
+outlook rendered normally.
+
+**Still open:** Step 3 (a reduced outlook planner that avoids future timelines, dew, and cloud-layer work) was not
+implemented. PERF-01 remains open. No score weights, gates, bands, verdicts, or fixtures changed.
 
 ## PERF-03 — Move remaining ephemeris calculation out of composition
 
 **Priority:** P1  
+**Status:** Addressed.
+
 **Evidence:**
 
-- `app/src/main/kotlin/app/nightbrief/app/ui/tonight/TonightScreen.kt:264-280` runs `NightEphemeris.compute` in a
+- `app/src/main/kotlin/app/nightbrief/app/ui/tonight/TonightScreen.kt` runs `NightEphemeris.compute` in a
   `remember` block during the initial loading composition.
-- `app/src/main/kotlin/app/nightbrief/app/ui/events/EventsScreen.kt:58-65` runs `SkyEvents.yearAhead` before its
+- `app/src/main/kotlin/app/nightbrief/app/ui/events/EventsScreen.kt` runs `SkyEvents.yearAhead` before its
   Scaffold can render, also inside `remember`.
 
 `remember` avoids repetition, not the first main-thread computation. The year-ahead path is particularly likely
@@ -376,23 +398,30 @@ to delay feedback after the Events action, but no frame-time claim can be made w
 loading/error/empty states. Reuse the same ephemeris/briefing output when it is already available instead of
 calculating a second model in the UI. Inject a `Clock` where practical so loading logic is testable across dates.
 
-**Acceptance:** initial composition contains no ephemeris calculation; cancellation on rapid enter/exit prevents
-late updates; first useful content and time-to-interactive improve in the macrobenchmark/trace. Test selected
-site changes and device rotation.
+**Resolution:** `LoadingSky` now computes tonight's ephemeris through `produceState` on `Dispatchers.Default`
+(via `AppViewModel.loadingEphemeris`, clocked) and shows a loading line until it returns. `EventsScreen` loads
+the year ahead through `produceState` off composition, with loading, error/retry, and empty states; the load is
+cancellable on exit and restartable on retry.
+
+**Verification:** `LoadingSkyTest` proves the sunset/darkness lines appear only after the off-frame read returns.
+`EventsLoadingTest` proves the first frame renders without waiting for the scan, a failed scan offers Retry and
+recovers, and leaving the screen cancels the in-flight load. On a SM-F731W, Week opened the Sky events screen and
+rendered the year-ahead list. Time-to-interactive was not macrobenchmarked.
 
 ## PERF-04 — Give darker-sky search a cancellable, off-main, lean pipeline
 
 **Priority:** P1  
+**Status:** Addressed.
+
 **Evidence:**
 
-- `app/src/main/kotlin/app/nightbrief/app/AppViewModel.kt:168-213` launches in `viewModelScope` and invokes
+- `app/src/main/kotlin/app/nightbrief/app/AppViewModel.kt` launches in `viewModelScope` and invokes
   `DarkSkyFinder.search` without the `Dispatchers.Default` wrapper used by normal refresh.
-- `core-score/src/main/kotlin/app/nightbrief/score/DarkSkyFinder.kt:93-136` performs up to five full
+- `core-score/src/main/kotlin/app/nightbrief/score/DarkSkyFinder.kt` performs up to five full
   `BriefingSource.plan` calls.
-- Those plans fetch/enrich all side products and calculate `TargetAdvisor` suggestions
-  (`BriefingService.kt:216-237`; `NightPlanner.kt:199-227`), but candidate rows use the score/delta/access/name,
-  not target suggestions or those cards (`DarkerSky.kt:198-269`).
-- Up to five reverse-geocode calls then run serially at `AppViewModel.kt:193-196`.
+- Those plans fetch/enrich all side products and calculate `TargetAdvisor` suggestions, but candidate rows use the
+  score/delta/access/name, not target suggestions or those cards.
+- Up to five reverse-geocode calls then run serially.
 - `clearDarkerSky` has no caller; see UI-08.
 
 HTTP uses OkHttp enqueue and is not synchronous on the main thread. The issue is that scoring, comet parsing, JSON
@@ -409,9 +438,18 @@ serial naming phase.
 5. Trace the stages (32 grid samples, candidate planning, road checks, naming) before considering additional API
    changes or concurrency increases.
 
-**Acceptance:** compare candidate sites, score deltas, filtering, and saved IDs against fixtures; main-thread
-trace has no scoring/parse section; cancellation works in every stage; cold/warm total duration is measured.
-Preserve failure isolation per candidate and the intentional streamed Bortle grids.
+**Resolution:** Darker-sky search now runs on `Dispatchers.Default`, with the streamed grid reads kept on
+`Dispatchers.IO` inside `DarkSkyFinder`. Candidates are scored through `planLean` (forecast-only, no aurora, ISS,
+smoke, comet, or target suggestions) instead of a full plan. Reverse geocoding runs in parallel with per-candidate
+failure isolation, the searching row exposes Cancel, and a cancelled or replaced search does not publish into a
+new site's state.
+
+**Verification:** `DarkSkyFinderTest` proves the finder uses `planLean` and never the full `plan` path.
+`DarkerSkyUiTest` covers the searching Cancel control and the finished/no-callback states alongside the existing
+filter, save, and map behavior. On a SM-F731W, a search showed the Cancel control, completed with scored
+candidates and access filters, and left the distance/Bortle labels intact when reverse geocoding failed (404).
+Cold/warm duration and a main-thread trace were not measured; stage tracing remains follow-up work. Failure
+isolation per candidate and the streamed Bortle grids are preserved.
 
 ## PERF-05 — Remove import/export and backup file I/O from the UI caller
 

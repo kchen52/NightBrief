@@ -1,5 +1,6 @@
 package app.nightbrief.score
 
+import app.nightbrief.astro.CometOrbit
 import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.IssPasses
 import app.nightbrief.astro.MoonPhase
@@ -106,6 +107,13 @@ interface BriefingSource {
         kit: GearKit,
         customTargets: List<Target>,
     ): NightReport = plan(site, date, kit)
+
+    /**
+     * Plans [site] for [date] with only what the score and coverage need: no aurora, ISS,
+     * smoke, comet, or target suggestions. Darker-sky candidates render none of those, so
+     * they use this instead of [plan]. The score itself is the same one [plan] publishes.
+     */
+    suspend fun planLean(site: Site, date: LocalDate, kit: GearKit): NightReport = plan(site, date, kit)
 }
 
 class BriefingService(
@@ -125,6 +133,11 @@ class BriefingService(
      * empty and does not fail the briefing.
      */
     private val comets: CometSource? = null,
+    /**
+     * Parses one MPC comet file into orbits. Injected so a test can count parses; a real
+     * brief parses once per call, not once per site or night.
+     */
+    private val cometParser: (String) -> List<CometOrbit> = MpcComets::parse,
 ) : BriefingSource {
     override suspend fun brief(
         sites: List<Site>,
@@ -160,6 +173,8 @@ class BriefingService(
         val issTle = issDeferred.await()
         val cometFile = cometDeferred.await()
         val airQualityBySite = airQualityDeferred.await()
+        // One parse per brief, reused for every site's Tonight report.
+        val cometOrbits = parseComets(cometFile)
 
         val tonight = mutableListOf<NightReport>()
         val outlooks = mutableListOf<WeeklyOutlook>()
@@ -172,7 +187,7 @@ class BriefingService(
             val start = NightPlanner.tonight(now, site.zone)
             val skyEvents = skyEventsFor(start, outlookDays, site.zone)
             val nights = (0 until outlookDays).map { offset ->
-                NightPlanner.plan(
+                val planned = NightPlanner.plan(
                     site = site,
                     date = start.plusDays(offset.toLong()),
                     forecast = fr?.forecast,
@@ -181,7 +196,17 @@ class BriefingService(
                     warnings = warnings,
                     includeSuggestions = offset == 0,
                     customTargets = customTargets,
-                ).withAurora(kpForecast).withIss(issTle).withSmoke(airQualityBySite[site.id]).withComet(cometFile)
+                )
+                // Aurora, ISS, smoke, and comets are Tonight-only cards. An OutlookNight keeps none
+                // of them, so future nights skip the side products rather than enriching and discarding.
+                if (offset == 0) {
+                    planned.withAurora(kpForecast)
+                        .withIss(issTle)
+                        .withSmoke(airQualityBySite[site.id])
+                        .withComet(cometOrbits)
+                } else {
+                    planned
+                }
             }
             tonight += nights.first()
             outlooks += WeeklyOutlook(
@@ -234,7 +259,18 @@ class BriefingService(
             site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
             fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(failure),
             customTargets = customTargets,
-        ).withAurora(kpForecast).withIss(issTle).withSmoke(airQuality).withComet(cometFile)
+        ).withAurora(kpForecast).withIss(issTle).withSmoke(airQuality).withComet(parseComets(cometFile))
+    }
+
+    /** Forecast only, no side products and no suggestions. See [BriefingSource.planLean]. */
+    override suspend fun planLean(site: Site, date: LocalDate, kit: GearKit): NightReport {
+        val fr = fetchForecast(site, forceRefresh = false)
+        val failure = fr.exceptionOrNull()?.let { forecastUserText(it) }
+        return NightPlanner.plan(
+            site, date, fr.getOrNull()?.forecast, kit, fr.getOrNull()?.status,
+            fr.getOrNull()?.warnings.orEmpty() + listOfNotNull(failure),
+            includeSuggestions = false,
+        )
     }
 
     private fun forecastUserText(error: Throwable): String =
@@ -353,15 +389,8 @@ class BriefingService(
         return copy(smoke = smoke)
     }
 
-    private fun NightReport.withComet(file: CometElementsFile?): NightReport {
-        if (file == null) return this
-        val orbits = try {
-            MpcComets.parse(file.text)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            return this
-        }
+    private fun NightReport.withComet(orbits: List<CometOrbit>): NightReport {
+        if (orbits.isEmpty()) return this
         val outlook = try {
             CometAdvisor.forNight(ephemeris, orbits)
         } catch (e: CancellationException) {
@@ -370,5 +399,17 @@ class BriefingService(
             return this
         } ?: return this
         return copy(comet = outlook)
+    }
+
+    /** Orbits from one fetched file. A parse failure drops the comet card and keeps the briefing. */
+    private fun parseComets(file: CometElementsFile?): List<CometOrbit> {
+        if (file == null) return emptyList()
+        return try {
+            cometParser(file.text)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 }

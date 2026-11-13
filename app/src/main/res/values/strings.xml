@@ -443,4 +443,12 @@
     <string name="retry">Retry</string>
     <string name="week_loading">Loading this week…</string>
     <string name="week_unavailable">No week outlook yet. Try refreshing the forecast.</string>
+    <string name="update_available">Update %1$s available — tap Install to download</string>
+    <string name="update_downloading">Downloading %1$s…</string>
+    <string name="update_download_failed">Download failed for %1$s. Open the release page instead.</string>
+    <string name="update_needs_permission">Allow installs from NightBrief, then tap Install again.</string>
+    <string name="update_install">Install</string>
+    <string name="update_skip">Skip</string>
+    <string name="update_open_settings">Open settings</string>
+    <string name="update_open_release">Open release</string>
 </resources>

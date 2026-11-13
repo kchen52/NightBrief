@@ -172,6 +172,30 @@ Each run reads the observed product (`noaa-planetary-k-index.json`) through `Swp
 
 When Tonight shows a `bestWindow`, the hero card offers a **Remind me at the window** chip (`AppState.windowAlarm`). Tapping it arms a one-shot `AlarmManager` alarm (`RTC_WAKEUP`) at `bestWindow.start` through `WindowAlarmScheduler` (request code 1002, `WindowAlarmReceiver`) — a separate `PendingIntent` beside the morning digest's request code 1001 so arming or cancelling the reminder never disturbs the digest. It uses the same `DigestScheduler.armDigestAlarm` path (`setAndAllowWhileIdle` on API 31+ so `SCHEDULE_EXACT_ALARM` stays out of the manifest, and `setExactAndAllowWhileIdle` with an inexact fallback below API 31). When a refreshed briefing (`AppViewModel.refresh`, `DigestWorker`, or `PrefetchWorker`) shifts `bestWindow`, `WindowAlarmScheduler` re-arms 1002 at the new start; when a refreshed briefing loses the window, or the site is deleted, it cancels 1002. When the alarm fires, `WindowAlarmReceiver` posts on the `window_start` channel with a `PendingIntent` carrying `EXTRA_SITE_ID` (opening Tonight for that site) and clears `windowAlarm` so the one-shot reminder does not fire again.
 
+## Sideload updates
+
+NightBrief is distributed as an APK on GitHub Releases as well as (optionally) Play.
+After the first sideload, Tonight shows an update banner when a newer build is on GitHub:
+one tap downloads the APK and opens Android's installer. The system confirm sheet still
+runs; the app never installs silently.
+
+- **Develop tip.** Every push to `develop` rebuilds a debug APK, signs it with
+  `ci/sideload.jks` (same key as a local `assembleDebug`), and replaces the
+  [`develop-latest`](https://github.com/kchen52/NightBrief/releases/tag/develop-latest)
+  pre-release. Debug builds check that tip by commit SHA.
+- **Versioned releases.** Push a tag that matches `nightbrief.versionName`
+  (`git tag v0.1.2 && git push origin v0.1.2`). CI attaches
+  `nightbrief-v0.1.2.apk` and publishes the release. Release builds check
+  `/releases/latest` by SemVer. Pre-release tags (`v0.2.0-beta.1`) stay out of
+  that endpoint.
+- **Signing.** `ci/sideload.jks` is the shared GitHub sideload key (see `ci/README.md`).
+  It cannot update a Play Store install, and a Play upload key must not be this file.
+  Optional `keystore.properties` at the repo root overrides release signing.
+
+A failed update check leaves Tonight alone. Skip remembers that build until a different
+one appears. Android 8+ needs “Allow from this source” for NightBrief once; the banner
+opens that settings page when the permission is missing.
+
 ## Build and test
 
 JDK 21 and an Android SDK are required (`compileSdk` 36 for the phone, 35 for the watch).

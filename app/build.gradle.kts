@@ -1,9 +1,37 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.paparazzi)
+}
+
+fun gitShortSha(): String {
+    val fromCi = System.getenv("GITHUB_SHA")?.take(7)?.lowercase()
+    if (!fromCi.isNullOrBlank()) return fromCi
+    return try {
+        val proc = ProcessBuilder("git", "rev-parse", "--short=7", "HEAD")
+            .directory(rootProject.projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val out = proc.inputStream.bufferedReader().readText().trim()
+        if (proc.waitFor() == 0 && out.isNotBlank()) out else "local"
+    } catch (_: Exception) {
+        "local"
+    }
+}
+
+val gitSha: String = gitShortSha()
+
+val updateChannel: String =
+    providers.gradleProperty("nightbrief.updateChannel").orElse("develop").get()
+
+val sideloadStore = rootProject.file("ci/sideload.jks")
+val releasePropsFile = rootProject.file("keystore.properties")
+val releaseProps = Properties().apply {
+    if (releasePropsFile.isFile) releasePropsFile.inputStream().use(::load)
 }
 
 android {
@@ -18,12 +46,45 @@ android {
         versionName = providers.gradleProperty("nightbrief.versionName").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
+        buildConfigField("String", "UPDATE_CHANNEL", "\"$updateChannel\"")
+        buildConfigField("String", "GITHUB_OWNER", "\"kchen52\"")
+        buildConfigField("String", "GITHUB_REPO", "\"NightBrief\"")
+    }
+
+    signingConfigs {
+        // Same key for local debug and CI develop APKs so the in-app updater can replace either.
+        // Not the Play Store key. See README (Sideload updates).
+        create("sideload") {
+            storeFile = sideloadStore
+            storePassword = "nightbrief-sideload"
+            keyAlias = "sideload"
+            keyPassword = "nightbrief-sideload"
+        }
+        if (releaseProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file(releaseProps.getProperty("storeFile"))
+                storePassword = releaseProps.getProperty("storePassword")
+                keyAlias = releaseProps.getProperty("keyAlias")
+                keyPassword = releaseProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            if (sideloadStore.isFile) {
+                signingConfig = signingConfigs.getByName("sideload")
+            }
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = when {
+                releaseProps.isNotEmpty() -> signingConfigs.getByName("release")
+                sideloadStore.isFile -> signingConfigs.getByName("sideload")
+                else -> signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
@@ -86,6 +147,8 @@ dependencies {
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.androidx.glance.appwidget.testing)
     testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)

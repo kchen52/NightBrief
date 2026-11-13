@@ -27,6 +27,10 @@ import app.nightbrief.score.WindowAlarms
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.PlaceSearchResult
+import app.nightbrief.app.update.ApkInstaller
+import app.nightbrief.app.update.AppUpdateUiState
+import app.nightbrief.app.update.AvailableUpdate
+import app.nightbrief.app.update.GithubReleaseClient
 import app.nightbrief.work.DigestScheduler
 import app.nightbrief.work.WidgetRefresh
 import app.nightbrief.work.WindowAlarmScheduler
@@ -49,7 +53,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -100,6 +106,15 @@ class AppViewModel(
 
     private var darkerSkyJob: Job? = null
 
+    private val updateClient = GithubReleaseClient(
+        owner = BuildConfig.GITHUB_OWNER,
+        repo = BuildConfig.GITHUB_REPO,
+    )
+    private val _appUpdate = MutableStateFlow(AppUpdateUiState())
+    val appUpdate: StateFlow<AppUpdateUiState> = _appUpdate.asStateFlow()
+    private var updateJob: Job? = null
+    private var lastUpdateCheckAt: Instant? = null
+
     /**
      * Onboarding drafts. Stored in [SavedStateHandle] so they survive process death,
      * not only configuration changes.
@@ -116,6 +131,100 @@ class AppViewModel(
                 .distinctUntilChanged()
                 .collectLatest { if (it.first() == true) refresh(force = false) }
         }
+        viewModelScope.launch {
+            state.filterNotNull()
+                .map { it.skippedUpdateId }
+                .distinctUntilChanged()
+                .collect { skipped ->
+                    _appUpdate.update { current ->
+                        if (skipped != null && current.available?.id == skipped) {
+                            current.copy(available = null)
+                        } else {
+                            current
+                        }
+                    }
+                }
+        }
+        checkForUpdate()
+    }
+
+    /**
+     * Asks GitHub whether a newer APK exists. Failure is silent: the banner stays hidden and
+     * the briefing is untouched. [force] bypasses the interval gate (resume / pull-to-check).
+     */
+    fun checkForUpdate(force: Boolean = false) {
+        if (!force) {
+            val last = lastUpdateCheckAt
+            if (last != null && Instant.now().isBefore(last.plusSeconds(UPDATE_CHECK_INTERVAL_SEC))) return
+        }
+        updateJob?.cancel()
+        updateJob = viewModelScope.launch {
+            lastUpdateCheckAt = Instant.now()
+            val skipped = state.value?.skippedUpdateId
+            val found = withContext(Dispatchers.IO) {
+                runCatching {
+                    when (BuildConfig.UPDATE_CHANNEL) {
+                        "develop" -> updateClient.checkDevelop(BuildConfig.GIT_SHA)
+                        else -> updateClient.checkStable(BuildConfig.VERSION_NAME)
+                    }
+                }.getOrNull()
+            }
+            if (found == null || found.id == skipped) {
+                _appUpdate.update {
+                    it.copy(available = null, downloadFailed = false, needsInstallPermission = false)
+                }
+            } else {
+                _appUpdate.update {
+                    it.copy(
+                        available = found,
+                        downloadFailed = false,
+                        needsInstallPermission = false,
+                        progress = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun skipUpdate(update: AvailableUpdate) {
+        mutate { it.copy(skippedUpdateId = update.id) }
+        _appUpdate.update { it.copy(available = null, progress = null, downloadFailed = false) }
+    }
+
+    /**
+     * Downloads the APK and opens the system installer. Asks for the unknown-sources
+     * permission first when Android requires it. Never throws into the UI.
+     */
+    fun installUpdate(update: AvailableUpdate) {
+        val app = getApplication<Application>()
+        if (!ApkInstaller.canInstall(app)) {
+            _appUpdate.update { it.copy(needsInstallPermission = true, downloadFailed = false) }
+            return
+        }
+        if (_appUpdate.value.progress != null) return
+        viewModelScope.launch {
+            _appUpdate.update { it.copy(progress = 0f, downloadFailed = false, needsInstallPermission = false) }
+            val file = withContext(Dispatchers.IO) {
+                updateClient.download(
+                    update,
+                    destDir = File(app.cacheDir, "updates"),
+                    onProgress = { value -> _appUpdate.update { state -> state.copy(progress = value) } },
+                )
+            }
+            if (file == null) {
+                _appUpdate.update { it.copy(progress = null, downloadFailed = true) }
+                return@launch
+            }
+            _appUpdate.update { it.copy(progress = null) }
+            if (!ApkInstaller.install(app, file)) {
+                _appUpdate.update { it.copy(downloadFailed = true) }
+            }
+        }
+    }
+
+    fun openInstallPermissionSettings() {
+        ApkInstaller.openInstallPermissionSettings(getApplication())
+        _appUpdate.update { it.copy(needsInstallPermission = false) }
     }
 
     fun refresh(force: Boolean) {
@@ -444,6 +553,7 @@ class AppViewModel(
     private companion object {
         const val ONBOARDING_SITE = "onboarding.site"
         const val ONBOARDING_GEAR = "onboarding.gear"
+        const val UPDATE_CHECK_INTERVAL_SEC = 2L * 60L * 60L
     }
 
     private fun mutate(transform: (AppState) -> AppState) {

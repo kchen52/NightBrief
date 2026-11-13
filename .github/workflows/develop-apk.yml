@@ -1,7 +1,8 @@
 name: Develop APK
 
-# Builds the debug APK from the tip of develop and publishes it as the `develop-latest`
-# pre-release, replacing the previous one. Debug-signed: there is no release keystore in CI.
+# Builds the sideload-signed debug APK from the tip of develop and publishes it
+# as the `develop-latest` pre-release, replacing the previous one. Same key as
+# local `assembleDebug` (ci/sideload.jks), so the in-app banner can update it.
 on:
   push:
     branches: [develop]
@@ -31,7 +32,7 @@ jobs:
           sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
           yes | "$sdkmanager" --licenses >/dev/null || true
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDebug -Pnightbrief.updateChannel=develop --stacktrace
       - name: Name the APK after the commit
         id: apk
         run: |
@@ -50,9 +51,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Replace the tip. Delete first so create is a published pre-release
+          # (not a leftover draft the public API cannot see).
           gh release delete develop-latest --cleanup-tag --yes || true
           gh release create develop-latest "${{ steps.apk.outputs.path }}" \
             --prerelease \
+            --latest=false \
             --target "$GITHUB_SHA" \
             --title "Latest develop build (${GITHUB_SHA::7})" \
-            --notes "Debug-signed APK built from develop at ${GITHUB_SHA}. It cannot update a Play Store install."
+            --notes "Sideload-signed APK built from develop at ${GITHUB_SHA}. Install once from this release; later builds update from the in-app banner. It cannot update a Play Store install."

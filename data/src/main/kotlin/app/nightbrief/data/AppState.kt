@@ -96,6 +96,11 @@ data class AppState(
      * `TargetCatalog.all` when scoring Tonight and the planner; default empty so older files decode.
      */
     val customTargets: List<Target> = emptyList(),
+    /**
+     * Update-banner id the user skipped (`AvailableUpdate.id`). Null means none skipped, so older
+     * files keep offering every newer build. Cleared when a different id becomes available.
+     */
+    val skippedUpdateId: String? = null,
 ) {
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 

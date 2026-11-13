@@ -8,6 +8,9 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
 
 ### Added
 
+- Sideload updates from GitHub Releases. Tonight shows a banner when a newer APK is published;
+  one tap downloads it and opens Android's installer. Develop builds follow the
+  `develop-latest` tip; release builds follow `/releases/latest`.
 - Suggested targets on Tonight and the planner show a sample photo of the object. Open a target for a
   larger view and the photographer credit. A target you add yourself has no photo.
 - A second imaging-mode readout on Tonight and the planner. When the planetary weighting lands in a

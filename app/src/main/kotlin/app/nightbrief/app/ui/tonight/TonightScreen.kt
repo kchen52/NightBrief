@@ -164,6 +164,7 @@ fun TonightScreen(
                     )
                 }
                 ui.error?.let { Banner(it, NightColors.Poor, Modifier.padding(horizontal = 16.dp)) }
+                UpdateBanner(vm)
                 val stamps = remember(current.sessions) { Passport.evaluate(current.sessions) }
                 NewStampNotice(
                     stamps = stamps,

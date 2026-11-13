@@ -43,7 +43,8 @@ Dependencies point inward: `:app` sees the engines through `:work` â†’ `:data` â
 ## Current state
 
 - No open roadmap work. The Nov 2026 field review closed with imaging modes; all committed scope through v1.0 is shipped.
-- CI runs `assembleDebug`, `lintDebug`, `test`, and `verifyPaparazziDebug` with `NIGHTBRIEF_SKIP_LIVE_TESTS=1`. The live-network digest test runs only locally.
+- Sideload updates: Tonight's banner checks GitHub Releases (`develop-latest` for debug, `/releases/latest` for release). `ci/sideload.jks` signs local debug and CI develop/release APKs so updates replace in place. Play installs stay on Play.
+- CI runs `assembleDebug`, `lintDebug`, `test`, and `verifyPaparazziDebug` with `NIGHTBRIEF_SKIP_LIVE_TESTS=1`. The live-network digest test runs only locally. `develop-apk.yml` and `release-apk.yml` attach APKs to GitHub Releases.
 - Known debt and product decisions are in `ROADMAP.md`; do not fix them as a drive-by.
 - Goldens in `docs/screenshots` come from Paparazzi tests. Record only when the picture should change, and update the README image with the golden.
 

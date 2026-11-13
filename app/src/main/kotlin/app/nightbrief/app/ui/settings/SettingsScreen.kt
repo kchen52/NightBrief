@@ -479,6 +479,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 Text(LightPollutionAttribution.TEXT, style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_license), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_ephemeris), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_target_samples), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(12.dp))
         }

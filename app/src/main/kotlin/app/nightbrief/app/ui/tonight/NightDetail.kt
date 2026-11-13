@@ -1067,7 +1067,7 @@ private fun Modifier.clipInPlace(): Modifier = drawWithContent {
     clipRect { this@drawWithContent.drawContent() }
 }
 
-/** Name, window, and peak stay visible. Reason, exposure, and the tip start hidden. */
+/** Name, window, peak, and the sample photo stay visible. The larger photo, reason, exposure, and tip start hidden. */
 @Composable
 private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUiState) {
     val zone = report.site.zone
@@ -1076,6 +1076,7 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
         if (expanded) R.string.hide_target_details else R.string.show_target_details,
         s.target.name,
     )
+    val sample = TargetSamples.of(s.target.id)
     Column {
         Row(
             Modifier
@@ -1083,12 +1084,16 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
                 .clickable(role = Role.Button, onClickLabel = action) { ui.toggleTarget(s.target.id) },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                kindIcon(s.target.kind),
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = NightColors.Primary,
-            )
+            if (sample != null) {
+                TargetSampleThumb(sample, s.target.name)
+            } else {
+                Icon(
+                    kindIcon(s.target.kind),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = NightColors.Primary,
+                )
+            }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(s.target.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -1120,6 +1125,10 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
             )
         }
         if (expanded) {
+            sample?.let {
+                Spacer(Modifier.height(8.dp))
+                TargetSampleDetail(it)
+            }
             Spacer(Modifier.height(8.dp))
             EmphasizedText(s.reason)
             s.clearsHorizonAt?.let { clears ->

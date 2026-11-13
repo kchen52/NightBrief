@@ -54,20 +54,26 @@ object NightPlanPrinter {
  * No-ops when the card cannot be rendered or this device has no print subsystem, and
  * swallows a failure to start the dialog, like [shareNightPlan] does.
  */
-suspend fun printNightPlan(context: Context, report: NightReport) {
+suspend fun printNightPlan(context: Context, report: NightReport): Boolean {
     val bitmap = withContext(Dispatchers.IO) {
         runCatching { NightPlanImage.render(NightPlanCard.from(report)) }.getOrNull()
-    } ?: return
-    withContext(Dispatchers.Main.immediate) {
-        val manager = context.getSystemService(PrintManager::class.java) ?: return@withContext
+    } ?: return false
+    return withContext(Dispatchers.Main.immediate) {
+        val manager = context.getSystemService(PrintManager::class.java)
+        if (manager == null) {
+            bitmap.recycle()
+            return@withContext false
+        }
         try {
             manager.print(
                 context.getString(R.string.print_night_plan),
                 NightPlanPrintAdapter(bitmap),
                 PrintAttributes.Builder().setColorMode(PrintAttributes.COLOR_MODE_COLOR).build(),
             )
+            true
         } catch (_: IllegalStateException) {
             bitmap.recycle()
+            false
         }
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,7 +109,7 @@ fun SectionCard(
                     modifier = if (toggle != null) {
                         Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 32.dp)
+                            .heightIn(min = 48.dp)
                             .clickable(role = Role.Button, onClickLabel = action, onClick = toggle)
                     } else {
                         Modifier
@@ -215,10 +217,16 @@ fun ScoreGauge(score: Int?, modifier: Modifier = Modifier, size: Dp = 148.dp) {
 }
 
 @Composable
-fun ScorePill(score: Int?, modifier: Modifier = Modifier) {
+fun ScorePill(score: Int?, modifier: Modifier = Modifier, contentDescription: String? = null) {
     val color = NightColors.forScore(score)
+    val label = contentDescription ?: if (score == null) {
+        "Score unavailable"
+    } else {
+        "Score $score out of 100"
+    }
     Box(
         modifier
+            .semantics { set(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription, listOf(label)) }
             .clip(RoundedCornerShape(50))
             .background(color.copy(alpha = 0.18f))
             .padding(horizontal = 10.dp, vertical = 3.dp),
@@ -263,7 +271,11 @@ fun SiteStrip(
         items(sites, key = { it.id }) { chip ->
             val selected = chip.id == selectedId
             Card(
-                modifier = Modifier.widthIn(min = 132.dp, max = 200.dp).clickable { onSelect(chip.id) },
+                modifier = Modifier.widthIn(min = 132.dp, max = 200.dp).selectable(
+                    selected = selected,
+                    onClick = { onSelect(chip.id) },
+                    role = Role.Tab,
+                ),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,

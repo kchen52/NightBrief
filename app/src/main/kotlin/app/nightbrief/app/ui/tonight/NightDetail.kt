@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -730,6 +731,7 @@ private fun WhyBlock(title: String, detail: String, ui: DetailUiState) {
     Row(
         Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .padding(top = 4.dp)
             .clickable(role = Role.Button) { ui.toggleWhy(title) },
         horizontalArrangement = Arrangement.End,

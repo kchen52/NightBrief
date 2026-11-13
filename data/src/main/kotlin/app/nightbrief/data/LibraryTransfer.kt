@@ -15,7 +15,10 @@ data class LibraryFile(
     val gear: GearKit = GearKit(),
 )
 
-class LibraryFormatException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class LibraryFormatException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+class EmptyLibraryException(message: String = "library must include at least one site", cause: Throwable? = null) :
+    LibraryFormatException(message, cause)
 
 object LibraryTransfer {
     private val json = Json {
@@ -38,6 +41,7 @@ object LibraryTransfer {
             val file = json.decodeFromJsonElement(LibraryFile.serializer(), element)
             file.sites.sites.size
             file.gear.bodies.size
+            if (file.sites.sites.isEmpty()) throw EmptyLibraryException()
             return file
         } catch (e: LibraryFormatException) {
             throw e

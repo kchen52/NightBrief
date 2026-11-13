@@ -54,12 +54,16 @@ object NightPlanSharer {
         if (!dir.isDirectory && !dir.mkdirs()) return null
         val dest = File(dir, FILE_NAME)
         val tmp = File(dir, "$FILE_NAME.tmp")
+        val bitmap = try {
+            NightPlanImage.render(card)
+        } catch (_: Throwable) {
+            tmp.delete()
+            return null
+        }
         return try {
-            val bitmap = NightPlanImage.render(card)
             val wrote = FileOutputStream(tmp).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
-            bitmap.recycle()
             if (!wrote) {
                 tmp.delete()
                 return null
@@ -72,6 +76,8 @@ object NightPlanSharer {
         } catch (_: IOException) {
             tmp.delete()
             null
+        } finally {
+            bitmap.recycle()
         }
     }
 }
@@ -80,15 +86,18 @@ object NightPlanSharer {
  * Writes the image off the main thread, then opens the share sheet.
  * No-ops when the PNG cannot be written or nothing can receive the intent.
  */
-suspend fun shareNightPlan(context: Context, report: NightReport) {
+suspend fun shareNightPlan(context: Context, report: NightReport): Boolean {
     val intent = withContext(Dispatchers.IO) {
         NightPlanSharer.chooserIntent(context, report)
-    } ?: return
-    withContext(Dispatchers.Main.immediate) {
-        try {
+    } ?: return false
+    return try {
+        withContext(Dispatchers.Main.immediate) {
             context.startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-        } catch (_: IllegalStateException) {
         }
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: IllegalStateException) {
+        false
     }
 }

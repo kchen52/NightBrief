@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import app.nightbrief.app.BuildConfig
 import app.nightbrief.app.R
+import app.nightbrief.data.EmptyLibraryException
 import app.nightbrief.data.LibraryFormatException
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -110,6 +111,8 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
             try {
                 vm.importLibrary(text)
                 resources.getString(R.string.library_imported)
+            } catch (_: EmptyLibraryException) {
+                resources.getString(R.string.library_import_empty)
             } catch (_: LibraryFormatException) {
                 resources.getString(R.string.library_import_failed)
             }
@@ -677,37 +680,81 @@ private fun CustomTargetsEditor(
                     )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = raText,
-                    onValueChange = { raText = it },
-                    label = { Text(stringResource(R.string.custom_target_ra)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).testTag("custom-target-ra"),
-                )
-                OutlinedTextField(
-                    value = decText,
-                    onValueChange = { decText = it },
-                    label = { Text(stringResource(R.string.custom_target_dec)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).testTag("custom-target-dec"),
-                )
+            androidx.compose.foundation.layout.BoxWithConstraints {
+                val stacked = maxWidth < 320.dp
+                if (stacked) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = raText,
+                            onValueChange = { raText = it },
+                            label = { Text(stringResource(R.string.custom_target_ra)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("custom-target-ra"),
+                        )
+                        OutlinedTextField(
+                            value = decText,
+                            onValueChange = { decText = it },
+                            label = { Text(stringResource(R.string.custom_target_dec)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("custom-target-dec"),
+                        )
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = raText,
+                            onValueChange = { raText = it },
+                            label = { Text(stringResource(R.string.custom_target_ra)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("custom-target-ra"),
+                        )
+                        OutlinedTextField(
+                            value = decText,
+                            onValueChange = { decText = it },
+                            label = { Text(stringResource(R.string.custom_target_dec)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("custom-target-dec"),
+                        )
+                    }
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = bortleText,
-                    onValueChange = { bortleText = it },
-                    label = { Text(stringResource(R.string.custom_target_bortle)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).testTag("custom-target-bortle"),
-                )
-                OutlinedTextField(
-                    value = focalText,
-                    onValueChange = { focalText = it },
-                    label = { Text(stringResource(R.string.custom_target_focal)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).testTag("custom-target-focal"),
-                )
+            androidx.compose.foundation.layout.BoxWithConstraints {
+                val stacked = maxWidth < 320.dp
+                if (stacked) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = bortleText,
+                            onValueChange = { bortleText = it },
+                            label = { Text(stringResource(R.string.custom_target_bortle)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("custom-target-bortle"),
+                        )
+                        OutlinedTextField(
+                            value = focalText,
+                            onValueChange = { focalText = it },
+                            label = { Text(stringResource(R.string.custom_target_focal)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("custom-target-focal"),
+                        )
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = bortleText,
+                            onValueChange = { bortleText = it },
+                            label = { Text(stringResource(R.string.custom_target_bortle)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("custom-target-bortle"),
+                        )
+                        OutlinedTextField(
+                            value = focalText,
+                            onValueChange = { focalText = it },
+                            label = { Text(stringResource(R.string.custom_target_focal)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("custom-target-focal"),
+                        )
+                    }
+                }
             }
             OutlinedTextField(
                 value = tipText,

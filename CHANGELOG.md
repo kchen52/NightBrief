@@ -36,6 +36,18 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
 - Dates and times follow a locale change without restarting the app.
 - The Moon description and long-press label, session prompts and history, and the default
   custom-target tip come from string resources instead of hardcoded English.
+- Touch targets for collapsible card headers, the Why control, session rating stars, glass
+  action buttons, the moon long-press target, and site chips now meet the 48 dp minimum, and
+  site chips expose their selected state to TalkBack. Week's score bars no longer announce
+  0 % for a night with no score, and score pills announce their meaning.
+- Narrow windows and large font scales now stack custom-target fields and wrap darker-sky
+  access chips instead of clipping them, and the planner uses the actual window size rather
+  than the raw screen size.
+- Share and Print show a preparing indicator, prevent duplicate taps, recycle their bitmaps
+  on every failure path, and report failure through a snackbar.
+- Importing a library with no sites is rejected with a specific message and leaves the
+  current library intact.
+- Air-quality samples are sorted once per series instead of on every lookup.
 
 ## [0.1.1] - 2026-11-13
 

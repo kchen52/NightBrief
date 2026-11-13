@@ -101,6 +101,8 @@ planner for that exact date. Add a UI test; the existing tests only exercise `Ev
 
 ## UI-03 — Normalize touch targets and expose meaningful state/value semantics
 
+**Status:** Addressed in this change.
+
 **Priority:** P1  
 **Evidence:**
 
@@ -159,6 +161,8 @@ should remain visible while refreshing; a refresh failure must not turn a usable
 
 ## UI-05 — Make narrow-window and large-font layouts intentional
 
+**Status:** Addressed in this change.
+
 **Priority:** P2  
 **Evidence:**
 
@@ -182,6 +186,8 @@ unfolded foldable. Check no clipped tabs, overlapping fields, hidden actions, or
 Current golden tests largely use default font scale, and the connected 1.5 test checks only a small set of labels.
 
 ## UI-06 — Show share/print progress and failure feedback; close the bitmap failure leak
+
+**Status:** Addressed in this change.
 
 **Priority:** P2  
 **Evidence:**
@@ -259,6 +265,8 @@ unit suites pass. Manual device checks are still needed for map ready-before-tou
 slow Wear local load. Map failure behavior that permits a manual pin is unchanged.
 
 ## UI-09 — Handle an imported zero-site library with a useful empty state
+
+**Status:** Addressed in this change (rejected with a specific error).
 
 **Priority:** P2  
 **Evidence:**
@@ -556,6 +564,8 @@ small Settings/Gear `Column` without an item-count problem.
 state, fold transitions, and screenshots. Collapsed cards must remain gone from composition after exit.
 
 ## PERF-10 — Index air-quality samples once per series (small, bounded cleanup)
+
+**Status:** Addressed in this change.
 
 **Priority:** P3  
 **Evidence:** `core-weather/src/main/kotlin/app/nightbrief/weather/AirQualityClient.kt:48-64` sorts and allocates an

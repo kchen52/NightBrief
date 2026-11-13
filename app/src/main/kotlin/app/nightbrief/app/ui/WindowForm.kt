@@ -125,12 +125,17 @@ internal fun paneWeights(
 
 @Composable
 internal fun rememberWindowForm(): WindowForm {
-    val configuration = LocalConfiguration.current
+    val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
     val fold = rememberFoldSpan()
+    val sizePx = windowInfo.containerSize
+    val config = LocalConfiguration.current
+    val widthDp = if (sizePx.width > 0) (sizePx.width / density.density).toInt() else config.screenWidthDp
+    val heightDp = if (sizePx.height > 0) (sizePx.height / density.density).toInt() else config.screenHeightDp
     return WindowForm.of(
-        widthDp = configuration.screenWidthDp,
-        heightDp = configuration.screenHeightDp,
-        landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        widthDp = widthDp,
+        heightDp = heightDp,
+        landscape = if (sizePx.width > 0) widthDp > heightDp else config.orientation == Configuration.ORIENTATION_LANDSCAPE,
         fold = fold,
     )
 }

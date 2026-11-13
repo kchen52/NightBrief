@@ -105,6 +105,7 @@ import app.nightbrief.score.DewCopy
 import app.nightbrief.score.DewOutlook
 import app.nightbrief.score.DigestComposer
 import app.nightbrief.score.ForecastCoverage
+import app.nightbrief.score.ImagingModes
 import app.nightbrief.score.MeteorAdvisor
 import app.nightbrief.score.MeteorOutlook
 import app.nightbrief.score.ModelAgreement
@@ -403,6 +404,17 @@ private fun HeroCopy(
             colors = AssistChipDefaults.assistChipColors(labelColor = color),
             border = AssistChipDefaults.assistChipBorder(true, borderColor = color.copy(alpha = 0.5f)),
         )
+        val imaging = ImagingModes.disagreeing(score)
+        if (imaging.isNotEmpty()) {
+            Spacer(Modifier.height(2.dp))
+            val parts = imaging.map { stringResource(R.string.imaging_mode_for, it.score, it.mode.label) }
+            Text(
+                stringResource(R.string.imaging_modes_line, score.score, parts.joinToString(" · ")),
+                modifier = Modifier.testTag("imaging-modes"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         score.bestWindow?.takeIf { NightPlanCard.showsBestWindow(score) }?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(

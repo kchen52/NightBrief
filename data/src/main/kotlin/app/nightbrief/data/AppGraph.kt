@@ -12,8 +12,10 @@ import app.nightbrief.sites.StreamingGridBortleLookup
 import app.nightbrief.weather.AirQualityClient
 import app.nightbrief.weather.CachingAirQualitySource
 import app.nightbrief.weather.CachingKpSource
+import app.nightbrief.weather.CachingCometSource
 import app.nightbrief.weather.CachingTleSource
 import app.nightbrief.weather.CelestrakClient
+import app.nightbrief.weather.MpcCometClient
 import app.nightbrief.weather.FileForecastCache
 import app.nightbrief.weather.ForecastRepository
 import app.nightbrief.weather.ForecastSource
@@ -93,6 +95,10 @@ class AppGraph private constructor(context: Context) {
             kp = CachingKpSource(SwpcKpClient(http = http)),
             iss = issTles,
             airQuality = CachingAirQualitySource(AirQualityClient(http = http)),
+            comets = CachingCometSource(
+                MpcCometClient(http = http),
+                File(context.filesDir, "comets/observable.txt"),
+            ),
         )
 
     var briefings: BriefingSource = realBriefings

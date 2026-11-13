@@ -78,7 +78,7 @@ fun AliveHeroCard(
     val paint = skyPaint(palette, sky.twilight)
     var showFact by remember { mutableStateOf(false) }
     val percent = (sky.moonIllumination * 100).roundToInt()
-    val moonDescription = "Moon, ${report.ephemeris.moonPhaseName.label}, $percent percent lit"
+    val moonDescription = stringResource(R.string.moon_description, report.ephemeris.moonPhaseName.label, percent)
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -115,7 +115,7 @@ fun AliveHeroCard(
                 light = paint.moonLight,
                 shadow = paint.moonShadow,
                 description = moonDescription,
-                longClickLabel = "Show a Moon fact",
+                longClickLabel = stringResource(R.string.moon_fact_long_click),
                 onLongClick = { showFact = true },
                 modifier = Modifier
                     .align(Alignment.TopEnd)

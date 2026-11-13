@@ -53,6 +53,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
@@ -721,6 +722,10 @@ private fun CustomTargetsEditor(
                 TextButton(onClick = { adding = false }) {
                     Text(stringResource(R.string.cancel))
                 }
+                val defaultTip = stringResource(
+                    R.string.custom_target_default_tip,
+                    kind.label.lowercase(LocalConfiguration.current.locales[0]),
+                )
                 Button(
                     onClick = {
                         val trimmed = name.trim()
@@ -734,9 +739,7 @@ private fun CustomTargetsEditor(
                             minFocalMm = (focal!! / 2).coerceAtLeast(10),
                             idealFocalMm = focal,
                             minAltitudeDeg = 20.0,
-                            tip = tipText.trim().ifBlank {
-                                "Custom ${kind.label.lowercase(Locale.ROOT)} target."
-                            },
+                            tip = tipText.trim().ifBlank { defaultTip },
                             tracksMoon = false,
                             requiresBrightMoon = false,
                         )

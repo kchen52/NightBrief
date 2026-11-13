@@ -1,6 +1,7 @@
 package app.nightbrief.app.ui.tonight
 
 import android.text.format.DateFormat
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -50,7 +52,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -398,12 +402,27 @@ private fun HeroCopy(
     Spacer(Modifier.height(10.dp))
     if (score != null) {
         val color = NightColors.forScore(score.score)
-        AssistChip(
-            onClick = {},
-            label = { Text("${score.verdict.label} · ${score.band.label}", fontWeight = FontWeight.SemiBold) },
-            colors = AssistChipDefaults.assistChipColors(labelColor = color),
-            border = AssistChipDefaults.assistChipBorder(true, borderColor = color.copy(alpha = 0.5f)),
-        )
+        // A badge, not a control: the chip's visual treatment and touch-size layout without a
+        // ripple or click semantics. The 48 dp wrapper keeps the surrounding layout unchanged.
+        Box(Modifier.minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier
+                    .defaultMinSize(minHeight = AssistChipDefaults.Height)
+                    .testTag("verdict-badge"),
+                shape = AssistChipDefaults.shape,
+                color = Color.Transparent,
+                contentColor = color,
+                border = BorderStroke(1.dp, color.copy(alpha = 0.5f)),
+            ) {
+                Box(Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "${score.verdict.label} · ${score.band.label}",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
         val imaging = ImagingModes.disagreeing(score)
         if (imaging.isNotEmpty()) {
             Spacer(Modifier.height(2.dp))

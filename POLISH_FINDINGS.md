@@ -4,7 +4,8 @@ Reviewed `main` at **`54e465d0906fb102f97d2be5370f3a874c80f061`**, after pulling
 The review covers the phone Compose UI, navigation and responsive layouts, map/forms/settings, share and print,
 briefing construction, workers, the Glance widget, and the Wear screen/tile.
 
-This is an implementation handoff, not a request to redesign the product. **No production source files were changed.**
+This is an implementation handoff, not a request to redesign the product. **No production source files were
+changed during the review.**
 
 ## Confidence and priorities
 
@@ -25,18 +26,25 @@ before/after numbers rather than claim that source inspection alone proves jank 
 
 ## Recommended implementation order
 
-1. **Small correctness batch:** UI-01, UI-02, UI-04, UI-07.
+1. **Small correctness batch:** UI-01, UI-02, UI-04, UI-07 — addressed in
+   [#130](https://github.com/kchen52/NightBrief/pull/130).
 2. **Profiling baseline plus bounded performance fixes:** PERF-01 through PERF-04, with call counts and traces.
 3. **Interaction and adaptive-UI batch:** UI-03, UI-05, UI-06, UI-08, UI-09.
 4. **I/O and packaging batch:** PERF-05 and PKG-01.
 5. **Only after measurements:** PERF-08 and PERF-09. Do not start with a Compose/navigation rewrite.
 
+## Implementation status
+
+The first batch is implemented in
+[#130](https://github.com/kchen52/NightBrief/pull/130): UI-01, UI-02, UI-04, and UI-07. Each section
+below records its resolution. The remaining findings are unchanged.
+
 ## Highest-value findings at a glance
 
 | ID | Priority | Finding | Status |
 | --- | --- | --- | --- |
-| UI-01 | P1 | Hero verdict looks and acts clickable but its callback is empty | Confirmed |
-| UI-02 | P1 | Events can open a different site from the one used to compute them | Confirmed |
+| UI-01 | P1 | Hero verdict looks and acts clickable but its callback is empty | Confirmed · addressed in #130 |
+| UI-02 | P1 | Events can open a different site from the one used to compute them | Confirmed · addressed in #130 |
 | UI-03 | P1 | Several custom controls have undersized targets or incomplete semantics | Confirmed code; run TalkBack |
 | PERF-01 | P1 | Widget/Wear/app paths independently rebuild the same briefing | Confirmed duplicated path |
 | PERF-02 | P1 | Seven-night briefings enrich and parse products that Week discards | Confirmed duplicated work |
@@ -53,6 +61,10 @@ before/after numbers rather than claim that source inspection alone proves jank 
 ## UI-01 — Replace the no-op verdict chip with a non-interactive badge
 
 **Priority:** P1  
+**Status:** Addressed in [#130](https://github.com/kchen52/NightBrief/pull/130). The verdict is a
+non-interactive `Surface` that keeps the chip's layout and paints. `NightDetailQuietUiTest` asserts it
+has no click action while the window reminder still does.
+
 **Evidence:** `app/src/main/kotlin/app/nightbrief/app/ui/tonight/NightDetail.kt:399-406`
 
 `HeroCopy` renders the verdict/band in an `AssistChip(onClick = {})`. It has a border, tint, click ripple, and
@@ -68,6 +80,10 @@ otherwise preserved. Add a regression test that distinguishes this badge from th
 ## UI-02 — Carry the event's site ID into the planner
 
 **Priority:** P1  
+**Status:** Addressed in [#130](https://github.com/kchen52/NightBrief/pull/130). `EventsScreen` passes
+the producing primary site's id through `onOpenNight`, and `EventsNavigationTest` selects a different
+site to prove an event still opens the primary site's planner.
+
 **Evidence:**
 
 - `app/src/main/kotlin/app/nightbrief/app/ui/events/EventsScreen.kt:59-64, 77`
@@ -121,6 +137,11 @@ Tonight. Preserve horizontal-drag behavior in the site and hour strips.
 ## UI-04 — Add a real retry path when Week cannot provide an outlook
 
 **Priority:** P1  
+**Status:** Addressed in [#130](https://github.com/kchen52/NightBrief/pull/130). Week renders error,
+loading, and unavailable states with a Retry that calls `vm.refresh(force = true)`, keeps cached rows
+visible, and disables Retry while loading. `WeekRetryTest` covers a failed first load, a missing
+outlook, retry success, and cached data after a failed refresh.
+
 **Evidence:** `app/src/main/kotlin/app/nightbrief/app/ui/week/WeekScreen.kt:76-92, 112-200, 222-250`; compare
 Tonight's refresh action at `app/src/main/kotlin/app/nightbrief/app/ui/tonight/TonightScreen.kt:116-120` and its
 error banner at `:165`.
@@ -184,6 +205,10 @@ physical device.
 ## UI-07 — Do not cache the old locale forever; move remaining UI copy to resources
 
 **Priority:** P2  
+**Status:** Addressed in [#130](https://github.com/kchen52/NightBrief/pull/130). `Format` caches
+formatters by locale, and the Moon, session, and custom-target copy moved to `strings.xml`.
+`FormatLocaleTest` verifies `en-US` and `de-DE` output without restarting the process.
+
 **Evidence:**
 
 - `app/src/main/kotlin/app/nightbrief/app/ui/common/Format.kt:15-24, 40-50`; lint reports `ConstantLocale` at

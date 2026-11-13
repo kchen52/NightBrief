@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -71,11 +74,27 @@ class NightDetailQuietUiTest {
         compose.onNodeWithText("front element", substring = true).assertDoesNotExist()
     }
 
-    private fun show(report: NightReport) {
+    @Test
+    fun verdictIsANonInteractiveBadgeWhileTheWindowReminderStaysAChip() {
+        val report = planned(temperatureC = 10.0, dewPointC = 0.0)
+        val score = report.score
+        assertTrue("expected a scored night", score != null)
+        assertTrue("expected a best window for the reminder chip", score!!.bestWindow != null)
+        show(report, onToggleWindowAlarm = {})
+        compose.onNodeWithText("${score.verdict.label} · ${score.band.label}").assertHasNoClickAction()
+        compose.onNodeWithTag("window-alarm").performScrollTo().assertHasClickAction()
+    }
+
+    private fun show(report: NightReport, onToggleWindowAlarm: (() -> Unit)? = null) {
         compose.setContent {
             NightBriefTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    NightDetail(report, alternative = null, onOpenAlternative = {})
+                    NightDetail(
+                        report,
+                        alternative = null,
+                        onOpenAlternative = {},
+                        onToggleWindowAlarm = onToggleWindowAlarm,
+                    )
                 }
             }
         }

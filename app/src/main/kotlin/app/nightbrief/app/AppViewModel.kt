@@ -5,6 +5,9 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import app.nightbrief.astro.NightEphemeris
+import app.nightbrief.astro.SkyEvent
+import app.nightbrief.astro.SkyEvents
 import app.nightbrief.astro.Target
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
@@ -21,6 +24,7 @@ import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.NightReport
 import app.nightbrief.score.WindowAlarms
+import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.PlaceSearchResult
 import app.nightbrief.work.DigestScheduler
@@ -28,6 +32,10 @@ import app.nightbrief.work.WidgetRefresh
 import app.nightbrief.work.WindowAlarmScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +49,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.time.Clock
 import java.time.LocalDate
+import java.time.ZoneId
 
 data class BriefingUiState(
     val briefing: Briefing? = null,
@@ -65,6 +75,14 @@ class AppViewModel(
     app: Application,
     private val savedState: SavedStateHandle = SavedStateHandle(),
 ) : AndroidViewModel(app) {
+    /**
+     * "Now" for the on-device sky reads. It is a property, not a constructor parameter, because
+     * the framework instantiates this ViewModel reflectively and only knows the
+     * `(Application)` and `(Application, SavedStateHandle)` signatures; another parameter makes
+     * `by viewModels()` throw on device. Tests may pin it before composing.
+     */
+    internal var clock: Clock = Clock.systemUTC()
+
     private val graph = AppGraph.get(app)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
@@ -147,6 +165,26 @@ class AppViewModel(
         return report
     }
 
+    /**
+     * Year-ahead sky events for [zone], computed off the main thread. Events shows a loading
+     * state until this returns; it must never run during composition.
+     */
+    suspend fun skyEventsYearAhead(zone: ZoneId): List<SkyEvent> =
+        withContext(Dispatchers.Default) {
+            SkyEvents.yearAhead(LocalDate.now(clock.withZone(zone)), zone)
+        }
+
+    /**
+     * Tonight's sunset, sunrise, and dark window from the on-device ephemeris, for the loading
+     * state before the first forecast arrives. Off the main thread for the same reason.
+     */
+    suspend fun loadingEphemeris(site: Site): NightEphemeris =
+        withContext(Dispatchers.Default) {
+            NightEphemeris.compute(
+                LocalDate.now(clock.withZone(site.zone)), site.zone, site.latitude, site.longitude,
+            )
+        }
+
     /** Bortle class from the bundled light-pollution grid, or null when those grids have no data there. */
     suspend fun lookupBortle(lat: Double, lon: Double): Int? =
         withContext(Dispatchers.IO) { graph.bortleLookup?.lookup(lat, lon) }
@@ -182,18 +220,29 @@ class AppViewModel(
                     )
                     return@launch
                 }
-                val found = DarkSkyFinder.search(
-                    report,
-                    s.gear,
-                    lookup,
-                    graph.briefings,
-                    roads = graph.roadAccess,
-                    water = graph.openWater,
-                )
-                val named = found.map { candidate ->
-                    val place = graph.placeSearch.reverse(candidate.site.latitude, candidate.site.longitude)
-                    if (place == null) candidate else candidate.copy(placeName = place.name)
+                // Scoring, comet parsing, and the grid samples resume on Default, not on the caller.
+                val found = withContext(Dispatchers.Default) {
+                    DarkSkyFinder.search(
+                        report,
+                        s.gear,
+                        lookup,
+                        graph.briefings,
+                        roads = graph.roadAccess,
+                        water = graph.openWater,
+                    )
                 }
+                // Reverse geocoding is per candidate. Parallel with failure isolation: a missing
+                // place name leaves the distance label and never fails the search.
+                val named = coroutineScope {
+                    found.map { candidate ->
+                        async {
+                            val place = graph.placeSearch.reverse(candidate.site.latitude, candidate.site.longitude)
+                            if (place == null) candidate else candidate.copy(placeName = place.name)
+                        }
+                    }.awaitAll()
+                }
+                // A cancelled or replaced search must not publish into a newer site's card.
+                if (!isActive || _darkerSky.value.searchedSiteId != siteId) return@launch
                 val book = state.value?.sites ?: s.sites
                 _darkerSky.value = DarkerSkyUiState(
                     candidates = named,

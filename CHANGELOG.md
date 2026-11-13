@@ -13,6 +13,16 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
   same per-hour qualities and gates with a documented alternate weight table. The deep-sky score stays
   the published verdict in the digest, widget, Wear tile, Sites list, and alerts.
 
+### Changed
+
+- Tonight's loading sky and the year-ahead Sky events screen read the ephemeris in the background, so
+  they show a loading state instead of doing that work during the first frame. Sky events now offers
+  Retry if the scan fails.
+- Darker-sky search runs off the main thread, scores candidates without Tonight-only side products,
+  looks up place names in parallel, and can be cancelled while it is searching.
+- The site map picker no longer shows a misleading "Loading map tiles…" label, and the watch shows a
+  loading state while tonight's glance is being prepared.
+
 ### Fixed
 
 - Sky events open the planner for the site that produced the list, not whichever site was last

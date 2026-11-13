@@ -64,6 +64,8 @@ import org.osmdroid.views.overlay.Marker
 /**
  * "Darker sky within 60 km" for a site with only saved-site alternatives otherwise.
  * Pure rendering; the search itself runs in [app.nightbrief.app.AppViewModel.searchDarkerSky].
+ * [onCancel] stops a search that is still running; null leaves the searching row without a
+ * control, which is what a static preview wants.
  */
 @Composable
 fun DarkerSkyCard(
@@ -73,6 +75,7 @@ fun DarkerSkyCard(
     onSave: (DarkSkyCandidate) -> Unit,
     modifier: Modifier = Modifier,
     onAccessFilter: (DarkerSkyAccessFilter) -> Unit = {},
+    onCancel: (() -> Unit)? = null,
 ) {
     var showMap by rememberSaveable { mutableStateOf(false) }
     val visible = remember(state.candidates, state.accessFilter) {
@@ -93,7 +96,14 @@ fun DarkerSkyCard(
         when {
             state.searching -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.padding(end = 10.dp))
-                Text(stringResource(R.string.darker_sky_searching), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.darker_sky_searching),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onCancel != null) {
+                    TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
+                }
             }
             state.error != null -> {
                 Banner(state.error, NightColors.Poor)

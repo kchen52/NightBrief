@@ -33,6 +33,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -174,7 +175,7 @@ fun TonightScreen(
                 if (briefing == null || report == null) {
                     val site = siteId?.let { book[it] }
                     if (ui.loading && site != null) {
-                        LoadingSky(site)
+                        LoadingSky(site, vm::loadingEphemeris)
                     } else {
                         Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
                             if (ui.loading) CircularProgressIndicator() else Text(stringResource(R.string.tonight_empty))
@@ -220,6 +221,7 @@ fun TonightScreen(
                         onSave = vm::saveDarkerSky,
                         modifier = Modifier.padding(horizontal = 16.dp),
                         onAccessFilter = vm::setDarkerSkyAccessFilter,
+                        onCancel = vm::clearDarkerSky,
                     )
                     SessionHistoryCard(
                         sessions = current.sessions.filter { it.siteId == report.site.id },
@@ -261,11 +263,18 @@ internal fun RefreshStatusLine(modifier: Modifier = Modifier) {
 
 private const val REFRESH_LINE_PERIOD_MS = 2_000L
 
-/** Ephemeris is on device, so sunset and darkness can show before the forecast returns. */
+/**
+ * Ephemeris is on device, so sunset and darkness can show before the forecast returns.
+ * [load] runs off the calling frame through `produceState`; it is a parameter so a test can
+ * hold the load open and see the loading state.
+ */
 @Composable
-private fun LoadingSky(site: Site) {
-    val eph = remember(site.id, site.latitude, site.longitude, site.zoneId) {
-        NightEphemeris.compute(LocalDate.now(site.zone), site.zone, site.latitude, site.longitude)
+internal fun LoadingSky(site: Site, load: suspend (Site) -> NightEphemeris) {
+    val eph by produceState<NightEphemeris?>(
+        initialValue = null,
+        site.id, site.latitude, site.longitude, site.zoneId,
+    ) {
+        value = load(site)
     }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -276,10 +285,20 @@ private fun LoadingSky(site: Site) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text("${stringResource(R.string.sunset)} ${Format.time(eph.sunset, site.zone)}")
-        Text("${stringResource(R.string.sunrise)} ${Format.time(eph.sunrise, site.zone)}")
-        eph.darkWindow?.let {
-            Text("${stringResource(R.string.dark)} ${Format.window(it, site.zone)}")
+        val sky = eph
+        if (sky == null) {
+            Text(
+                stringResource(R.string.sky_loading),
+                modifier = Modifier.testTag("loading-sky-progress"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text("${stringResource(R.string.sunset)} ${Format.time(sky.sunset, site.zone)}")
+            Text("${stringResource(R.string.sunrise)} ${Format.time(sky.sunrise, site.zone)}")
+            sky.darkWindow?.let {
+                Text("${stringResource(R.string.dark)} ${Format.window(it, site.zone)}")
+            }
         }
     }
 }

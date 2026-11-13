@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.LocalHazeState
 import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.glassSource
@@ -128,6 +130,16 @@ fun WeekScreen(
                         StaleForecastBanner(tonight)
                     }
                 }
+                ui.error?.let { message ->
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        WeekErrorBanner(message, ui.loading) { vm.refresh(force = true) }
+                    }
+                }
+                if (outlook == null && ui.error == null) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        WeekUnavailable(ui.loading) { vm.refresh(force = true) }
+                    }
+                }
                 if (outlook != null) {
                     val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
                     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -176,6 +188,16 @@ fun WeekScreen(
                         StaleForecastBanner(tonight, Modifier.padding(horizontal = 16.dp))
                     }
                 }
+                ui.error?.let { message ->
+                    item {
+                        WeekErrorBanner(message, ui.loading) { vm.refresh(force = true) }
+                    }
+                }
+                if (outlook == null && ui.error == null) {
+                    item {
+                        WeekUnavailable(ui.loading) { vm.refresh(force = true) }
+                    }
+                }
                 if (outlook != null) {
                     val nightNames = NightNames.titles(outlook.nights, bigNightThreshold)
                     item {
@@ -198,6 +220,43 @@ fun WeekScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * A failed refresh must not blank the page: the banner sits above any cached outlook and Retry
+ * stays disabled while a forced refresh is already running.
+ */
+@Composable
+private fun WeekErrorBanner(message: String, loading: Boolean, onRetry: () -> Unit) {
+    Banner(
+        text = message,
+        color = NightColors.Poor,
+        modifier = Modifier.padding(horizontal = 16.dp),
+        action = {
+            TextButton(onClick = onRetry, enabled = !loading) {
+                Text(stringResource(R.string.retry))
+            }
+        },
+    )
+}
+
+@Composable
+private fun WeekUnavailable(loading: Boolean, onRetry: () -> Unit) {
+    SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text(
+            stringResource(if (loading) R.string.week_loading else R.string.week_unavailable),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onRetry,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.retry))
         }
     }
 }

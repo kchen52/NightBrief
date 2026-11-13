@@ -280,11 +280,10 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 EventsScreen(
                     vm,
                     onBack = { navController.popBackStack() },
-                    onOpenNight = { date ->
-                        val siteId = vm.selectedSiteId.value ?: vm.state.value?.sites?.primaryId
+                    onOpenNight = { siteId, date ->
                         // A sky event can sit past the forecast horizon; remember it so the
                         // stepper can come back to it after a night in between.
-                        if (siteId != null) navController.navigate(Routes.night(siteId, date, ceiling = date))
+                        navController.navigate(Routes.night(siteId, date, ceiling = date))
                     },
                 )
             }

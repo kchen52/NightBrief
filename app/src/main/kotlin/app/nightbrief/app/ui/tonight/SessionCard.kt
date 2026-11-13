@@ -46,8 +46,11 @@ fun SessionPromptCard(
     var note by rememberSaveable(nightDate.toString()) { mutableStateOf("") }
     SectionCard(stringResource(R.string.session_prompt_title), modifier = modifier) {
         Text(
-            stringResource(R.string.session_prompt_body, nightDate.toString()) +
-                (score?.let { " (scored $it)" } ?: ""),
+            if (score != null) {
+                stringResource(R.string.session_prompt_scored, nightDate.toString(), score)
+            } else {
+                stringResource(R.string.session_prompt_body, nightDate.toString())
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -121,9 +124,12 @@ fun SessionHistoryCard(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             sessions.sortedByDescending { it.nightDate }.take(5).forEach { entry ->
                 Column {
+                    val stars = "★".repeat(entry.rating) + "☆".repeat(5 - entry.rating)
+                    val line = entry.score?.let { score ->
+                        stringResource(R.string.session_history_scored, entry.nightDate, stars, score)
+                    } ?: stringResource(R.string.session_history_line, entry.nightDate, stars)
                     Text(
-                        "${entry.nightDate} · ${"★".repeat(entry.rating)}${"☆".repeat(5 - entry.rating)}" +
-                            (entry.score?.let { " · scored $it" } ?: ""),
+                        line,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     ForecastSurprise.line(siteName, entry)?.let { surprise ->

@@ -13,6 +13,18 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
   same per-hour qualities and gates with a documented alternate weight table. The deep-sky score stays
   the published verdict in the digest, widget, Wear tile, Sites list, and alerts.
 
+### Fixed
+
+- Sky events open the planner for the site that produced the list, not whichever site was last
+  selected in Week.
+- Week shows an error with Retry when the forecast fails and keeps the saved outlook on screen. A
+  failed first load or a missing outlook now offers Retry instead of a blank page.
+- The verdict on Tonight is a badge again: it no longer announces itself as a button or ripples
+  when tapped.
+- Dates and times follow a locale change without restarting the app.
+- The Moon description and long-press label, session prompts and history, and the default
+  custom-target tip come from string resources instead of hardcoded English.
+
 ## [0.1.1] - 2026-11-13
 
 First changelog entry. It consolidates everything shipped before semantic versioning started:

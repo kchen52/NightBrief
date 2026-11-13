@@ -55,7 +55,7 @@ import androidx.compose.ui.platform.LocalConfiguration
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNight: (LocalDate) -> Unit) {
+fun EventsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNight: (siteId: String, date: LocalDate) -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val book = state?.sites ?: return
     val site = book.primary ?: return
@@ -74,7 +74,13 @@ fun EventsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNight: (LocalDate) 
         },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
     ) { inner ->
-        EventsList(events = events, zone = zone, onOpenNight = onOpenNight, modifier = Modifier.padding(inner))
+        EventsList(
+            events = events,
+            zone = zone,
+            // Open the planner for the site that produced these events, not the global selection.
+            onOpenNight = { date -> onOpenNight(site.id, date) },
+            modifier = Modifier.padding(inner),
+        )
     }
 }
 
@@ -117,7 +123,7 @@ internal fun EventRow(
     modifier: Modifier = Modifier,
 ) {
     val date = event.instant.atZone(zone).toLocalDate()
-    SectionCard(modifier = modifier.clickable { onOpenNight(date) }) {
+    SectionCard(modifier = modifier.clickable { onOpenNight(date) }.testTag("event-row")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(64.dp)) {
                 Text(

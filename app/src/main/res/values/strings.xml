@@ -423,4 +423,13 @@
     <string name="passport_stamps">Stamps</string>
     <string name="passport_new_stamp">New stamp: %1$s</string>
     <string name="passport_earned_on">Earned %1$s</string>
+    <string name="moon_description">Moon, %1$s, %2$d percent lit</string>
+    <string name="moon_fact_long_click">Show a Moon fact</string>
+    <string name="session_prompt_scored">How was %1$s? Your rating builds a history and helps tune the score. (Scored %2$d)</string>
+    <string name="session_history_line">%1$s · %2$s</string>
+    <string name="session_history_scored">%1$s · %2$s · scored %3$d</string>
+    <string name="custom_target_default_tip">Custom %1$s target.</string>
+    <string name="retry">Retry</string>
+    <string name="week_loading">Loading this week…</string>
+    <string name="week_unavailable">No week outlook yet. Try refreshing the forecast.</string>
 </resources>

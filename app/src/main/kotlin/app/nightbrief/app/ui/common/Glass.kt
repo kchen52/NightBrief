@@ -375,7 +375,7 @@ class GlassActionScope internal constructor(rowScope: RowScope, private val stat
             if (highlighted) palette.primaryContainer.copy(alpha = 0.8f) else palette.surfaceHigh.copy(alpha = 0.4f),
             label = "action-tint",
         )
-        Box(Modifier.size(48.dp).glassPill(state, tint), contentAlignment = Alignment.Center) { content() }
+        Box(Modifier.size(44.dp).glassPill(state, tint), contentAlignment = Alignment.Center) { content() }
     }
 }
 

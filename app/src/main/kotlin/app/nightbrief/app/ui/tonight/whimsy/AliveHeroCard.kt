@@ -120,7 +120,7 @@ fun AliveHeroCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 12.dp, end = 12.dp)
-                    .size(48.dp),
+                    .size(36.dp),
             )
         }
     }
@@ -217,8 +217,7 @@ private fun MoonTarget(
 ) {
     val click by rememberUpdatedState(onLongClick)
     Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
+        modifier
             .semantics {
                 contentDescription = description
                 onLongClick(label = longClickLabel) {
@@ -230,7 +229,7 @@ private fun MoonTarget(
                 detectTapGestures(onLongPress = { click() })
             },
     ) {
-        Canvas(Modifier.size(36.dp)) {
+        Canvas(Modifier.matchParentSize()) {
             drawMoonDisc(illumination, terminatorDeg, light, shadow)
         }
     }

@@ -109,7 +109,7 @@ fun SectionCard(
                     modifier = if (toggle != null) {
                         Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = 32.dp)
                             .clickable(role = Role.Button, onClickLabel = action, onClick = toggle)
                     } else {
                         Modifier

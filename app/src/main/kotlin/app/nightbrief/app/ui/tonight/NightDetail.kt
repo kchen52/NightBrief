@@ -731,7 +731,6 @@ private fun WhyBlock(title: String, detail: String, ui: DetailUiState) {
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
             .padding(top = 4.dp)
             .clickable(role = Role.Button) { ui.toggleWhy(title) },
         horizontalArrangement = Arrangement.End,

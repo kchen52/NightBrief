@@ -59,7 +59,7 @@ fun SessionPromptCard(
             for (star in 1..5) {
                 IconButton(
                     onClick = { rating = star },
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(44.dp),
                 ) {
                     Icon(
                         if (star <= rating) Icons.Filled.Star else Icons.Outlined.StarOutline,

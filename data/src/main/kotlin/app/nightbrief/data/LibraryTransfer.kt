@@ -77,6 +77,7 @@ object LibraryTransfer {
             if (total > cap) throw LibraryFormatException("library file is too large")
             out.write(buffer, 0, read)
         }
-        return out.toString(StandardCharsets.UTF_8)
+        // Charset overload of ByteArrayOutputStream.toString is API 33+; minSdk is 26.
+        return String(out.toByteArray(), StandardCharsets.UTF_8)
     }
 }

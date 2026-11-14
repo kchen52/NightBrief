@@ -22,11 +22,27 @@ Each document has one job. Put a fact in the first place that owns it and link f
 
 The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0/) from `0.1.1` onward.
 
-- `versionName` is the SemVer string; `versionCode` is a positive integer that increases with every upload. Bump `nightbrief.versionCode` and `nightbrief.versionName` together in `gradle.properties` at release. The watch keeps its own version.
+- `versionName` is the SemVer string; `versionCode` is a positive integer that increases with every upload. Bump `nightbrief.versionCode` and `nightbrief.versionName` together in `gradle.properties` at release. The watch keeps its own version in `wear/build.gradle.kts`; leave it alone unless the task is a Wear release.
 - While pre-1.0, a change that breaks saved data, module APIs, or the score model may bump the minor version. A compatible fix bumps the patch version.
 - From 1.0, a breaking saved-data or API change bumps the major version; new behavior bumps the minor; fixes bump the patch.
 - While a change is open, add it under `## [Unreleased]` in the `Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security` groups. At release, retitle that block with the version and date and start a fresh empty `Unreleased`.
 - Write changelog entries for what a user can observe, not for the file you touched. A release consolidates related work into one entry instead of one line per commit.
+- Settings → About shows `BuildConfig.VERSION_NAME` (`about_version`). Sideload updates read GitHub `/releases/latest` by SemVer; the tag and `versionName` must agree or every install looks outdated.
+
+### Cutting a phone release
+
+When the user asks to cut / ship / publish a release, do this end-to-end on `main` (no discovery rewrite). Do not invent a second path.
+
+1. Ensure `main` is checked out and up to date with `origin/main`.
+2. Choose the next SemVer for `nightbrief.versionName` and increment `nightbrief.versionCode` by one in `gradle.properties`.
+3. In `CHANGELOG.md`: retitle `## [Unreleased]` as `## [X.Y.Z] - YYYY-MM-DD` (use the real release date), keep the user-visible groups, and leave a fresh empty `## [Unreleased]` above it. Add a one-line release note under the version heading when useful (`versionCode` N, what this release is).
+4. Point the living version strings at the new release: `context.md` (Version line and Current state) and the `versionName` in the `ROADMAP.md` opening line.
+5. Update `PlayReleaseManifestTest` so it asserts the new `versionCode`. Do not change HTTP `User-Agent: NightBrief/0.1` or Wear's independent version unless asked.
+6. Commit on `main` (message like `Release NightBrief X.Y.Z.`). Push `main`.
+7. Tag and push **`vX.Y.Z`** (leading `v`; the bare SemVer must equal `nightbrief.versionName`). Example: `git tag v1.0.0 && git push origin v1.0.0`. That triggers `.github/workflows/release-apk.yml`.
+8. Watch the workflow (`gh run watch` on the new run). It builds `:app:assembleRelease`, uploads `nightbrief-vX.Y.Z.apk`, and runs `gh release create` for that tag. Confirm with `gh release view vX.Y.Z` and return the release URL (`https://github.com/kchen52/NightBrief/releases/tag/vX.Y.Z`).
+
+Pre-release tags with a hyphen (`v1.1.0-beta.1`) publish as GitHub prereleases and stay out of `/releases/latest`. Do not retag or force-push a published release tag.
 
 ## Read the matching spec first
 

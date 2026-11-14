@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
@@ -106,7 +103,7 @@ fun TonightScreen(
                             Action(highlighted = current.nightVision) {
                                 IconButton(onClick = { vm.setNightVision(!current.nightVision) }) {
                                     Icon(
-                                        Icons.Filled.Visibility,
+                                        NightBriefIcons.Visibility,
                                         contentDescription = stringResource(
                                             if (current.nightVision) R.string.night_vision_on else R.string.night_vision_off,
                                         ),
@@ -116,12 +113,12 @@ fun TonightScreen(
                             }
                             Action {
                                 IconButton(onClick = { vm.refresh(force = true) }) {
-                                    Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast))
+                                    Icon(NightBriefIcons.Refresh, stringResource(R.string.refresh_forecast))
                                 }
                             }
                             if (report != null) Action { ShareNightPlanButton(report) }
                             Action {
-                                IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                                IconButton(onClick = onOpenSettings) { Icon(NightBriefIcons.Settings, stringResource(R.string.settings)) }
                             }
                         }
                     },

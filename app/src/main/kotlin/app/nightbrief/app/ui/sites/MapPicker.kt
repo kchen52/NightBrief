@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,6 +60,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.theme.NightColors
@@ -271,7 +269,7 @@ fun MapPickerDialog(
                         title = { Text(stringResource(R.string.tap_to_place)) },
                         navigationIcon = {
                             IconButton(onClick = onDismiss) {
-                                Icon(Icons.Filled.Close, stringResource(R.string.close))
+                                Icon(NightBriefIcons.Close, stringResource(R.string.close))
                             }
                         },
                     )
@@ -283,7 +281,7 @@ fun MapPickerDialog(
                         onValueChange = { query = it },
                         label = { Text(stringResource(R.string.search_place)) },
                         singleLine = true,
-                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        leadingIcon = { Icon(NightBriefIcons.Search, null) },
                         trailingIcon = {
                             when {
                                 searching -> CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -297,7 +295,7 @@ fun MapPickerDialog(
                                         searchedQuery = null
                                     },
                                 ) {
-                                    Icon(Icons.Filled.Close, stringResource(R.string.clear_place_search))
+                                    Icon(NightBriefIcons.Close, stringResource(R.string.clear_place_search))
                                 }
                             }
                         },

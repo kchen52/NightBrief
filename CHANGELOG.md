@@ -20,6 +20,9 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
 
 ### Changed
 
+- Phone icons use Phosphor Duotone for tabs, section headers, and target kinds, and Tabler for chrome
+  and actions (ISS and Milky Way use Tabler). Material Icons Extended is gone; Settings credits both
+  sets.
 - Tonight's loading sky and the year-ahead Sky events screen read the ephemeris in the background, so
   they show a loading state instead of doing that work during the first frame. Sky events now offers
   Retry if the scan fails.

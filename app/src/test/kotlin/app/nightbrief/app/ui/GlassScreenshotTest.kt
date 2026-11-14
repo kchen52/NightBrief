@@ -11,15 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.ui.common.GlassActionCluster
 import app.nightbrief.app.ui.common.GlassNavBar
 import app.nightbrief.app.ui.common.GlassNavItem
@@ -142,15 +134,15 @@ class GlassScreenshotTest {
                                         Action(highlighted = nightVision) {
                                             IconButton(onClick = {}) {
                                                 Icon(
-                                                    Icons.Filled.Visibility,
+                                                    NightBriefIcons.Visibility,
                                                     "Night vision",
                                                     tint = if (nightVision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                                 )
                                             }
                                         }
-                                        Action { IconButton(onClick = {}) { Icon(Icons.Filled.Refresh, "Refresh forecast") } }
-                                        Action { IconButton(onClick = {}) { Icon(Icons.Filled.Share, "Share") } }
-                                        Action { IconButton(onClick = {}) { Icon(Icons.Filled.Settings, "Settings") } }
+                                        Action { IconButton(onClick = {}) { Icon(NightBriefIcons.Refresh, "Refresh forecast") } }
+                                        Action { IconButton(onClick = {}) { Icon(NightBriefIcons.Share, "Share") } }
+                                        Action { IconButton(onClick = {}) { Icon(NightBriefIcons.Settings, "Settings") } }
                                     }
                                 },
                                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -234,10 +226,10 @@ class GlassScreenshotTest {
 
     private companion object {
         val tabs = listOf(
-            "Tonight" to Icons.Filled.NightsStay,
-            "Week" to Icons.Filled.DateRange,
-            "Sites" to Icons.Filled.Place,
-            "Gear" to Icons.Filled.PhotoCamera,
+            "Tonight" to NightBriefIcons.Tonight,
+            "Week" to NightBriefIcons.Week,
+            "Sites" to NightBriefIcons.Sites,
+            "Gear" to NightBriefIcons.Gear,
         )
     }
 }

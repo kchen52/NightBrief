@@ -12,11 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +43,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
@@ -108,10 +104,10 @@ private object Routes {
 private data class TopDest(val route: String, @StringRes val label: Int, val icon: ImageVector)
 
 private val topDestinations = listOf(
-    TopDest(Routes.Tonight, R.string.nav_tonight, Icons.Filled.NightsStay),
-    TopDest(Routes.Week, R.string.nav_week, Icons.Filled.DateRange),
-    TopDest(Routes.Sites, R.string.nav_sites, Icons.Filled.Place),
-    TopDest(Routes.Gear, R.string.nav_gear, Icons.Filled.PhotoCamera),
+    TopDest(Routes.Tonight, R.string.nav_tonight, NightBriefIcons.Tonight),
+    TopDest(Routes.Week, R.string.nav_week, NightBriefIcons.Week),
+    TopDest(Routes.Sites, R.string.nav_sites, NightBriefIcons.Sites),
+    TopDest(Routes.Gear, R.string.nav_gear, NightBriefIcons.Gear),
 )
 
 private val tabRoutes = topDestinations.map { it.route }.toSet()

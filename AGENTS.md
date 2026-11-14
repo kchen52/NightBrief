@@ -134,6 +134,7 @@ Rebuild only with `tools/build_bortle_grid.py`, the bbox and `--aggregate mean` 
 - `LightPollutionAttribution.TEXT` in Settings, unchanged.
 - NOAA SWPC and Celestrak credits in Settings.
 - Ephemeris credit points at the Astronomical Almanac low-precision formulas.
+- Phosphor Icons and Tabler Icons (MIT) via `about_icons` in Settings. New icons go through `NightBriefIcons` and stay vendored under `ui/icons/vendor/`; do not re-add `material-icons-extended`.
 - HTTP calls send `User-Agent: NightBrief/0.1` (`Http.kt`).
 
 ## UI

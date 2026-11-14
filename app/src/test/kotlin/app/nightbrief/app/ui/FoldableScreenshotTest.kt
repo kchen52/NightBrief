@@ -15,11 +15,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
@@ -201,10 +197,10 @@ class FoldableScreenshotTest {
 
     private val tabs: List<Pair<String, ImageVector>>
         @Composable get() = listOf(
-            stringResource(R.string.nav_tonight) to Icons.Filled.NightsStay,
-            stringResource(R.string.nav_week) to Icons.Filled.DateRange,
-            stringResource(R.string.nav_sites) to Icons.Filled.Place,
-            stringResource(R.string.nav_gear) to Icons.Filled.PhotoCamera,
+            stringResource(R.string.nav_tonight) to NightBriefIcons.Tonight,
+            stringResource(R.string.nav_week) to NightBriefIcons.Week,
+            stringResource(R.string.nav_sites) to NightBriefIcons.Sites,
+            stringResource(R.string.nav_gear) to NightBriefIcons.Gear,
         )
 
     private fun night(site: Site, date: LocalDate): NightReport =

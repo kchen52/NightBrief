@@ -3,8 +3,6 @@ package app.nightbrief.app.ui.tonight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -27,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import app.nightbrief.app.share.printNightPlan
 import app.nightbrief.app.share.shareNightPlan
@@ -56,7 +55,7 @@ internal fun ShareNightPlanButton(report: NightReport) {
                     strokeWidth = 2.dp,
                 )
             } else {
-                Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.share_night_plan))
+                Icon(NightBriefIcons.Share, contentDescription = stringResource(R.string.share_night_plan))
             }
         }
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))

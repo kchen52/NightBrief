@@ -18,15 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
@@ -113,7 +105,7 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
             val addSite = stringResource(R.string.add_site)
             ExtendedFloatingActionButton(
                 onClick = { onEdit(null) },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                icon = { Icon(NightBriefIcons.Add, contentDescription = null) },
                 text = { Text(addSite) },
                 modifier = Modifier.semantics { contentDescription = addSite },
             )
@@ -134,8 +126,8 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.setPrimary(site.id) }) {
-                            if (isPrimary) Icon(Icons.Filled.Star, stringResource(R.string.primary_site), tint = NightColors.Amber)
-                            else Icon(Icons.Outlined.StarOutline, stringResource(R.string.make_primary))
+                            if (isPrimary) Icon(NightBriefIcons.Star, stringResource(R.string.primary_site), tint = NightColors.Amber)
+                            else Icon(NightBriefIcons.StarOutline, stringResource(R.string.make_primary))
                         }
                         Column(Modifier.weight(1f)) {
                             Text(site.name, style = MaterialTheme.typography.titleMedium)
@@ -160,17 +152,17 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                     }
                     Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { vm.moveSite(index, index - 1) }, enabled = index > 0) {
-                            Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.move_up_named, site.name))
+                            Icon(NightBriefIcons.MoveUp, stringResource(R.string.move_up_named, site.name))
                         }
                         IconButton(onClick = { vm.moveSite(index, index + 1) }, enabled = index < book.sites.lastIndex) {
-                            Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.move_down_named, site.name))
+                            Icon(NightBriefIcons.MoveDown, stringResource(R.string.move_down_named, site.name))
                         }
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { onEdit(site.id) }) {
-                            Icon(Icons.Filled.Edit, stringResource(R.string.edit_named, site.name))
+                            Icon(NightBriefIcons.Edit, stringResource(R.string.edit_named, site.name))
                         }
                         IconButton(onClick = { deleteSite(site) }, enabled = book.sites.size > 1) {
-                            Icon(Icons.Filled.Delete, stringResource(R.string.delete_named, site.name))
+                            Icon(NightBriefIcons.Delete, stringResource(R.string.delete_named, site.name))
                         }
                     }
                 }
@@ -228,7 +220,7 @@ fun SiteEditorScreen(vm: AppViewModel, siteId: String?, onDone: () -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(if (existing == null) R.string.add_site else R.string.edit_site)) },
                 navigationIcon = {
-                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                    IconButton(onClick = onDone) { Icon(NightBriefIcons.Back, stringResource(R.string.back)) }
                 },
                 actions = {
                     TextButton(onClick = saveSite) { Text(stringResource(R.string.save_site)) }

@@ -24,9 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -58,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.BuildConfig
 import app.nightbrief.app.R
 import app.nightbrief.data.EmptyLibraryException
@@ -158,7 +156,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        Icon(NightBriefIcons.Back, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -483,6 +481,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 Text(stringResource(R.string.about_license), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_ephemeris), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.about_target_samples), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.about_icons), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -630,7 +629,7 @@ private fun CustomTargetsEditor(
             }
             IconButton(onClick = { onRemove(target.id) }) {
                 Icon(
-                    Icons.Filled.Delete,
+                    NightBriefIcons.Delete,
                     contentDescription = stringResource(R.string.remove_named, target.name),
                 )
             }

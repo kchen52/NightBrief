@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.DarkerSkyAccessFilter
 import app.nightbrief.app.DarkerSkyUiState
 import app.nightbrief.app.R
@@ -84,7 +82,7 @@ fun DarkerSkyCard(
     }
     SectionCard(
         title = stringResource(R.string.darker_sky_title),
-        icon = Icons.Filled.Explore,
+        icon = NightBriefIcons.Explore,
         modifier = modifier,
         collapseId = CardIds.DARKER_SKY,
     ) {
@@ -334,7 +332,7 @@ internal fun DarkerSkyMapDialog(
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.darker_sky_title)) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.close)) } },
+                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(NightBriefIcons.Close, stringResource(R.string.close)) } },
                 )
             },
         ) { inner ->

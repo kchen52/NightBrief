@@ -21,32 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.FilterCenterFocus
-import androidx.compose.material.icons.filled.FilterDrama
-import androidx.compose.material.icons.filled.Landscape
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Nightlight
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.SatelliteAlt
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Stars
-import androidx.compose.material.icons.filled.Thermostat
-import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -80,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.FoldColumns
 import app.nightbrief.app.ui.WindowForm
@@ -232,7 +207,7 @@ private fun ColumnScope.ScoreCards(report: NightReport, units: UnitSystem, ui: D
     TimelineCard(report, units, ui)
     ModelAgreement.assess(report)?.let { ConfidenceCard(it) }
     if (report.suggestions.isNotEmpty()) {
-        SectionCard(stringResource(R.string.section_targets), icon = Icons.Filled.FilterCenterFocus, collapseId = CardIds.TARGETS) {
+        SectionCard(stringResource(R.string.section_targets), icon = NightBriefIcons.Targets, collapseId = CardIds.TARGETS) {
             report.suggestions.forEachIndexed { i, s ->
                 if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 SuggestionRow(s, report, ui)
@@ -438,7 +413,7 @@ private fun HeroCopy(
         score.bestWindow?.takeIf { NightPlanCard.showsBestWindow(score) }?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Filled.Schedule,
+                    NightBriefIcons.Schedule,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = color,
@@ -475,15 +450,15 @@ private val HeroSideBySideMin = 250.dp
 private fun SkyCard(report: NightReport) {
     val e = report.ephemeris
     val zone = report.site.zone
-    SectionCard(stringResource(R.string.section_sky), icon = Icons.Filled.DarkMode, collapseId = CardIds.SKY) {
+    SectionCard(stringResource(R.string.section_sky), icon = NightBriefIcons.Sky, collapseId = CardIds.SKY) {
         Row(Modifier.fillMaxWidth()) {
-            SkyMoment(Icons.Filled.WbTwilight, stringResource(R.string.sunset), Format.time(e.sunset, zone), Modifier.weight(1f))
-            SkyMoment(Icons.Filled.WbSunny, stringResource(R.string.sunrise), Format.time(e.sunrise, zone), Modifier.weight(1f))
+            SkyMoment(NightBriefIcons.Sunset, stringResource(R.string.sunset), Format.time(e.sunset, zone), Modifier.weight(1f))
+            SkyMoment(NightBriefIcons.Sunrise, stringResource(R.string.sunrise), Format.time(e.sunrise, zone), Modifier.weight(1f))
         }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.Filled.Bedtime,
+                NightBriefIcons.Moon,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -512,7 +487,7 @@ private fun SkyCard(report: NightReport) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val free = e.moonFreeDarkDuration
             StatChip(
-                icon = Icons.Filled.Bedtime,
+                icon = NightBriefIcons.Moon,
                 value = Format.duration(free),
                 label = stringResource(R.string.moon_free_label),
                 valueColor = if (free.isZero) NightColors.Fair else NightColors.Primary,
@@ -520,7 +495,7 @@ private fun SkyCard(report: NightReport) {
             )
             val assumed = report.site.bortle == null
             StatChip(
-                icon = Icons.Filled.Lightbulb,
+                icon = NightBriefIcons.Lightbulb,
                 value = report.site.effectiveBortle.toString(),
                 label = stringResource(if (assumed) R.string.bortle_assumed_label else R.string.bortle_label),
                 modifier = Modifier.weight(1f),
@@ -546,7 +521,7 @@ private fun MoonLine(e: NightEphemeris, zone: ZoneId) {
     val timing = moonTiming(e, zone)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            Icons.Filled.Nightlight,
+            NightBriefIcons.TargetMoon,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
             tint = NightColors.Amber,
@@ -616,9 +591,9 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem, ui: Detail
         else -> R.string.section_overnight
     }
     val icon = when {
-        dew.frostFrom != null -> Icons.Filled.AcUnit
-        dew.from != null -> Icons.Filled.WaterDrop
-        else -> Icons.Filled.Thermostat
+        dew.frostFrom != null -> NightBriefIcons.Frost
+        dew.from != null -> NightBriefIcons.Dew
+        else -> NightBriefIcons.Thermostat
     }
     val color = if (dew.frostFrom != null) NightColors.Poor else NightColors.Amber
     SectionCard(stringResource(titleRes), icon = icon, collapseId = CardIds.DEW) {
@@ -644,7 +619,7 @@ private fun DewCard(dew: DewOutlook, zone: ZoneId, units: UnitSystem, ui: Detail
 private fun SmokeCard(smoke: SmokeOutlook, zone: ZoneId, ui: DetailUiState) {
     val title = stringResource(R.string.section_smoke)
     val smoky = smoke.smoky
-    SectionCard(title, icon = Icons.Filled.FilterDrama, collapseId = CardIds.SMOKE) {
+    SectionCard(title, icon = NightBriefIcons.Smoke, collapseId = CardIds.SMOKE) {
         SmokeCopy.riskLine(smoke) { Format.time(it, zone) }?.let { line ->
             EmphasizedText(
                 line,
@@ -674,7 +649,7 @@ private fun AuroraCard(aurora: AuroraOutlook, ui: DetailUiState) {
         AuroraChance.UNLIKELY -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val title = stringResource(R.string.section_aurora)
-    SectionCard(title, icon = Icons.Filled.AutoAwesome, collapseId = CardIds.AURORA) {
+    SectionCard(title, icon = NightBriefIcons.Aurora, collapseId = CardIds.AURORA) {
         EmphasizedText(
             AuroraCopy.digestLine(aurora),
             style = if (alert) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
@@ -688,13 +663,13 @@ private fun AuroraCard(aurora: AuroraOutlook, ui: DetailUiState) {
 @Composable
 private fun MeteorCard(meteor: MeteorOutlook, report: NightReport, ui: DetailUiState) {
     val title = stringResource(R.string.section_meteors)
-    SectionCard(title, icon = Icons.Filled.Stars, collapseId = CardIds.METEORS) {
+    SectionCard(title, icon = NightBriefIcons.Meteors, collapseId = CardIds.METEORS) {
         MeteorSparkle {
             EmphasizedText(MeteorAdvisor.digestLine(meteor), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Filled.Explore,
+                    NightBriefIcons.Compass,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -742,7 +717,7 @@ private fun WhyBlock(title: String, detail: String, ui: DetailUiState) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Icon(
-            if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            if (open) NightBriefIcons.ExpandLess else NightBriefIcons.ExpandMore,
             contentDescription = action,
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -753,7 +728,7 @@ private fun WhyBlock(title: String, detail: String, ui: DetailUiState) {
 @Composable
 private fun CometCard(comet: CometOutlook, report: NightReport, ui: DetailUiState) {
     val title = stringResource(R.string.section_comet)
-    SectionCard(title, icon = Icons.Filled.Star, collapseId = CardIds.COMET) {
+    SectionCard(title, icon = NightBriefIcons.Comet, collapseId = CardIds.COMET) {
         EmphasizedText(
             CometAdvisor.digestLine(comet),
             style = MaterialTheme.typography.titleMedium,
@@ -762,7 +737,7 @@ private fun CometCard(comet: CometOutlook, report: NightReport, ui: DetailUiStat
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.Filled.Explore,
+                NightBriefIcons.Compass,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -785,7 +760,7 @@ private fun CometCard(comet: CometOutlook, report: NightReport, ui: DetailUiStat
 @Composable
 private fun IssCard(report: NightReport) {
     val zone = report.site.zone
-    SectionCard(stringResource(R.string.section_iss), icon = Icons.Filled.SatelliteAlt, collapseId = CardIds.ISS) {
+    SectionCard(stringResource(R.string.section_iss), icon = NightBriefIcons.Iss, collapseId = CardIds.ISS) {
         report.issPasses.forEachIndexed { i, pass ->
             if (i > 0) HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
             IssPassRow(pass, zone)
@@ -819,7 +794,7 @@ private fun IssPassRow(pass: IssPass, zone: ZoneId) {
 private fun MilkyWayCard(report: NightReport) {
     val mw = report.ephemeris.milkyWay
     val zone = report.site.zone
-    SectionCard(stringResource(R.string.section_milky_way), icon = Icons.Filled.NightsStay, collapseId = CardIds.MILKY_WAY) {
+    SectionCard(stringResource(R.string.section_milky_way), icon = NightBriefIcons.MilkyWay, collapseId = CardIds.MILKY_WAY) {
         if (mw == null) {
             Text(
                 if (report.ephemeris.milkyWayBlockedByHorizon) {
@@ -852,7 +827,7 @@ private fun MilkyWayCard(report: NightReport) {
             val free = mw.moonFreeDuration
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Filled.Bedtime,
+                    NightBriefIcons.Moon,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -873,7 +848,7 @@ private fun MilkyWayCard(report: NightReport) {
 @Composable
 private fun BreakdownCard(report: NightReport) {
     val score = report.score ?: return
-    SectionCard(stringResource(R.string.section_breakdown), icon = Icons.Filled.BarChart, collapseId = CardIds.BREAKDOWN) {
+    SectionCard(stringResource(R.string.section_breakdown), icon = NightBriefIcons.Breakdown, collapseId = CardIds.BREAKDOWN) {
         score.factors.forEach { f ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 5.dp)) {
                 Text(
@@ -965,7 +940,7 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
             { h -> h.windKmh?.let { colors.forScore((100 - it * 2.5).roundToInt()) } },
         ),
     )
-    SectionCard(stringResource(R.string.section_timeline), icon = Icons.Filled.Timeline, collapseId = CardIds.TIMELINE) {
+    SectionCard(stringResource(R.string.section_timeline), icon = NightBriefIcons.Timeline, collapseId = CardIds.TIMELINE) {
         Row(Modifier.fillMaxWidth()) {
             Column {
                 Box(Modifier.timelineHead(), contentAlignment = Alignment.CenterStart) {}
@@ -1028,7 +1003,7 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
         if (report.cloudReason == CloudReason.HIGH_THIN) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Cloud, contentDescription = null, modifier = Modifier.size(16.dp), tint = NightColors.Fair)
+                Icon(NightBriefIcons.InlineCloud, contentDescription = null, modifier = Modifier.size(16.dp), tint = NightColors.Fair)
                 Spacer(Modifier.width(6.dp))
                 Text(
                     stringResource(R.string.cloud_high_thin),
@@ -1119,7 +1094,7 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
             }
             Spacer(Modifier.width(4.dp))
             Icon(
-                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                if (expanded) NightBriefIcons.ExpandLess else NightBriefIcons.ExpandMore,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1189,14 +1164,14 @@ private fun SuggestionRow(s: TargetSuggestion, report: NightReport, ui: DetailUi
 }
 
 private fun kindIcon(kind: TargetKind): ImageVector = when (kind) {
-    TargetKind.MILKY_WAY -> Icons.Filled.NightsStay
-    TargetKind.GALAXY -> Icons.Filled.Public
-    TargetKind.EMISSION_NEBULA -> Icons.Filled.Cloud
-    TargetKind.REFLECTION_NEBULA -> Icons.Filled.FilterDrama
-    TargetKind.STAR_CLUSTER -> Icons.Filled.Stars
-    TargetKind.CONSTELLATION -> Icons.Filled.AutoAwesome
-    TargetKind.MOON -> Icons.Filled.Nightlight
-    TargetKind.MOONLIT -> Icons.Filled.Landscape
+    TargetKind.MILKY_WAY -> NightBriefIcons.TargetMilkyWay
+    TargetKind.GALAXY -> NightBriefIcons.TargetGalaxy
+    TargetKind.EMISSION_NEBULA -> NightBriefIcons.TargetEmissionNebula
+    TargetKind.REFLECTION_NEBULA -> NightBriefIcons.TargetReflectionNebula
+    TargetKind.STAR_CLUSTER -> NightBriefIcons.TargetStarCluster
+    TargetKind.CONSTELLATION -> NightBriefIcons.TargetConstellation
+    TargetKind.MOON -> NightBriefIcons.TargetMoon
+    TargetKind.MOONLIT -> NightBriefIcons.TargetMoonlit
 }
 
 /** Higher is better, on the same words as the night's band. The bar still shows the factor's share of its weight. */

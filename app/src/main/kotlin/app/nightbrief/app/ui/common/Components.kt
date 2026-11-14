@@ -31,10 +31,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -74,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,7 +136,7 @@ fun SectionCard(
                             label = "card-chevron",
                         )
                         Icon(
-                            Icons.Filled.ExpandMore,
+                            NightBriefIcons.ExpandMore,
                             contentDescription = action,
                             modifier = Modifier.size(22.dp).rotate(rotation),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -285,7 +282,7 @@ fun SiteStrip(
                 Column(Modifier.padding(12.dp).fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         if (chip.isPrimary) {
-                            Icon(Icons.Filled.Star, contentDescription = stringResource(R.string.primary_site), tint = NightColors.Amber, modifier = Modifier.size(14.dp))
+                            Icon(NightBriefIcons.Star, contentDescription = stringResource(R.string.primary_site), tint = NightColors.Amber, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                         }
                         Text(

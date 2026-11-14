@@ -14,14 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
@@ -89,8 +82,8 @@ class ReadmeScreenshotTest {
         val pointScore = night(point, tonight).scoreValue
         paparazzi.snapshot("tonight") {
             Phone("Tonight", "Tonight", actions = {
-                IconButton(onClick = {}) { Icon(Icons.Filled.Refresh, "Refresh forecast") }
-                IconButton(onClick = {}) { Icon(Icons.Filled.Settings, "Settings") }
+                IconButton(onClick = {}) { Icon(NightBriefIcons.Refresh, "Refresh forecast") }
+                IconButton(onClick = {}) { Icon(NightBriefIcons.Settings, "Settings") }
             }) { padding ->
                 Column(
                     Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
@@ -122,13 +115,13 @@ class ReadmeScreenshotTest {
                 actions = {
                     IconButton(onClick = {}) {
                         Icon(
-                            Icons.Filled.Visibility,
+                            NightBriefIcons.Visibility,
                             stringResource(R.string.night_vision_on),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
-                    IconButton(onClick = {}) { Icon(Icons.Filled.Refresh, stringResource(R.string.refresh_forecast)) }
-                    IconButton(onClick = {}) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                    IconButton(onClick = {}) { Icon(NightBriefIcons.Refresh, stringResource(R.string.refresh_forecast)) }
+                    IconButton(onClick = {}) { Icon(NightBriefIcons.Settings, stringResource(R.string.settings)) }
                 },
             ) { padding ->
                 Column(
@@ -322,10 +315,10 @@ class ReadmeScreenshotTest {
 
     private companion object {
         val tabs: List<Pair<String, ImageVector>> = listOf(
-            "Tonight" to Icons.Filled.NightsStay,
-            "Week" to Icons.Filled.DateRange,
-            "Sites" to Icons.Filled.Place,
-            "Gear" to Icons.Filled.PhotoCamera,
+            "Tonight" to NightBriefIcons.Tonight,
+            "Week" to NightBriefIcons.Week,
+            "Sites" to NightBriefIcons.Sites,
+            "Gear" to NightBriefIcons.Gear,
         )
     }
 }

@@ -251,6 +251,7 @@
     <string name="about_license">The light-pollution data is licensed for non-commercial use only.</string>
     <string name="about_ephemeris">Ephemeris uses Astronomical Almanac low-precision formulas.</string>
     <string name="about_target_samples">Sample photos of suggested targets are credited under each photo. The copies in the app are resized.</string>
+    <string name="about_icons">Icons by Phosphor Icons and Tabler Icons (MIT).</string>
 
     <string name="site_name">Site name</string>
     <string name="section_location">Location</string>

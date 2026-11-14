@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -46,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -184,12 +182,12 @@ fun SiteForm(
                     modifier = Modifier.weight(1f),
                 ) {
                     if (locating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    else Icon(Icons.Filled.MyLocation, null, Modifier.size(18.dp))
+                    else Icon(NightBriefIcons.MyLocation, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.use_gps))
                 }
                 OutlinedButton(onClick = { showMap = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Filled.Map, null, Modifier.size(18.dp))
+                    Icon(NightBriefIcons.Map, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.pick_on_map))
                 }

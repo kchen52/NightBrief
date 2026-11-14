@@ -2,8 +2,6 @@ package app.nightbrief.app.ui.tonight
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.CardIds
 import app.nightbrief.app.ui.common.EmphasizedText
@@ -33,7 +32,7 @@ fun ConfidenceCard(agreement: CloudAgreement, modifier: Modifier = Modifier) {
     }
     SectionCard(
         title = stringResource(R.string.section_confidence),
-        icon = Icons.Filled.Cloud,
+        icon = NightBriefIcons.Confidence,
         modifier = modifier,
         collapseId = CardIds.CONFIDENCE,
     ) {

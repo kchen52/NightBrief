@@ -23,9 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +53,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -140,7 +138,7 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
             }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = { addBody = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(NightBriefIcons.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.add_body))
             }
@@ -174,7 +172,7 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
             }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = { addLens = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(NightBriefIcons.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.add_lens))
             }
@@ -199,13 +197,13 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
                         )
                     }
                     IconButton(onClick = { onChange(kit.withTracker(null)) }) {
-                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_tracker))
+                        Icon(NightBriefIcons.Delete, contentDescription = stringResource(R.string.remove_tracker))
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = { addTracker = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(NightBriefIcons.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.add_tracker))
             }
@@ -233,13 +231,13 @@ fun GearEditor(kit: GearKit, onChange: (GearKit) -> Unit, modifier: Modifier = M
                         )
                     }
                     IconButton(onClick = { onChange(kit.removeFilter(filter.id)) }) {
-                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, filter.name))
+                        Icon(NightBriefIcons.Delete, contentDescription = stringResource(R.string.remove_named, filter.name))
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = { addFilter = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(NightBriefIcons.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.add_filter))
             }
@@ -321,7 +319,7 @@ private fun BodyRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
+            IconButton(onClick = onDelete) { Icon(NightBriefIcons.Delete, contentDescription = stringResource(R.string.remove_named, body.name)) }
         }
         NicknameEditor(body.nickname, onNickname, body.id)
     }
@@ -346,7 +344,7 @@ private fun LensRow(lens: Lens, body: CameraBody?, onDelete: () -> Unit, onNickn
                     )
                 }
             }
-            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
+            IconButton(onClick = onDelete) { Icon(NightBriefIcons.Delete, contentDescription = stringResource(R.string.remove_named, lens.name)) }
         }
         NicknameEditor(lens.nickname, onNickname, lens.id)
     }

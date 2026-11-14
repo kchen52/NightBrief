@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -29,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
@@ -104,20 +101,20 @@ fun PlannedNightScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                    IconButton(onClick = onBack) { Icon(NightBriefIcons.Back, stringResource(R.string.back)) }
                 },
                 actions = {
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(-1)) },
                         enabled = tonight != null && NightPlanner.canStepToPreviousNight(date, tonight),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_night))
+                        Icon(NightBriefIcons.Previous, stringResource(R.string.previous_night))
                     }
                     IconButton(
                         onClick = { onSelectDate(date.plusDays(1)) },
                         enabled = tonight != null && NightPlanner.canStepToNextNight(date, tonight, ceiling = ceiling),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_night))
+                        Icon(NightBriefIcons.Next, stringResource(R.string.next_night))
                     }
                     if (night != null) ShareNightPlanButton(night)
                 },

@@ -2,9 +2,15 @@
 
 Notable changes to NightBrief. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0/) from `0.1.1` onward.
-While the app is pre-1.0, a change that breaks saved data or the score model may bump the minor version.
+From 1.0, a breaking saved-data or API change bumps the major version; new behavior bumps the minor;
+fixes bump the patch.
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-11-13
+
+First stable 1.0 release (`versionCode` 3). The Night Score digest, seven-night outlook, planner,
+widget, and Wear glance are the supported product; the Nov 2026 field-review scope is in.
 
 ### Added
 
@@ -40,7 +46,6 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
 
 - Release builds keep WorkManager's Room database constructor under R8, so a minified phone APK no
   longer crashes on launch while starting `InitializationProvider`.
-
 - Sky events open the planner for the site that produced the list, not whichever site was last
   selected in Week.
 - Week shows an error with Retry when the forecast fails and keeps the saved outlook on screen. A

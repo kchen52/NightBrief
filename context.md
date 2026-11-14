@@ -7,7 +7,7 @@ A short orientation for a new session. The details live in `README.md` (spec), `
 NightBrief is a native Android go/no-go digest for astrophotography. It scores the coming night from the weather and sky, explains the score, plans targets and sessions, and sends a morning digest. A home-screen widget and an optional Wear OS tile mirror the primary site.
 
 - Package: `app.nightbrief`
-- Version: `0.1.1` (`versionCode` 2 in `gradle.properties`)
+- Version: `1.0.0` (`versionCode` 3 in `gradle.properties`)
 - Android: `minSdk` 26, `compileSdk` 37, phone `targetSdk` 36; watch `minSdk` 30, `targetSdk` 34
 - Stack: Kotlin 2.1.21, Jetpack Compose, WorkManager, DataStore, osmdroid, kotlinx.serialization
 - Build: Gradle 8.11.1, JDK 21, bytecode target 17
@@ -42,7 +42,7 @@ Dependencies point inward: `:app` sees the engines through `:work` â†’ `:data` â
 
 ## Current state
 
-- No open roadmap work. The Nov 2026 field review closed with imaging modes; all committed scope through v1.0 is shipped.
+- Phone is `1.0.0`. No open roadmap work. The Nov 2026 field review closed with imaging modes; the 1.0 product scope is shipped.
 - Sideload updates: Tonight's banner checks GitHub Releases (`develop-latest` for debug, `/releases/latest` for release). `ci/sideload.jks` signs local debug and CI develop/release APKs so updates replace in place. Play installs stay on Play.
 - CI runs `assembleDebug`, `lintDebug`, `test`, and `verifyPaparazziDebug` with `NIGHTBRIEF_SKIP_LIVE_TESTS=1`. The live-network digest test runs only locally. `develop-apk.yml` and `release-apk.yml` attach APKs to GitHub Releases.
 - Known debt and product decisions are in `ROADMAP.md`; do not fix them as a drive-by.

@@ -1,6 +1,6 @@
 # NightBrief roadmap
 
-Native Android go/no-go digest (`app.nightbrief`, `versionName` 0.1.1, `minSdk` 26, `compileSdk` 37 on `:app` and `:wear`). Kotlin + Compose; module boundaries are in `AGENTS.md`.
+Native Android go/no-go digest (`app.nightbrief`, `versionName` 1.0.0, `minSdk` 26, `compileSdk` 37 on `:app` and `:wear`). Kotlin + Compose; module boundaries are in `AGENTS.md`.
 
 This file tracks open work, known debt, and decisions. Shipped history lives in `CHANGELOG.md`; `README.md` is the spec for the score, the Bortle grids, and scheduling.
 

@@ -29,7 +29,7 @@ class PlayReleaseManifestTest {
 
         assertEquals(36, context.applicationInfo.targetSdkVersion)
         @Suppress("DEPRECATION")
-        assertEquals(2, info.versionCode)
+        assertEquals(3, info.versionCode)
         assertFalse(names.contains(Manifest.permission.SCHEDULE_EXACT_ALARM))
         assertFalse(names.contains(Manifest.permission.FOREGROUND_SERVICE))
         assertFalse(names.contains(Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC))

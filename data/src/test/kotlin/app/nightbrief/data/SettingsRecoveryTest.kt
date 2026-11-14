@@ -7,7 +7,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -106,6 +109,51 @@ class SettingsRecoveryTest {
         } finally {
             scope.coroutineContext[Job]?.cancel()
             restoredScope.coroutineContext[Job]?.cancel()
+            dir.deleteRecursively()
+        }
+    }
+
+    /**
+     * Concurrent updates must leave `.good` matching the last committed state. The Mutex plus
+     * [SettingsRepository]'s `backupPublished` flag also stops a late initial-read backup from
+     * replacing a newer publish.
+     */
+    @Test(timeout = 30_000)
+    fun concurrentUpdatesLeaveBackupMatchingLastWrite() = runBlocking {
+        val dir = File.createTempFile("nightbrief-settings-race", "").apply {
+            delete()
+            mkdirs()
+        }
+        val file = File(dir, "app_state.json")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val repo = SettingsRepository.create(file, scope)
+            repo.update {
+                AppState(
+                    onboardingComplete = true,
+                    sites = SiteBook().add(home, makePrimary = true),
+                    digestTime = "00:00",
+                )
+            }
+            val times = (1..40).map { minute -> "%02d:%02d".format(minute / 60, minute % 60) }
+            times.map { time ->
+                async(Dispatchers.IO) {
+                    repo.update { it.copy(digestTime = time) }
+                    time
+                }
+            }.awaitAll()
+            // Let any in-flight backupInitialRead collectors settle.
+            delay(200)
+            val current = repo.current()
+            val backup = SettingsRepository.readBackup(SettingsRepository.backupFileFor(file))
+            assertEquals(
+                "backup digestTime=${backup?.digestTime} current=${current.digestTime}",
+                current.digestTime,
+                backup?.digestTime,
+            )
+            assertTrue(times.contains(current.digestTime))
+        } finally {
+            scope.coroutineContext[Job]?.cancel()
             dir.deleteRecursively()
         }
     }

@@ -1,6 +1,7 @@
 package app.nightbrief.app
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -11,6 +12,8 @@ import app.nightbrief.astro.SkyEvents
 import app.nightbrief.astro.Target
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
+import app.nightbrief.data.EmptyLibraryException
+import app.nightbrief.data.LibraryFormatException
 import app.nightbrief.data.LibraryTransfer
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.AuroraAlerts
@@ -91,6 +94,18 @@ class AppViewModel(
 
     private val graph = AppGraph.get(app)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    private val _libraryNote = MutableStateFlow<String?>(null)
+    /** One-shot import outcome. Call [consumeLibraryNote] after the snackbar is shown. */
+    val libraryNote: StateFlow<String?> = _libraryNote.asStateFlow()
+
+    private val _libraryBusy = MutableStateFlow(false)
+    val libraryBusy: StateFlow<Boolean> = _libraryBusy.asStateFlow()
+
+    /** Clears [libraryNote] so a later identical outcome can surface and rotation does not replay it. */
+    fun consumeLibraryNote() {
+        _libraryNote.value = null
+    }
 
     val state: StateFlow<AppState?> = graph.settings.state
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -534,11 +549,44 @@ class AppViewModel(
         mutate { if (key in it.dismissedSessionPrompts) it else it.copy(dismissedSessionPrompts = it.dismissedSessionPrompts + key) }
     }
 
-    fun exportLibrary(): String? = state.value?.let(LibraryTransfer::encode)
+    /**
+     * Exports sites and gear to JSON off the main thread. Returns null when there is no state yet.
+     */
+    suspend fun exportLibrary(): String? = withContext(Dispatchers.Default) {
+        state.value?.let(LibraryTransfer::encode)
+    }
 
-    fun importLibrary(json: String) {
-        val file = LibraryTransfer.decode(json)
-        mutate { LibraryTransfer.apply(it, file) }
+    /**
+     * Imports a library from [uri]. Reading and parsing run off the main thread, with a size bound
+     * on the document. Success and failure are published to [libraryNote].
+     */
+    fun importLibrary(uri: Uri) {
+        viewModelScope.launch {
+            _libraryBusy.value = true
+            _libraryNote.value = null
+            try {
+                val text = withContext(Dispatchers.IO) { readLibraryText(uri) }
+                val file = withContext(Dispatchers.Default) { LibraryTransfer.decode(text) }
+                mutate { LibraryTransfer.apply(it, file) }
+                _libraryNote.value = getApplication<Application>().getString(R.string.library_imported)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: EmptyLibraryException) {
+                _libraryNote.value = getApplication<Application>().getString(R.string.library_import_empty)
+            } catch (e: LibraryFormatException) {
+                _libraryNote.value = getApplication<Application>().getString(R.string.library_import_failed)
+            } catch (e: Exception) {
+                _libraryNote.value = getApplication<Application>().getString(R.string.library_import_failed)
+            } finally {
+                _libraryBusy.value = false
+            }
+        }
+    }
+
+    private suspend fun readLibraryText(uri: Uri): String {
+        val input = getApplication<Application>().contentResolver.openInputStream(uri)
+            ?: throw LibraryFormatException("cannot read that file")
+        return input.use { stream -> LibraryTransfer.readBounded(stream) }
     }
 
     fun sendDigestNow() {

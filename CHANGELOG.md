@@ -30,8 +30,16 @@ While the app is pre-1.0, a change that breaks saved data or the score model may
   looks up place names in parallel, and can be cancelled while it is searching.
 - The site map picker no longer shows a misleading "Loading map tiles…" label, and the watch shows a
   loading state while tonight's glance is being prepared.
+- Library import and export run off the main thread: imported documents are size-checked before
+  parsing, a busy state disables duplicate taps, and a snackbar reports success or failure. Settings
+  backups are written on a background thread instead of blocking the UI.
+- The Wear OS release APK is minified, and the phone release build shrinks unused resources, so the
+  watch download is smaller.
 
 ### Fixed
+
+- Release builds keep WorkManager's Room database constructor under R8, so a minified phone APK no
+  longer crashes on launch while starting `InitializationProvider`.
 
 - Sky events open the planner for the site that produced the list, not whichever site was last
   selected in Week.

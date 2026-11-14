@@ -5,9 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -53,23 +57,25 @@ class SettingsRepository internal constructor(
         return updated
     }
 
-    private val backupLock = Any()
+    /** Serializes backup publication so an older in-flight write cannot replace a newer one. */
+    private val backupMutex = Mutex()
 
     /** Set once [publishBackup] has stored an update, so a late read of the previous file cannot replace it. */
     private var backupPublished = false
 
-    private fun publishBackup(state: AppState) {
-        synchronized(backupLock) {
+    private suspend fun publishBackup(state: AppState) = withContext(Dispatchers.IO) {
+        backupMutex.withLock {
             writeBackupFile(state)
             backupPublished = true
         }
     }
 
     /** First successful read only. Later saves go through [publishBackup]. */
-    private fun backupInitialRead(state: AppState) {
-        synchronized(backupLock) {
-            if (backupPublished) return
+    private suspend fun backupInitialRead(state: AppState) = withContext(Dispatchers.IO) {
+        backupMutex.withLock {
+            if (backupPublished) return@withLock
             writeBackupFile(state)
+            backupPublished = true
         }
     }
 

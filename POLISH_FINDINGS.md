@@ -37,7 +37,8 @@ before/after numbers rather than claim that source inspection alone proves jank 
 
 The first batch is implemented in
 [#130](https://github.com/kchen52/NightBrief/pull/130): UI-01, UI-02, UI-04, and UI-07. Each section
-below records its resolution. The remaining findings are unchanged.
+below records its resolution. PERF-05 and PKG-01 (batch 4) are implemented and device-validated below.
+The remaining findings are unchanged.
 
 ## Highest-value findings at a glance
 
@@ -50,7 +51,7 @@ below records its resolution. The remaining findings are unchanged.
 | PERF-02 | P1 | Seven-night briefings enrich and parse products that Week discards | Partly addressed: Tonight-only enrichment and one comet parse per brief; step 3 (lean outlook planner) left open |
 | PERF-03 | P1 | Loading and Events calculate ephemeris during composition | Addressed: sky reads run off composition with loading/error states |
 | PERF-04 | P1 | Darker-sky search does full candidate planning and unnecessary serial work | Addressed: lean cancellable pipeline on `Dispatchers.Default` with parallel naming; duration not benchmarked end-to-end |
-| PKG-01 | P2 | Unsigned Wear release is 30.92 MiB, mostly unminified DEX | Measured build result |
+| PKG-01 | P2 | Unsigned Wear release is 30.92 MiB, mostly unminified DEX | Addressed: Wear release minified to 6.32 MiB; phone shrinkResources on |
 | PERF-08 | P3 | Retained hidden tabs are still measured and composed | Cost present; benefit of change unproven |
 | PERF-09 | P3 | Tonight eagerly composes its expanded timeline below the viewport | Cost present; benefit of change unproven |
 
@@ -481,6 +482,24 @@ atomic temp-file behavior.
 covered actions. Test rapid updates, large/rejected document, process death during backup, corrupt-state restore,
 and the nickname race described in `GearScreen.kt:365-377`.
 
+**Resolution:** Import reading/parsing and library export run behind suspend ViewModel methods on `Dispatchers.IO`
+and `Dispatchers.Default`. `LibraryTransfer.readBounded` enforces a 256 KB cap (unit-tested at short/exact/over).
+`AppViewModel.importLibrary(uri)` uses that reader, re-throws `CancellationException`, and publishes a one-shot
+`libraryNote` cleared by `consumeLibraryNote()` so rotation and repeated failures each surface correctly.
+`exportLibrary()` encodes on `Dispatchers.Default`. Settings disables both library buttons while busy.
+`SettingsRepository` publishes `.good` on `Dispatchers.IO` behind a `Mutex` (`backupPublished` still blocks a late
+initial-read overwrite); `SettingsRecoveryTest.concurrentUpdatesLeaveBackupMatchingLastWrite` covers the race.
+
+**Device validation (API 37 Medium_Phone emulator, debug build):** After startup settles, StrictMode
+`detectDiskReads`/`detectDiskWrites`/`penaltyLog` showed **no** `app.nightbrief` frames during rapid Settings
+toggles, Export (share sheet), or Import (SAF open/cancel). Startup still logs `AppGraph`/`getFilesDir` disk reads
+from `NightBriefApp.onCreate` — outside the covered actions. Corrupt `app_state.json` restored from `.good` and
+returned to Tonight. Force-stop during rapid night-vision toggles left `.good` matching the last committed JSON
+(`kill -9` from the shell uid is denied on this emulator). `LibraryImportInstrumentedTest` (FileProvider URIs, no
+Espresso — API 37 removed `InputManager.getInstance`) passed: valid / empty / malformed / missing-gear / oversized /
+repeat-failure. Gear nickname keeps a local draft (`GearScreen` `NicknameField`); no main-thread backup write
+appeared after settle.
+
 ## PERF-06 — Reduce motion detection's hidden API/reflection and production stack walking
 
 **Priority:** P2  
@@ -607,6 +626,34 @@ watch versions independent. Test an actual R8-minified watch artifact, not only 
 fallback, Data Layer messages, and watch Activity launch. On phone, verify Bortle/water-mask assets, accessibility
 strings, widget resources, map, sharing, and night-vision resources are not stripped. No bulk dependency upgrade is
 needed for this task.
+
+**Resolution:** Wear release minification is enabled (`isMinifyEnabled = true`) with `wear/proguard-rules.pro`
+keeping kotlinx.serialization companions, AndroidX Wear tiles/protolayout, Play services Wearable, and the watch
+entry points. Phone release enables `isShrinkResources = true`. R8 had been stripping
+`androidx.work.impl.WorkDatabase_Impl.<init>`; `app/proguard-rules.pro` now keeps Room databases and WorkManager
+workers so the signed phone release launches.
+
+**Measured APK sizes (this branch, after WorkManager keep):**
+
+| Artifact | Bytes | Notes |
+| --- | ---: | --- |
+| `app/build/outputs/apk/release/app-release.apk` | 8,808,493 (8.40 MiB) | Signed `CN=NightBrief Sideload, OU=CI` via `ci/sideload.jks` |
+| `wear/build/outputs/apk/release/wear-release-unsigned.apk` | 6,629,614 (6.32 MiB) | Unsigned (no `:wear` signing config); one minified `classes.dex` 4.37 MB |
+
+**Before (honest label):** sizes at the polish-reviewed `main` tip `46ff9fa`, *before* Wear minify / phone
+`shrinkResources` — not a same-revision A/B: app unsigned **5.35 MiB**, Wear unsigned **30.92 MiB** (three stored
+DEX files, 28.76 MiB). App grew across intervening features (#132 sample photos, #134 updates, #135 icons) even
+with resource shrinking; Wear dropped ~24.6 MiB from minification alone.
+
+**Resource audit (phone release):** `assets/bortle_na.nblp.gzip` (791,414), `bortle_world.nblp.gzip` (500,190),
+`water_mask.wmsk.gzip` (136,161) present and still `.gzip`; `aapt2 dump resources` retains `about_icons`,
+`about_osm`, `night_vision*`, `share_night_plan*`, `library_import*`, `widget_setup`. Release smoke on the phone
+emulator: Tonight launches (signed APK).
+
+**Wear:** `strings` on the minified DEX still contain `WearActivity`, `NightBriefTileService`, and `WearGlance`.
+`:wear:testDebugUnitTest` / `verifyPaparazziDebug` green. No Wear system image on this host (legacy
+`sdkmanager` fails on JDK 23 / JAXB), so tile/Activity/local-fallback were **not** run on a Wear AVD, and Data
+Layer pairing was **not** exercised.
 
 ---
 

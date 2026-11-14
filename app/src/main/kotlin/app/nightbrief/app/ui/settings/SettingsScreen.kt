@@ -35,6 +35,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,8 +61,6 @@ import androidx.compose.ui.res.stringResource
 import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.BuildConfig
 import app.nightbrief.app.R
-import app.nightbrief.data.EmptyLibraryException
-import app.nightbrief.data.LibraryFormatException
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -86,6 +87,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,24 +99,13 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     var showTime by rememberSaveable { mutableStateOf(false) }
     var canNotify by remember { mutableStateOf(DigestNotifier(context).canNotify()) }
     var digestNote by remember { mutableStateOf<String?>(null) }
-    var libraryNote by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    val libraryNote by vm.libraryNote.collectAsStateWithLifecycle()
+    val libraryBusy by vm.libraryBusy.collectAsStateWithLifecycle()
     val importLibrary = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val text = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
-        }.getOrNull()
-        libraryNote = if (text.isNullOrBlank()) {
-            resources.getString(R.string.library_import_failed)
-        } else {
-            try {
-                vm.importLibrary(text)
-                resources.getString(R.string.library_imported)
-            } catch (_: EmptyLibraryException) {
-                resources.getString(R.string.library_import_empty)
-            } catch (_: LibraryFormatException) {
-                resources.getString(R.string.library_import_failed)
-            }
-        }
+        vm.importLibrary(uri)
     }
     var askedNotification by rememberSaveable { mutableStateOf(false) }
     var dragThreshold by remember { mutableStateOf<Int?>(null) }
@@ -143,6 +134,11 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     LaunchedEffect(s.auroraKpThreshold) {
         if (dragAurora == s.auroraKpThreshold) dragAurora = null
     }
+    LaunchedEffect(libraryNote) {
+        val note = libraryNote ?: return@LaunchedEffect
+        snackbar.showSnackbar(note)
+        vm.consumeLibraryNote()
+    }
 
     LifecycleResumeEffect(Unit) {
         canNotify = DigestNotifier(context).canNotify()
@@ -151,6 +147,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
@@ -446,21 +443,16 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenPassport: () -> U
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = {
-                        val json = vm.exportLibrary() ?: return@OutlinedButton
-                        shareLibrary(context, json)
-                    },
+                    onClick = { if (!libraryBusy) scope.launch { vm.exportLibrary()?.let { shareLibrary(context, it) } } },
+                    enabled = !libraryBusy,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.export_library)) }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { importLibrary.launch("*/*") },
+                    onClick = { if (!libraryBusy) importLibrary.launch("*/*") },
+                    enabled = !libraryBusy,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.import_library)) }
-                libraryNote?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
 
             SectionCard(stringResource(R.string.section_about)) {

@@ -2,6 +2,7 @@ package app.nightbrief.app
 
 import android.Manifest
 import android.app.Application
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
@@ -36,5 +37,8 @@ class PlayReleaseManifestTest {
         assertTrue(names.contains(Manifest.permission.POST_NOTIFICATIONS))
         assertTrue(names.contains(Manifest.permission.RECEIVE_BOOT_COMPLETED))
         assertTrue(names.contains(Manifest.permission.INTERNET))
+        val flags = context.applicationInfo.flags
+        assertEquals(0, flags and ApplicationInfo.FLAG_ALLOW_BACKUP)
+        assertEquals(0, flags and ApplicationInfo.FLAG_USES_CLEARTEXT_TRAFFIC)
     }
 }

@@ -124,4 +124,43 @@ class LibraryTransferTest {
             assertTrue(e.message!!.contains("too large"))
         }
     }
+
+    @Test(expected = LibraryFormatException::class)
+    fun rejectsInvalidSiteZoneId() {
+        LibraryTransfer.decode(
+            """
+            {
+              "sites": {
+                "sites": [{"id":"bad","name":"Bad","latitude":43.0,"longitude":-79.0,"zoneId":"Not/AZone"}],
+                "primaryId": "bad"
+              },
+              "gear": {}
+            }
+            """.trimIndent(),
+        )
+    }
+
+    @Test(expected = LibraryFormatException::class)
+    fun rejectsInvalidSiteDigestTimeOverride() {
+        LibraryTransfer.decode(
+            """
+            {
+              "sites": {
+                "sites": [{"id":"bad","name":"Bad","latitude":43.0,"longitude":-79.0,"zoneId":"UTC","digestTimeOverride":"99:99"}],
+                "primaryId": "bad"
+              },
+              "gear": {}
+            }
+            """.trimIndent(),
+        )
+    }
+
+    @Test(expected = LibraryFormatException::class)
+    fun rejectsTooManySites() {
+        val sites = (1..(LibraryTransfer.MAX_SITES + 1)).map { i ->
+            Site("s$i", "Site $i", 43.0, -79.0, "UTC")
+        }
+        val encoded = LibraryTransfer.encode(AppState(sites = SiteBook(sites = sites, primaryId = "s1")))
+        LibraryTransfer.decode(encoded)
+    }
 }

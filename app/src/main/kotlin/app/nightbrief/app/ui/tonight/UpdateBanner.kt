@@ -1,5 +1,6 @@
 package app.nightbrief.app.ui.tonight
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import app.nightbrief.app.R
 import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.app.update.AppUpdateUiState
+import app.nightbrief.app.update.GithubRelease
 
 /**
  * Tonight banner when a newer GitHub APK exists.
@@ -102,13 +104,17 @@ internal fun UpdateBannerContent(
                 LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             }
         }
-        if (state.downloadFailed) {
+        if (state.downloadFailed && GithubRelease.isSafeReleasePageUrl(available.htmlUrl)) {
             TextButton(
                 onClick = {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(available.htmlUrl))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
+                    try {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(available.htmlUrl))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available to open the release page.
+                    }
                 },
             ) {
                 Text(

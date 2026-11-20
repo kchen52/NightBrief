@@ -191,6 +191,24 @@ class AirQualityClientTest {
         assertEquals("expected the origin to be retried, got ${origin.calls}", 2, origin.calls)
     }
 
+    @Test
+    fun parseWrapsMalformedSchemaAndIgnoresNonFiniteValues() {
+        val client = AirQualityClient()
+        try {
+            client.parse("""{"hourly":{"time":[1700000000],"pm2_5":[{}]}}""")
+            fail("expected WeatherApiException for non-primitive pm2_5 element")
+        } catch (_: WeatherApiException) {
+            // expected
+        }
+        val parsed = client.parse(
+            """{"hourly":{"time":[1700000000],"pm2_5":["Infinity"],"pm10":["NaN"],"aerosol_optical_depth":["-Infinity"]}}""",
+        )
+        val sample = parsed.samples.single()
+        assertEquals(null, sample.pm25)
+        assertEquals(null, sample.pm10)
+        assertEquals(null, sample.aerosolOpticalDepth)
+    }
+
     private fun at(text: String): Instant = Instant.parse(text)
 
     companion object {

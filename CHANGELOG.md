@@ -7,6 +7,18 @@ fixes bump the patch.
 
 ## [Unreleased]
 
+### Security
+
+- Removed the committed sideload signing keystore; release builds now sign only from private
+  credentials outside the repository and default to the `release` update channel.
+- Hardened the in-app sideload updater: release and APK download links are restricted to HTTPS
+  GitHub hosts across redirects, download sizes are capped, and downloaded APKs must match the
+  installed package name, minimum version code, and signing certificate before opening the installer.
+- Rejected malformed time zones, digest times, and oversized collections during library JSON import
+  and URL-encoded navigation route parameters so crafted imports cannot crash the app.
+- Disabled cleartext HTTP traffic, HTTPS-to-HTTP redirects, and unscoped Android cloud/device
+  backups on phone and watch, and capped external API response sizes.
+
 ## [1.0.0] - 2026-11-13
 
 First stable 1.0 release (`versionCode` 3). The Night Score digest, seven-night outlook, planner,

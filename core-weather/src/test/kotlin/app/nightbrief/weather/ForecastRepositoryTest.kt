@@ -344,4 +344,60 @@ class ForecastRepositoryTest {
         assertEquals(WeatherModel.BEST_MATCH, WeatherModel.forLocation(33.0, -112.0)) // Arizona
         assertEquals(WeatherModel.BEST_MATCH, WeatherModel.forLocation(51.5, -0.12)) // London
     }
+
+    @Test
+    fun openMeteoWrapsSchemaErrorsAndIgnoresNonFiniteNumbers() {
+        val client = OpenMeteoClient()
+        try {
+            client.parse("""{"hourly":{"time":[1700000000],"cloud_cover":[{}]}}""", 43.65, -79.38, WeatherModel.BEST_MATCH)
+            throw AssertionError("expected WeatherApiException for non-primitive cloud_cover element")
+        } catch (_: WeatherApiException) {
+            // expected
+        }
+        val parsed = client.parse(
+            """{"hourly":{"time":[1700000000],"cloud_cover":["NaN"],"wind_speed_10m":["Infinity"],"temperature_2m":["-Infinity"]}}""",
+            43.65,
+            -79.38,
+            WeatherModel.BEST_MATCH,
+        )
+        val hour = parsed.hours.single()
+        assertEquals(null, hour.cloudCover)
+        assertEquals(null, hour.windKmh)
+        assertEquals(null, hour.temperatureC)
+    }
+
+    @Test
+    fun sevenTimerWrapsMalformedInitAndSeriesAsWeatherApiException() {
+        val client = SevenTimerClient()
+        try {
+            client.parse("""{"init":"bad-date","dataseries":[]}""")
+            throw AssertionError("expected WeatherApiException for invalid init")
+        } catch (_: WeatherApiException) {
+            // expected
+        }
+        try {
+            client.parse("""{"init":"2026081100","dataseries":["not-an-object"]}""")
+            throw AssertionError("expected WeatherApiException for non-object dataseries item")
+        } catch (_: WeatherApiException) {
+            // expected
+        }
+    }
+
+    @Test
+    fun getStringRejectsOversizedResponse() = runTest {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("x".repeat(64)))
+        server.start()
+        try {
+            val http = defaultHttpClient()
+            try {
+                http.getString(server.url("/big").toString(), maxBytes = 16)
+                throw AssertionError("expected WeatherApiException for oversized body")
+            } catch (_: WeatherApiException) {
+                // expected
+            }
+        } finally {
+            server.shutdown()
+        }
+    }
 }

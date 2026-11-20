@@ -11,6 +11,7 @@ import app.nightbrief.score.UnitSystem
 import app.nightbrief.score.WindowAlarm
 import app.nightbrief.sites.SiteBook
 import kotlinx.serialization.Serializable
+import java.time.DateTimeException
 import java.time.LocalTime
 import java.util.Locale
 
@@ -102,6 +103,14 @@ data class AppState(
      */
     val skippedUpdateId: String? = null,
 ) {
+    init {
+        try {
+            LocalTime.parse(digestTime)
+        } catch (e: DateTimeException) {
+            throw IllegalArgumentException("invalid digestTime: $digestTime", e)
+        }
+    }
+
     val digestLocalTime: LocalTime get() = LocalTime.parse(digestTime)
 
     fun resolvedUnits(locale: Locale = Locale.getDefault()): UnitSystem =

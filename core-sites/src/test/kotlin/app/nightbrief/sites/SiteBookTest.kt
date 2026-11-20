@@ -52,6 +52,31 @@ class SiteBookTest {
         SiteBook().add(home).add(home)
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun siteRejectsInvalidZoneId() {
+        Site("bad", "Bad", 43.65, -79.38, "Mars/Olympus_Mons")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun siteRejectsInvalidDigestTimeOverride() {
+        Site("bad", "Bad", 43.65, -79.38, "America/Toronto", digestTimeOverride = "25:99")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun siteRejectsBlankId() {
+        Site("   ", "Home", 43.65, -79.38, "America/Toronto")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun siteRejectsBlankName() {
+        Site("home", "   ", 43.65, -79.38, "America/Toronto")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun siteRejectsNonFiniteCoordinates() {
+        Site("home", "Home", Double.NaN, -79.38, "America/Toronto")
+    }
+
     @Test
     fun bortleFromSqm() {
         assertEquals(BortleClass.B1, BortleClass.fromSqm(22.0))

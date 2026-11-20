@@ -25,14 +25,30 @@ fun gitShortSha(): String {
 
 val gitSha: String = gitShortSha()
 
-val updateChannel: String =
-    providers.gradleProperty("nightbrief.updateChannel").orElse("develop").get()
+val updateChannelOverride: String? =
+    providers.gradleProperty("nightbrief.updateChannel").orNull
 
-val sideloadStore = rootProject.file("ci/sideload.jks")
 val releasePropsFile = rootProject.file("keystore.properties")
 val releaseProps = Properties().apply {
     if (releasePropsFile.isFile) releasePropsFile.inputStream().use(::load)
 }
+val releaseStoreFilePath: String? =
+    releaseProps.getProperty("storeFile")?.takeIf { it.isNotBlank() }
+        ?: System.getenv("NIGHTBRIEF_STORE_FILE")?.takeIf { it.isNotBlank() }
+val releaseStorePassword: String? =
+    releaseProps.getProperty("storePassword")?.takeIf { it.isNotBlank() }
+        ?: System.getenv("NIGHTBRIEF_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseKeyAlias: String? =
+    releaseProps.getProperty("keyAlias")?.takeIf { it.isNotBlank() }
+        ?: System.getenv("NIGHTBRIEF_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+val releaseKeyPassword: String? =
+    releaseProps.getProperty("keyPassword")?.takeIf { it.isNotBlank() }
+        ?: System.getenv("NIGHTBRIEF_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+val hasReleaseSigning: Boolean =
+    releaseStoreFilePath != null &&
+        releaseStorePassword != null &&
+        releaseKeyAlias != null &&
+        releaseKeyPassword != null
 
 android {
     namespace = "app.nightbrief.app"
@@ -47,45 +63,33 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
-        buildConfigField("String", "UPDATE_CHANNEL", "\"$updateChannel\"")
         buildConfigField("String", "GITHUB_OWNER", "\"kchen52\"")
         buildConfigField("String", "GITHUB_REPO", "\"NightBrief\"")
     }
 
     signingConfigs {
-        // Same key for local debug and CI develop APKs so the in-app updater can replace either.
-        // Not the Play Store key. See README (Sideload updates).
-        create("sideload") {
-            storeFile = sideloadStore
-            storePassword = "nightbrief-sideload"
-            keyAlias = "sideload"
-            keyPassword = "nightbrief-sideload"
-        }
-        if (releaseProps.isNotEmpty()) {
+        if (hasReleaseSigning) {
             create("release") {
-                storeFile = rootProject.file(releaseProps.getProperty("storeFile"))
-                storePassword = releaseProps.getProperty("storePassword")
-                keyAlias = releaseProps.getProperty("keyAlias")
-                keyPassword = releaseProps.getProperty("keyPassword")
+                storeFile = rootProject.file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
 
     buildTypes {
         debug {
-            if (sideloadStore.isFile) {
-                signingConfig = signingConfigs.getByName("sideload")
-            }
+            val channel = updateChannelOverride ?: "develop"
+            buildConfigField("String", "UPDATE_CHANNEL", "\"$channel\"")
         }
         release {
+            val channel = updateChannelOverride ?: "release"
+            buildConfigField("String", "UPDATE_CHANNEL", "\"$channel\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = when {
-                releaseProps.isNotEmpty() -> signingConfigs.getByName("release")
-                sideloadStore.isFile -> signingConfigs.getByName("sideload")
-                else -> signingConfigs.getByName("debug")
-            }
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
         }
     }
     compileOptions {

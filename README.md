@@ -179,18 +179,18 @@ After the first sideload, Tonight shows an update banner when a newer build is o
 one tap downloads the APK and opens Android's installer. The system confirm sheet still
 runs; the app never installs silently.
 
-- **Develop tip.** Every push to `develop` rebuilds a debug APK, signs it with
-  `ci/sideload.jks` (same key as a local `assembleDebug`), and replaces the
+- **Develop tip.** Every push to `develop` rebuilds a debug APK and replaces the
   [`develop-latest`](https://github.com/kchen52/NightBrief/releases/tag/develop-latest)
   pre-release. Debug builds check that tip by commit SHA.
 - **Versioned releases.** Push a tag that matches `nightbrief.versionName`
-  (`git tag v0.1.2 && git push origin v0.1.2`). CI attaches
-  `nightbrief-v0.1.2.apk` and publishes the release. Release builds check
-  `/releases/latest` by SemVer. Pre-release tags (`v0.2.0-beta.1`) stay out of
-  that endpoint.
-- **Signing.** `ci/sideload.jks` is the shared GitHub sideload key (see `ci/README.md`).
-  It cannot update a Play Store install, and a Play upload key must not be this file.
-  Optional `keystore.properties` at the repo root overrides release signing.
+  (`git tag v0.1.2 && git push origin v0.1.2`). CI signs the release APK using
+  repository secrets (`ci/README.md`), attaches `nightbrief-v0.1.2.apk`, and
+  publishes the release. Release builds check `/releases/latest` by SemVer.
+  Pre-release tags (`v0.2.0-beta.1`) stay out of that endpoint.
+- **Signing.** No keystore is committed to the repo (see `ci/README.md`).
+  Release builds sign from a gitignored `keystore.properties` or CI secrets and
+  stay unsigned otherwise. A GitHub sideload build cannot update a Play Store
+  install, and a Play upload key stays separate.
 
 A failed update check leaves Tonight alone. Skip remembers that build until a different
 one appears. Android 8+ needs “Allow from this source” for NightBrief once; the banner

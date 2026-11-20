@@ -1,23 +1,31 @@
-# Sideload signing
+# Release signing
 
-`sideload.jks` is the shared key for GitHub-distributed NightBrief APKs
-(debug/develop builds and tagged releases that do not use a Play Store key).
+No signing keystore is committed to this repository. Keep release signing keys
+private and outside Git.
 
-It is committed on purpose so CI and a laptop `assembleDebug` produce the same
-signature. That is what lets the in-app update banner replace an install without
-`adb`. It is **not** a Play Store upload key. Do not reuse it for Play.
+## Local release builds
 
-Password and alias (also in `app/build.gradle.kts`):
+Create a private keystore outside the repository (or anywhere ignored by
+`.gitignore`) and add a gitignored `keystore.properties` file at the repo root:
 
-- store / key password: `nightbrief-sideload`
-- alias: `sideload`
-
-Fingerprint (SHA-256):
-
-```
-88:33:8D:FD:32:3C:35:19:C2:A0:20:D5:2C:C7:C4:D0:68:5D:46:7D:A2:0E:0F:BF:F6:B6:BD:73:88:AA:88:2F
+```properties
+storeFile=/absolute/or/relative/path/to/release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
 ```
 
-For a Play release, create a separate keystore, write `keystore.properties` at
-the repo root (gitignored), and point `storeFile` at that key. Release builds
-prefer `keystore.properties` when it exists.
+Release builds use `keystore.properties` when present, or the environment
+variables below in CI. Without either, `:app:assembleRelease` produces an
+unsigned APK instead of falling back to a debug or committed key.
+
+## GitHub Actions release builds
+
+Configure these repository secrets for `.github/workflows/release-apk.yml`:
+
+- `RELEASE_KEYSTORE_BASE64`: base64-encoded `.jks` keystore file
+- `RELEASE_STORE_PASSWORD`: keystore password
+- `RELEASE_KEY_ALIAS`: key alias
+- `RELEASE_KEY_PASSWORD`: key password
+
+Keep a separate upload key for Google Play releases.

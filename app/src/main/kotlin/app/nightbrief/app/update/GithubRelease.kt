@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** A newer APK worth offering on the update banner. */
 data class AvailableUpdate(
@@ -29,6 +30,12 @@ data class AvailableUpdate(
  */
 object GithubRelease {
     private val json = Json { ignoreUnknownKeys = true }
+
+    /** Returns true only for HTTPS links pointing at `github.com`. */
+    fun isSafeReleasePageUrl(url: String): Boolean {
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        return parsed.scheme == "https" && parsed.host.equals("github.com", ignoreCase = true)
+    }
 
     fun parseRelease(body: String): ParsedRelease? =
         parseObject(json.parseToJsonElement(body).jsonObject)
@@ -51,9 +58,11 @@ object GithubRelease {
             val name = asset["name"]?.jsonPrimitive?.contentOrNull.orEmpty().lowercase()
             val url = asset["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: continue
             if (!name.endsWith(".apk")) continue
+            if (url.toHttpUrlOrNull() == null) continue
             val size = asset["size"]?.jsonPrimitive?.longOrNull
                 ?: asset["size"]?.jsonPrimitive?.intOrNull?.toLong()
                 ?: 0L
+            if (size < 0L) continue
             return url to size
         }
         return null
@@ -63,6 +72,7 @@ object GithubRelease {
         if (obj["draft"]?.jsonPrimitive?.booleanOrNull == true) return null
         val tag = obj["tag_name"]?.jsonPrimitive?.contentOrNull ?: return null
         val htmlUrl = obj["html_url"]?.jsonPrimitive?.contentOrNull ?: return null
+        if (htmlUrl.toHttpUrlOrNull() == null) return null
         val target = obj["target_commitish"]?.jsonPrimitive?.contentOrNull
         val apk = pickApkAsset(obj) ?: return null
         return ParsedRelease(

@@ -1,9 +1,11 @@
 package app.nightbrief.app.update
 
 import kotlinx.coroutines.runBlocking
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -113,6 +115,100 @@ class GithubReleaseTest {
             assertTrue("expected progress callbacks, got $progress", progress.isNotEmpty())
             dir.deleteRecursively()
             Unit
+        }
+    }
+
+    @Test
+    fun safeReleasePageUrlAllowsOnlyHttpsGithub() {
+        assertTrue(GithubRelease.isSafeReleasePageUrl("https://github.com/kchen52/NightBrief/releases/tag/v1.0.1"))
+        assertFalse(GithubRelease.isSafeReleasePageUrl("http://github.com/kchen52/NightBrief/releases/tag/v1.0.1"))
+        assertFalse(GithubRelease.isSafeReleasePageUrl("https://evil.example/NightBrief"))
+        assertFalse(GithubRelease.isSafeReleasePageUrl("javascript:alert(1)"))
+        assertFalse(GithubRelease.isSafeReleasePageUrl("intent://evil#Intent;end"))
+    }
+
+    @Test
+    fun parseReleaseRejectsNonHttpSchemes() {
+        val badHtml = """
+            {"draft":false,"tag_name":"v2.0.0","html_url":"javascript:alert(1)",
+             "assets":[{"name":"app.apk","browser_download_url":"https://github.com/o/r/a.apk","size":10}]}
+        """.trimIndent()
+        assertNull(GithubRelease.parseRelease(badHtml))
+
+        val badApk = """
+            {"draft":false,"tag_name":"v2.0.0","html_url":"https://github.com/o/r",
+             "assets":[{"name":"app.apk","browser_download_url":"file:///etc/passwd","size":10}]}
+        """.trimIndent()
+        assertNull(GithubRelease.parseRelease(badApk))
+    }
+
+    @Test
+    fun productionClientAllowsOnlyHttpsGitHubAssetHosts() {
+        val client = GithubReleaseClient("kchen52", "NightBrief")
+        assertTrue(client.isAllowedDownloadUrl("https://github.com/kchen52/NightBrief/releases/download/v1.0.1/app.apk".toHttpUrl()))
+        assertTrue(client.isAllowedDownloadUrl("https://objects.githubusercontent.com/github-production-release-asset-123".toHttpUrl()))
+        assertTrue(client.isAllowedDownloadUrl("https://release-assets.githubusercontent.com/asset.apk".toHttpUrl()))
+        assertFalse(client.isAllowedDownloadUrl("http://github.com/kchen52/NightBrief/releases/download/v1.0.1/app.apk".toHttpUrl()))
+        assertFalse(client.isAllowedDownloadUrl("https://evil.example/nightbrief.apk".toHttpUrl()))
+    }
+
+    @Test
+    fun downloadRejectsDisallowedHostAndRedirects() = runBlocking {
+        MockWebServer().use { server ->
+            val dir = File.createTempFile("nb-upd-sec", "dir").apply {
+                delete()
+                mkdirs()
+            }
+            try {
+                val client = GithubReleaseClient("o", "r", baseUrl = server.url("/").toString().trimEnd('/'))
+                val disallowed = AvailableUpdate(
+                    label = "2.0.0",
+                    id = "v2.0.0",
+                    htmlUrl = "https://github.com/o/r",
+                    apkUrl = "https://evil.example/evil.apk",
+                    apkBytes = 10,
+                )
+                assertNull(client.download(disallowed, dir))
+
+                server.enqueue(
+                    MockResponse()
+                        .setResponseCode(302)
+                        .addHeader("Location", "https://evil.example/redirected.apk"),
+                )
+                val redirected = AvailableUpdate(
+                    label = "2.0.0",
+                    id = "v2.0.0",
+                    htmlUrl = "https://github.com/o/r",
+                    apkUrl = server.url("nightbrief.apk").toString(),
+                    apkBytes = 10,
+                )
+                assertNull(client.download(redirected, dir))
+            } finally {
+                dir.deleteRecursively()
+            }
+        }
+    }
+
+    @Test
+    fun downloadRejectsOversizedApk() = runBlocking {
+        MockWebServer().use { server ->
+            val dir = File.createTempFile("nb-upd-size", "dir").apply {
+                delete()
+                mkdirs()
+            }
+            try {
+                val client = GithubReleaseClient("o", "r", baseUrl = server.url("/").toString().trimEnd('/'))
+                val oversized = AvailableUpdate(
+                    label = "2.0.0",
+                    id = "v2.0.0",
+                    htmlUrl = "https://github.com/o/r",
+                    apkUrl = server.url("huge.apk").toString(),
+                    apkBytes = GithubReleaseClient.MAX_APK_BYTES + 1,
+                )
+                assertNull(client.download(oversized, dir))
+            } finally {
+                dir.deleteRecursively()
+            }
         }
     }
 }

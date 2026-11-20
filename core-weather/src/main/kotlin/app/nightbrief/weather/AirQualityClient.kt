@@ -163,36 +163,38 @@ class AirQualityClient(
     }
 
     internal fun parse(body: String): AirQualitySeries {
-        val root = try {
-            Json.parseToJsonElement(body).jsonObject
+        return try {
+            val root = Json.parseToJsonElement(body).jsonObject
+            if (root["error"]?.jsonPrimitive?.content == "true") {
+                throw WeatherApiException("Open-Meteo air quality error: ${root["reason"]?.jsonPrimitive?.content}")
+            }
+            val hourly = root["hourly"]?.jsonObject
+                ?: throw WeatherApiException("Open-Meteo air-quality response missing hourly data")
+            val times = hourly["time"]?.jsonArray
+                ?: throw WeatherApiException("Open-Meteo air-quality response missing time")
+
+            fun series(name: String): JsonArray? = hourly[name] as? JsonArray
+            fun JsonArray?.num(i: Int): Double? =
+                this?.getOrNull(i)?.takeUnless { it is JsonNull }?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() }
+
+            val pm25 = series("pm2_5")
+            val pm10 = series("pm10")
+            val aod = series("aerosol_optical_depth")
+            val samples = times.mapIndexedNotNull { i, t ->
+                val epoch = t.jsonPrimitive.longOrNull ?: return@mapIndexedNotNull null
+                AirQualitySample(
+                    epochSecond = epoch,
+                    pm25 = pm25.num(i)?.takeIf { it >= 0.0 },
+                    pm10 = pm10.num(i)?.takeIf { it >= 0.0 },
+                    aerosolOpticalDepth = aod.num(i)?.takeIf { it >= 0.0 },
+                )
+            }
+            AirQualitySeries(samples.sortedBy { it.epochSecond })
+        } catch (e: WeatherApiException) {
+            throw e
         } catch (e: Exception) {
             throw WeatherApiException("malformed Open-Meteo air-quality response", e)
         }
-        if (root["error"]?.jsonPrimitive?.content == "true") {
-            throw WeatherApiException("Open-Meteo air quality error: ${root["reason"]?.jsonPrimitive?.content}")
-        }
-        val hourly = root["hourly"]?.jsonObject
-            ?: throw WeatherApiException("Open-Meteo air-quality response missing hourly data")
-        val times = hourly["time"]?.jsonArray
-            ?: throw WeatherApiException("Open-Meteo air-quality response missing time")
-
-        fun series(name: String): JsonArray? = hourly[name] as? JsonArray
-        fun JsonArray?.num(i: Int): Double? =
-            this?.getOrNull(i)?.takeUnless { it is JsonNull }?.jsonPrimitive?.doubleOrNull
-
-        val pm25 = series("pm2_5")
-        val pm10 = series("pm10")
-        val aod = series("aerosol_optical_depth")
-        val samples = times.mapIndexedNotNull { i, t ->
-            val epoch = t.jsonPrimitive.longOrNull ?: return@mapIndexedNotNull null
-            AirQualitySample(
-                epochSecond = epoch,
-                pm25 = pm25.num(i)?.takeIf { it >= 0.0 },
-                pm10 = pm10.num(i)?.takeIf { it >= 0.0 },
-                aerosolOpticalDepth = aod.num(i)?.takeIf { it >= 0.0 },
-            )
-        }
-        return AirQualitySeries(samples.sortedBy { it.epochSecond })
     }
 
     companion object {

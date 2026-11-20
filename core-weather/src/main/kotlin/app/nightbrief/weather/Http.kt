@@ -7,7 +7,9 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -73,6 +75,7 @@ fun defaultHttpClient(timing: NetworkTimingListener? = null): OkHttpClient = OkH
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(20, TimeUnit.SECONDS)
     .callTimeout(30, TimeUnit.SECONDS)
+    .followSslRedirects(false)
     .apply { if (timing != null) addInterceptor(timing.asInterceptor()) }
     .build()
 
@@ -101,29 +104,69 @@ private fun NetworkTimingListener.asInterceptor(): Interceptor = Interceptor { c
     }
 }
 
-internal suspend fun OkHttpClient.getString(url: String): String =
+internal const val DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024
+
+internal suspend fun OkHttpClient.getString(
+    url: String,
+    maxBytes: Int = DEFAULT_MAX_RESPONSE_BYTES,
+): String =
     suspendCancellableCoroutine { cont ->
         val call = newCall(Request.Builder().url(url).header("User-Agent", "NightBrief/0.1").build())
         cont.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                cont.resumeWithException(
-                    if (e is WeatherApiException) e else WeatherApiException.transport(e),
-                )
+                if (cont.isActive) {
+                    cont.resumeWithException(
+                        if (e is WeatherApiException) e else WeatherApiException.transport(e),
+                    )
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
-                    val body = it.body?.string().orEmpty()
-                    if (it.isSuccessful) {
-                        cont.resume(body)
-                    } else {
+                    if (!it.isSuccessful) {
                         val problem = if (it.code == 429) ForecastProblem.BUSY else ForecastProblem.UNAVAILABLE
-                        cont.resumeWithException(
-                            WeatherApiException("HTTP ${it.code} from ${call.request().url.host}", problem = problem),
-                        )
+                        if (cont.isActive) {
+                            cont.resumeWithException(
+                                WeatherApiException("HTTP ${it.code} from ${call.request().url.host}", problem = problem),
+                            )
+                        }
+                        return
+                    }
+                    try {
+                        val body = readBoundedUtf8(it, maxBytes, call.request().url.host)
+                        if (cont.isActive) cont.resume(body)
+                    } catch (e: IOException) {
+                        if (cont.isActive) {
+                            cont.resumeWithException(
+                                if (e is WeatherApiException) e else WeatherApiException.transport(e),
+                            )
+                        }
                     }
                 }
             }
         })
     }
+
+private fun readBoundedUtf8(response: Response, maxBytes: Int, host: String): String {
+    val body = response.body ?: return ""
+    val declared = body.contentLength()
+    if (declared > maxBytes) {
+        throw WeatherApiException("Response from $host exceeds $maxBytes bytes")
+    }
+    val out = ByteArrayOutputStream()
+    body.byteStream().use { input ->
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read
+            if (total > maxBytes) {
+                throw WeatherApiException("Response from $host exceeds $maxBytes bytes")
+            }
+            out.write(buffer, 0, read)
+        }
+    }
+    return String(out.toByteArray(), StandardCharsets.UTF_8)
+}

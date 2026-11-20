@@ -35,24 +35,26 @@ class SevenTimerClient(
     }
 
     internal fun parse(body: String): List<SevenTimerPoint> {
-        val root = try {
-            Json.parseToJsonElement(body).jsonObject
+        return try {
+            val root = Json.parseToJsonElement(body).jsonObject
+            val init = root["init"]?.jsonPrimitive?.content
+                ?: throw WeatherApiException("7Timer response missing init")
+            val initEpoch = LocalDateTime.parse(init, INIT_FORMAT).toEpochSecond(ZoneOffset.UTC)
+            val series = root["dataseries"]?.jsonArray ?: throw WeatherApiException("7Timer response missing dataseries")
+            series.mapNotNull { el ->
+                val o = el.jsonObject
+                val tp = o["timepoint"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+                SevenTimerPoint(
+                    epochSecond = initEpoch + tp * 3600L,
+                    seeing = o["seeing"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..8 },
+                    transparency = o["transparency"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..8 },
+                    cloudIndex = o["cloudcover"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..9 },
+                )
+            }
+        } catch (e: WeatherApiException) {
+            throw e
         } catch (e: Exception) {
             throw WeatherApiException("malformed 7Timer response", e)
-        }
-        val init = root["init"]?.jsonPrimitive?.content
-            ?: throw WeatherApiException("7Timer response missing init")
-        val initEpoch = LocalDateTime.parse(init, INIT_FORMAT).toEpochSecond(ZoneOffset.UTC)
-        val series = root["dataseries"]?.jsonArray ?: throw WeatherApiException("7Timer response missing dataseries")
-        return series.mapNotNull { el ->
-            val o = el.jsonObject
-            val tp = o["timepoint"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
-            SevenTimerPoint(
-                epochSecond = initEpoch + tp * 3600L,
-                seeing = o["seeing"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..8 },
-                transparency = o["transparency"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..8 },
-                cloudIndex = o["cloudcover"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..9 },
-            )
         }
     }
 

@@ -189,8 +189,10 @@ object NightScoreEngine {
     }
 
     internal fun windQuality(windKmh: Double?, gustKmh: Double?): Pair<Double, Boolean> {
-        if (windKmh == null && gustKmh == null) return 0.7 to true
-        val effective = max(windKmh ?: 0.0, (gustKmh ?: 0.0) * 0.7)
+        val wind = windKmh?.takeIf { it.isFinite() }
+        val gust = gustKmh?.takeIf { it.isFinite() }
+        if (wind == null && gust == null) return 0.7 to true
+        val effective = max(wind ?: 0.0, (gust ?: 0.0) * 0.7)
         val q = when {
             effective <= 10 -> 1.0
             effective >= 40 -> 0.0
@@ -200,14 +202,17 @@ object NightScoreEngine {
     }
 
     /** Falls back to 250 hPa jet-stream speed as a seeing proxy when 7Timer has no data. */
-    internal fun seeingQuality(index: Int?, jetStreamKmh: Double?): Pair<Double, Boolean> = when {
-        index != null -> (8 - index.coerceIn(1, 8)) / 7.0 to false
-        jetStreamKmh != null -> when {
-            jetStreamKmh <= 70 -> 0.8
-            jetStreamKmh >= 200 -> 0.2
-            else -> 0.8 - 0.6 * (jetStreamKmh - 70) / 130
-        } to true
-        else -> 0.5 to true
+    internal fun seeingQuality(index: Int?, jetStreamKmh: Double?): Pair<Double, Boolean> {
+        val jet = jetStreamKmh?.takeIf { it.isFinite() }
+        return when {
+            index != null -> (8 - index.coerceIn(1, 8)) / 7.0 to false
+            jet != null -> when {
+                jet <= 70 -> 0.8
+                jet >= 200 -> 0.2
+                else -> 0.8 - 0.6 * (jet - 70) / 130
+            } to true
+            else -> 0.5 to true
+        }
     }
 
     internal fun lightPollutionQuality(bortle: Int): Double = (9 - bortle.coerceIn(1, 9)) / 8.0

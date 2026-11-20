@@ -1,6 +1,7 @@
 package app.nightbrief.sites
 
 import kotlinx.serialization.Serializable
+import java.time.DateTimeException
 import java.time.LocalTime
 import java.time.ZoneId
 
@@ -27,9 +28,23 @@ data class Site(
     val horizon: LocalHorizon = LocalHorizon(),
 ) {
     init {
-        require(latitude in -90.0..90.0) { "latitude out of range: $latitude" }
-        require(longitude in -180.0..180.0) { "longitude out of range: $longitude" }
+        require(id.isNotBlank()) { "site id must not be blank" }
+        require(name.isNotBlank()) { "site name must not be blank" }
+        require(latitude.isFinite() && latitude in -90.0..90.0) { "latitude out of range: $latitude" }
+        require(longitude.isFinite() && longitude in -180.0..180.0) { "longitude out of range: $longitude" }
         require(bortle == null || bortle in 1..9) { "bortle must be 1..9" }
+        try {
+            ZoneId.of(zoneId)
+        } catch (e: DateTimeException) {
+            throw IllegalArgumentException("invalid zoneId: $zoneId", e)
+        }
+        if (digestTimeOverride != null) {
+            try {
+                LocalTime.parse(digestTimeOverride)
+            } catch (e: DateTimeException) {
+                throw IllegalArgumentException("invalid digestTimeOverride: $digestTimeOverride", e)
+            }
+        }
     }
 
     val zone: ZoneId get() = ZoneId.of(zoneId)

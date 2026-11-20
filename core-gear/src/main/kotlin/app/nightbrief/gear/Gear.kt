@@ -15,7 +15,11 @@ data class CameraBody(
     val nickname: String? = null,
 ) {
     init {
-        require(sensorWidthMm > 0 && sensorHeightMm > 0 && megapixels > 0) { "invalid sensor spec" }
+        require(
+            sensorWidthMm.isFinite() && sensorWidthMm > 0 &&
+                sensorHeightMm.isFinite() && sensorHeightMm > 0 &&
+                megapixels.isFinite() && megapixels > 0,
+        ) { "invalid sensor spec" }
     }
 
     /** Crop factor relative to a 36×24 mm full-frame diagonal. */
@@ -70,9 +74,16 @@ data class Lens(
     val designedForCrop: Double? = null,
 ) {
     init {
-        require(minFocalMm > 0 && maxFocalMm >= minFocalMm) { "invalid focal range" }
-        require(maxAperture > 0 && maxApertureAtLongEnd >= maxAperture) { "invalid aperture" }
-        require(designedForCrop == null || designedForCrop > 0) { "invalid designed crop" }
+        require(minFocalMm.isFinite() && maxFocalMm.isFinite() && minFocalMm > 0 && maxFocalMm >= minFocalMm) {
+            "invalid focal range"
+        }
+        require(
+            maxAperture.isFinite() && maxApertureAtLongEnd.isFinite() &&
+                maxAperture > 0 && maxApertureAtLongEnd >= maxAperture,
+        ) { "invalid aperture" }
+        require(designedForCrop == null || (designedForCrop.isFinite() && designedForCrop > 0)) {
+            "invalid designed crop"
+        }
     }
 
     val isZoom: Boolean get() = maxFocalMm > minFocalMm

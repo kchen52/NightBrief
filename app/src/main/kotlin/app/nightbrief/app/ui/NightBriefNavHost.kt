@@ -77,6 +77,7 @@ import app.nightbrief.app.ui.tonight.PlannedNightScreen
 import app.nightbrief.app.ui.events.EventsScreen
 import app.nightbrief.app.ui.tonight.TonightScreen
 import app.nightbrief.app.ui.week.WeekScreen
+import android.net.Uri
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 
@@ -91,14 +92,16 @@ private object Routes {
     const val SiteEdit = "site/edit?id={id}"
     const val Night = "night/{siteId}/{date}?ceiling={ceiling}"
 
-    fun siteEdit(id: String?) = if (id == null) "site/edit" else "site/edit?id=$id"
+    fun siteEdit(id: String?) = if (id == null) "site/edit" else "site/edit?id=${Uri.encode(id)}"
 
     /**
      * [ceiling] is a night reached directly, such as a sky event past the forecast horizon.
      * The stepper may return to it; the route date itself stays the night being shown.
      */
-    fun night(siteId: String, date: LocalDate, ceiling: LocalDate? = null) =
-        if (ceiling == null) "night/$siteId/$date" else "night/$siteId/$date?ceiling=$ceiling"
+    fun night(siteId: String, date: LocalDate, ceiling: LocalDate? = null): String {
+        val encodedSiteId = Uri.encode(siteId)
+        return if (ceiling == null) "night/$encodedSiteId/$date" else "night/$encodedSiteId/$date?ceiling=$ceiling"
+    }
 }
 
 private data class TopDest(val route: String, @StringRes val label: Int, val icon: ImageVector)

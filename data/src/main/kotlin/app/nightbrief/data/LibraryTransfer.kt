@@ -27,6 +27,10 @@ object LibraryTransfer {
     /** Largest library document accepted on import, to bound memory on the caller. */
     const val MAX_LIBRARY_BYTES = 256 * 1024
 
+    /** Caps on imported collection sizes so a crafted file cannot trigger unbounded fan-out. */
+    const val MAX_SITES = 50
+    const val MAX_GEAR_ITEMS = 100
+
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -45,9 +49,16 @@ object LibraryTransfer {
                 throw LibraryFormatException("library must include sites and gear")
             }
             val file = json.decodeFromJsonElement(LibraryFile.serializer(), element)
-            file.sites.sites.size
-            file.gear.bodies.size
             if (file.sites.sites.isEmpty()) throw EmptyLibraryException()
+            if (file.sites.sites.size > MAX_SITES) {
+                throw LibraryFormatException("library has too many sites (max $MAX_SITES)")
+            }
+            if (file.gear.bodies.size > MAX_GEAR_ITEMS ||
+                file.gear.lenses.size > MAX_GEAR_ITEMS ||
+                file.gear.filters.size > MAX_GEAR_ITEMS
+            ) {
+                throw LibraryFormatException("library has too many gear items (max $MAX_GEAR_ITEMS)")
+            }
             return file
         } catch (e: LibraryFormatException) {
             throw e

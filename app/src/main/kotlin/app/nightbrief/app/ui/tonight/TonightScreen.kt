@@ -89,7 +89,7 @@ fun TonightScreen(
     val units = current.resolvedUnits()
     val report = siteId?.let { briefing?.reportFor(it) }
     val scroll = rememberScrollState()
-    ReportGlassScroll(scroll.isScrollInProgress)
+    ReportGlassScroll { scroll.isScrollInProgress }
 
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),

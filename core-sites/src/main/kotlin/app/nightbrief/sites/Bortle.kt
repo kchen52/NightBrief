@@ -1,5 +1,6 @@
 package app.nightbrief.sites
 
+import kotlinx.coroutines.CancellationException
 import java.io.DataInputStream
 import java.io.InputStream
 import kotlin.math.floor
@@ -48,6 +49,14 @@ enum class BortleClass(val value: Int, val label: String, val description: Strin
 fun interface BortleLookup {
     /** Returns the Bortle class at a location, or null when no data covers it. */
     fun lookup(latitude: Double, longitude: Double): Int?
+
+    /**
+     * Looks up many points, returning a list aligned 1:1 with [points]. Implementors backed by
+     * a forward-only stream can satisfy a whole batch in one pass; the default keeps SAM lambdas
+     * working. Null means no data, and a failure fails the whole batch.
+     */
+    fun lookupAll(points: List<Pair<Double, Double>>): List<Int?> =
+        points.map { (latitude, longitude) -> lookup(latitude, longitude) }
 }
 
 /**
@@ -138,11 +147,13 @@ class GridBortleLookup private constructor(
 }
 
 /**
- * Looks up one NBLP cell without retaining the grid.
+ * Looks up NBLP cells without retaining the grid.
  *
- * Each call opens [open], parses the 40-byte header, skips to `row * cols + col`,
- * reads one byte, and closes the stream. Pass a gzip asset through [java.util.zip.GZIPInputStream]
- * (see `AppGraph`). The header is not cached; only that one byte is kept.
+ * [lookup] opens [open], parses the 40-byte header, skips to `row * cols + col`,
+ * reads one byte, and closes the stream. [lookupAll] opens it once and visits the
+ * requested indices in ascending order, so a batch costs one forward inflation no
+ * matter how many cells it asks for. Pass a gzip asset through
+ * [java.util.zip.GZIPInputStream] (see `AppGraph`). The header is not cached.
  *
  * This does blocking I/O. On the North America grid the worst case reads the whole
  * gzip stream and can take about a second. Call it off the main thread.
@@ -162,6 +173,42 @@ class StreamingGridBortleLookup(
             return bortleOrNull(value)
         }
     }
+
+    override fun lookupAll(points: List<Pair<Double, Double>>): List<Int?> {
+        if (points.isEmpty()) return emptyList()
+        val result = MutableList<Int?>(points.size) { null }
+        open().use { input ->
+            val header = NblpHeader.read(DataInputStream(input))
+            val targets = ArrayList<Pair<Int, Int>>(points.size)
+            points.forEachIndexed { index, (latitude, longitude) ->
+                header.indexOf(latitude, longitude)?.let { targets += index to it }
+            }
+            if (targets.isEmpty()) return result
+            // A gzip stream cannot seek back. Visit cells in file order, keeping only the
+            // current byte and the cursor, never the grid.
+            targets.sortBy { it.second }
+            var cursor = 0L
+            var lastIndex = -1
+            var lastValue: Int? = null
+            for ((originalIndex, payloadIndex) in targets) {
+                if (Thread.currentThread().isInterrupted) {
+                    throw CancellationException("light-pollution grid lookup interrupted")
+                }
+                if (payloadIndex == lastIndex) {
+                    result[originalIndex] = lastValue
+                    continue
+                }
+                skipFully(input, payloadIndex.toLong() - cursor)
+                val value = input.read()
+                if (value < 0) throw java.io.EOFException("unexpected end of light-pollution grid")
+                cursor = payloadIndex.toLong() + 1L
+                lastIndex = payloadIndex
+                lastValue = bortleOrNull(value)
+                result[originalIndex] = lastValue
+            }
+        }
+        return result
+    }
 }
 
 /**
@@ -178,5 +225,22 @@ class CompositeBortleLookup(
             if (value != null) return value
         }
         return null
+    }
+
+    override fun lookupAll(points: List<Pair<Double, Double>>): List<Int?> {
+        if (points.isEmpty()) return emptyList()
+        val result = MutableList<Int?>(points.size) { null }
+        var missing = points.indices.toList()
+        for (lookup in lookups) {
+            if (missing.isEmpty()) break
+            val values = lookup.lookupAll(missing.map { points[it] })
+            val stillMissing = ArrayList<Int>(missing.size)
+            missing.forEachIndexed { position, originalIndex ->
+                val value = values[position]
+                if (value == null) stillMissing += originalIndex else result[originalIndex] = value
+            }
+            missing = stillMissing
+        }
+        return result
     }
 }

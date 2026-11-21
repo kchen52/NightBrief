@@ -46,9 +46,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import app.nightbrief.app.ui.theme.NightPalette
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -158,14 +160,22 @@ class GlassScrollGate {
 val LocalGlassScrollGate = staticCompositionLocalOf { GlassScrollGate() }
 
 /**
- * Reports [scrolling] for this composition. Call it for every scrollable marked as a
+ * Reports the scroll state of this composition. Call it for every scrollable marked as a
  * [glassSource]. Leaving the composition counts as stopped.
+ *
+ * The state is read in a snapshot flow, so a scroll start or stop never recomposes the
+ * screen that owns the scrollable; only the glass pills react.
  */
 @Composable
-fun ReportGlassScroll(scrolling: Boolean) {
+fun ReportGlassScroll(isScrolling: () -> Boolean) {
     val gate = LocalGlassScrollGate.current
     val key = remember { Any() }
-    gate.report(key, scrolling)
+    val currentReader by rememberUpdatedState(isScrolling)
+    LaunchedEffect(gate, key) {
+        snapshotFlow { currentReader() }
+            .distinctUntilChanged()
+            .collect { gate.report(key, it) }
+    }
     DisposableEffect(gate, key) {
         onDispose { gate.report(key, false) }
     }

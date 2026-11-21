@@ -65,9 +65,10 @@ object DarkSkyFinder {
      * Samples the Bortle grid in rings around the primary site and scores the darkest
      * samples for [primary]'s night.
      *
-     * Grid lookups run in parallel on [Dispatchers.IO]; the grids stay streamed (no in-memory
-     * cache). One sample's grid or forecast failure skips that sample only. Returns at most
-     * [maxToScore] candidates, darkest Bortle first, scored best first on ties.
+     * Open water is dropped first. The remaining samples are looked up in one forward pass per
+     * grid on [Dispatchers.IO]; the grids stay streamed (no in-memory cache). One sample's grid
+     * or forecast failure skips that sample only. Returns at most [maxToScore] candidates,
+     * darkest Bortle first, scored best first on ties.
      *
      * When [roads] is non-null each surviving candidate is annotated with its paved-road
      * access in parallel with its forecast. A road failure leaves [RoadAccess.UNKNOWN]
@@ -95,24 +96,38 @@ object DarkSkyFinder {
         if (samples.isEmpty()) return@coroutineScope emptyList()
         val primaryBortle = primary.site.effectiveBortle
         val lookedUp = withContext(Dispatchers.IO) {
-            samples.map { sample ->
-                async {
+            // The water mask is already in RAM. Test it before paying for a grid inflate.
+            val land = samples.mapNotNull { sample ->
+                if (water == null) return@mapNotNull sample
+                try {
+                    if (water.isOpenWater(sample.latitude, sample.longitude)) null else sample
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            val coordinates = land.map { it.latitude to it.longitude }
+            val bortles = try {
+                lookup.lookupAll(coordinates)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // A custom lookup may fail on just one coordinate. Keep the old per-sample
+                // isolation so a single gap does not drop every candidate.
+                coordinates.map { (latitude, longitude) ->
                     try {
-                        val bortle = lookup.lookup(sample.latitude, sample.longitude)
-                        if (bortle == null || bortle >= primaryBortle) {
-                            null
-                        } else if (water?.isOpenWater(sample.latitude, sample.longitude) == true) {
-                            null
-                        } else {
-                            sample to bortle
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
+                        lookup.lookup(latitude, longitude)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
                     } catch (_: Exception) {
                         null
                     }
                 }
-            }.awaitAll().filterNotNull()
+            }
+            land.zip(bortles).mapNotNull { (sample, bortle) ->
+                if (bortle == null || bortle >= primaryBortle) null else sample to bortle
+            }
         }
         val darkest = lookedUp
             .sortedWith(compareBy({ it.second }, { it.first.distanceKm }))

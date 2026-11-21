@@ -9,13 +9,16 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.ui.NightBriefNavHost
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.work.DigestNotifier
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
@@ -29,9 +32,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applyTonightIntent(intent, restoringState = savedInstanceState != null)
         setContent {
-            val state by vm.state.collectAsStateWithLifecycle()
-            val nightVision = state?.nightVision == true
-            SideEffect {
+            // The window only cares about one bit. Collecting the whole AppState here would
+            // re-run window IPC on every card collapse, setting change, and saved session.
+            val nightVision by remember(vm) {
+                vm.state.map { it?.nightVision == true }.distinctUntilChanged()
+            }.collectAsStateWithLifecycle(initialValue = false)
+            LaunchedEffect(nightVision) {
                 window.attributes = window.attributes.apply {
                     screenBrightness = if (nightVision) NIGHT_VISION_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
                 }

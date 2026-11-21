@@ -903,7 +903,7 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
     // position lives on NightDetail so it survives both.
     val hoursScroll = ui.hoursScroll
     // The hour row sits inside Tonight's haze source. A horizontal drag moves pixels in that layer.
-    ReportGlassScroll(hoursScroll.isScrollInProgress)
+    ReportGlassScroll { hoursScroll.isScrollInProgress }
     val good = stringResource(R.string.quality_good)
     val fair = stringResource(R.string.quality_fair)
     val poor = stringResource(R.string.quality_poor)

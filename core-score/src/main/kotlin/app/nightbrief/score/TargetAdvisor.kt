@@ -1,6 +1,7 @@
 package app.nightbrief.score
 
 import app.nightbrief.astro.Ephemeris
+import app.nightbrief.astro.MoonState
 import app.nightbrief.astro.NightEphemeris
 import app.nightbrief.astro.Target
 import app.nightbrief.astro.TargetCatalog
@@ -90,14 +91,24 @@ object TargetAdvisor {
     ): List<TargetSuggestion> {
         val dark = eph.darkWindow ?: return emptyList()
         val tracker = kit.tracker
-        return catalog
+        val candidates = catalog
             .filter { wanted(it, kit) }
             .filter { bortle <= effectiveMaxBortle(it, kit) }
             .filter { !it.requiresBrightMoon || eph.moonIllumination > TargetCatalog.BRIGHT_MOON_ILLUMINATION }
             // Trails need the sky to drift. A tighter target than the mount can track is not a plan.
             .filter { tracker == null || !it.untrackedOnly }
             .filter { tracker == null || it.tracksMoon || it.minFocalMm <= tracker.planningFocalMm }
-            .mapNotNull { evaluate(it, eph, dark, bortle, kit, horizonObstructionDeg) }
+        if (candidates.isEmpty()) return emptyList()
+
+        // Every candidate walks the same dark window. One Moon table serves them all.
+        val moonStates = ArrayList<Pair<Instant, MoonState>>()
+        var t = dark.start
+        while (!t.isAfter(dark.end)) {
+            moonStates += t to Ephemeris.moon(t, eph.latitudeDeg, eph.longitudeDeg)
+            t = t.plus(STEP)
+        }
+        return candidates
+            .mapNotNull { evaluate(it, eph, dark, bortle, kit, horizonObstructionDeg, moonStates) }
             .sortedByDescending { rank(it) }
             .take(limit)
     }
@@ -109,6 +120,7 @@ object TargetAdvisor {
         bortle: Int,
         kit: GearKit,
         horizonObstructionDeg: (Double) -> Double,
+        moonStates: List<Pair<Instant, MoonState>>,
     ): TargetSuggestion? {
         val lat = eph.latitudeDeg
         val lon = eph.longitudeDeg
@@ -119,9 +131,7 @@ object TargetAdvisor {
         var bestTime: Instant? = null
         var bestAlt = Double.NEGATIVE_INFINITY
         var bestAz = 0.0
-        var t = dark.start
-        while (!t.isAfter(dark.end)) {
-            val moon = Ephemeris.moon(t, lat, lon)
+        for ((t, moon) in moonStates) {
             val skyAlt: Double
             val skyAz: Double
             if (target.tracksMoon) {
@@ -148,7 +158,6 @@ object TargetAdvisor {
                     moonUpAtBest = moonBright
                 }
             }
-            t = t.plus(STEP)
         }
         if (usable.size < 3 || bestTime == null) return null
 

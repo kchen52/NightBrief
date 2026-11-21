@@ -98,18 +98,31 @@ data class NightEphemeris(
             val sunAlt = { t: Instant -> Ephemeris.sunAltitude(t, latitudeDeg, longitudeDeg) }
             val moonAlt = { t: Instant -> Ephemeris.moonAltitude(t, latitudeDeg, longitudeDeg) }
 
-            fun firstSetting(threshold: Double) =
-                Ephemeris.crossings(start, end, threshold, altitude = sunAlt).firstOrNull { !it.rising }?.time
+            // One altitude grid serves every solar threshold. The sample instants and bisection
+            // are exactly those Ephemeris.crossings used when each threshold scanned on its own.
+            val solarTimes = ArrayList<Instant>()
+            var solarTime = start
+            while (solarTime.isBefore(end)) {
+                solarTimes += solarTime
+                solarTime = minOf(solarTime.plus(Duration.ofMinutes(10)), end)
+            }
+            solarTimes += end
+            val solarAlts = DoubleArray(solarTimes.size) { sunAlt(solarTimes[it]) }
 
-            fun lastRising(threshold: Double) =
-                Ephemeris.crossings(start, end, threshold, altitude = sunAlt).lastOrNull { it.rising }?.time
+            fun solarCrossings(threshold: Double) =
+                Ephemeris.crossingsFromSamples(solarTimes, solarAlts, threshold, sunAlt)
 
-            fun longestBelow(threshold: Double) =
-                Ephemeris.intervalsBelow(start, end, threshold, altitude = sunAlt).maxByOrNull { it.duration }
+            fun longestBelow(crossings: List<Crossing>, threshold: Double) =
+                Ephemeris.intervalsBelowFromCrossings(start, end, solarAlts[0] < threshold, crossings)
+                    .maxByOrNull { it.duration }
 
-            val astro = longestBelow(Ephemeris.ASTRONOMICAL_TWILIGHT)
-            val nautical = longestBelow(Ephemeris.NAUTICAL_TWILIGHT)
-            val civil = longestBelow(Ephemeris.CIVIL_TWILIGHT)
+            val horizonCrossings = solarCrossings(Ephemeris.HORIZON_ALTITUDE)
+            val civilCrossings = solarCrossings(Ephemeris.CIVIL_TWILIGHT)
+            val nauticalCrossings = solarCrossings(Ephemeris.NAUTICAL_TWILIGHT)
+            val astroCrossings = solarCrossings(Ephemeris.ASTRONOMICAL_TWILIGHT)
+            val astro = longestBelow(astroCrossings, Ephemeris.ASTRONOMICAL_TWILIGHT)
+            val nautical = longestBelow(nauticalCrossings, Ephemeris.NAUTICAL_TWILIGHT)
+            val civil = longestBelow(civilCrossings, Ephemeris.CIVIL_TWILIGHT)
             val (darkness, darkWindow) = when {
                 astro != null -> Darkness.ASTRONOMICAL to astro
                 nautical != null -> Darkness.NAUTICAL to nautical
@@ -137,8 +150,8 @@ data class NightEphemeris(
                 )
             } ?: (null to false)
 
-            val sunset = firstSetting(Ephemeris.HORIZON_ALTITUDE)
-            val sunrise = lastRising(Ephemeris.HORIZON_ALTITUDE)
+            val sunset = horizonCrossings.firstOrNull { !it.rising }?.time
+            val sunrise = horizonCrossings.lastOrNull { it.rising }?.time
             val hourlyStart = (sunset ?: darkWindow?.start ?: start.plus(Duration.ofHours(6)))
                 .truncatedTo(ChronoUnit.HOURS)
             val hourlyEndRaw = sunrise ?: darkWindow?.end ?: end.minus(Duration.ofHours(6))
@@ -168,10 +181,10 @@ data class NightEphemeris(
                 longitudeDeg = longitudeDeg,
                 sunset = sunset,
                 sunrise = sunrise,
-                nauticalDusk = firstSetting(Ephemeris.NAUTICAL_TWILIGHT),
-                nauticalDawn = lastRising(Ephemeris.NAUTICAL_TWILIGHT),
-                astronomicalDusk = firstSetting(Ephemeris.ASTRONOMICAL_TWILIGHT),
-                astronomicalDawn = lastRising(Ephemeris.ASTRONOMICAL_TWILIGHT),
+                nauticalDusk = nauticalCrossings.firstOrNull { !it.rising }?.time,
+                nauticalDawn = nauticalCrossings.lastOrNull { it.rising }?.time,
+                astronomicalDusk = astroCrossings.firstOrNull { !it.rising }?.time,
+                astronomicalDawn = astroCrossings.lastOrNull { it.rising }?.time,
                 darkness = darkness,
                 darkWindow = darkWindow,
                 moonrise = moonEvents.firstOrNull { it.rising }?.time,

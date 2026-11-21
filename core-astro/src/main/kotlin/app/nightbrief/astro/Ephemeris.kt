@@ -158,6 +158,48 @@ object Ephemeris {
         return result
     }
 
+    /**
+     * Crossings from altitudes already sampled over [times]. Uses the same bisection as
+     * [crossings], so a caller that needs several thresholds scans the time grid only once.
+     */
+    internal fun crossingsFromSamples(
+        times: List<Instant>,
+        altitudes: DoubleArray,
+        threshold: Double,
+        altitude: (Instant) -> Double,
+    ): List<Crossing> {
+        val result = mutableListOf<Crossing>()
+        for (i in 1 until times.size) {
+            val a0 = altitudes[i - 1] - threshold
+            val a1 = altitudes[i] - threshold
+            if ((a0 < 0) != (a1 < 0)) {
+                result += Crossing(bisect(times[i - 1], times[i], threshold, a0 < 0, altitude), rising = a0 < 0)
+            }
+        }
+        return result
+    }
+
+    /** Below-threshold intervals from crossings computed over the same samples. */
+    internal fun intervalsBelowFromCrossings(
+        start: Instant,
+        end: Instant,
+        startBelow: Boolean,
+        crossings: List<Crossing>,
+    ): List<TimeWindow> {
+        val result = mutableListOf<TimeWindow>()
+        var openedAt: Instant? = if (startBelow) start else null
+        for (c in crossings) {
+            if (!c.rising) {
+                openedAt = c.time
+            } else {
+                openedAt?.let { if (c.time.isAfter(it)) result += TimeWindow(it, c.time) }
+                openedAt = null
+            }
+        }
+        openedAt?.let { if (end.isAfter(it)) result += TimeWindow(it, end) }
+        return result
+    }
+
     /** Intervals within [start, end] where [altitude] is strictly below [threshold]. */
     fun intervalsBelow(
         start: Instant,

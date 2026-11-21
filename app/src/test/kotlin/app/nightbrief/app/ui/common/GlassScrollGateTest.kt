@@ -21,28 +21,6 @@ class GlassScrollGateTest {
     }
 
     @Test
-    fun firstRouteDoesNotSettleAndASwitchDoes() {
-        val gate = GlassScrollGate()
-        gate.holdFor("tonight")
-        assertFalse(gate.settling)
-        gate.holdFor("week")
-        assertTrue(gate.settling)
-        gate.releaseFlat()
-        assertFalse(gate.settling)
-        gate.holdFor("week")
-        assertFalse("same tab again", gate.settling)
-    }
-
-    @Test
-    fun returningFromAPushedScreenSettles() {
-        val gate = GlassScrollGate()
-        gate.holdFor("tonight")
-        gate.holdFor(null)
-        gate.holdFor("tonight")
-        assertTrue(gate.settling)
-    }
-
-    @Test
     fun aStoppedReporterDoesNotClearAnother() {
         val gate = GlassScrollGate()
         val page = Any()

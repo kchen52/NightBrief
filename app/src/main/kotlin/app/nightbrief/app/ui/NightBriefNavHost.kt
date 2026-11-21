@@ -30,7 +30,6 @@ import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.withFrameNanos
 import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -174,13 +173,12 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
             route == null || meta.key == route
         }
     }
-    glassScroll.holdFor(activeTab)
 
     LaunchedEffect(openTonightSignal) {
         if (openTonightSignal > 0) {
             // NavHost installs the graph after this effect is first scheduled.
             navController.currentBackStackEntryFlow.first()
-            navController.showTonight(glassScroll)
+            navController.showTonight()
         }
     }
     val bottomBar = showBar && !rail
@@ -259,7 +257,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 topDestinations.forEach { dest ->
                     NavigationRailItem(
                         selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
-                        onClick = { navController.goTop(dest.route, glassScroll) },
+                        onClick = { navController.goTop(dest.route) },
                         icon = { Icon(dest.icon, contentDescription = null) },
                         label = { Text(stringResource(dest.label)) },
                     )
@@ -272,7 +270,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 .fillMaxHeight()
                 .tabSwipe(enabled = activeTab != null) { step ->
                     val next = topDestinations.getOrNull(topDestinations.indexOfFirst { it.route == activeTab } + step)
-                    if (next != null) navController.goTop(next.route, glassScroll)
+                    if (next != null) navController.goTop(next.route)
                 },
         ) {
         NavHost(
@@ -362,7 +360,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                 }
             }
         }
-        RetainedTabs(activeTab, bottomPad, glassScroll, tonight, week, sites, gear)
+        RetainedTabs(activeTab, bottomPad, tonight, week, sites, gear)
         }
         }
         if (bottomBar) {
@@ -372,7 +370,7 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
                         label = stringResource(dest.label),
                         icon = dest.icon,
                         selected = route == dest.route || (route == null && dest.route == Routes.Tonight),
-                        onClick = { navController.goTop(dest.route, glassScroll) },
+                        onClick = { navController.goTop(dest.route) },
                     )
                 },
                 modifier = Modifier.align(Alignment.BottomCenter).testTag("nav-bar"),
@@ -397,7 +395,6 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
 private fun RetainedTabs(
     active: String?,
     bottom: Dp,
-    glass: GlassScrollGate,
     tonight: TabContent,
     week: TabContent,
     sites: TabContent,
@@ -408,12 +405,6 @@ private fun RetainedTabs(
     val shown = order.filter { it == active || it in seen }
     SideEffect {
         if (active != null && active !in seen) seen.add(active)
-    }
-    LaunchedEffect(active) {
-        if (active != null) {
-            withFrameNanos { }
-            glass.releaseFlat()
-        }
     }
     Layout(
         content = {
@@ -486,8 +477,7 @@ private class VisibleRoute {
     var route by mutableStateOf<String?>(null)
 }
 
-private fun NavHostController.goTop(route: String, glass: GlassScrollGate) {
-    glass.holdFor(route)
+private fun NavHostController.goTop(route: String) {
     navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
@@ -502,8 +492,7 @@ private fun NavHostController.goTop(route: String, glass: GlassScrollGate) {
  * is showing would put Settings straight back. `saveState` and `restoreState` stay
  * off here so the notification lands on Tonight itself.
  */
-private fun NavHostController.showTonight(glass: GlassScrollGate) {
-    glass.holdFor(Routes.Tonight)
+private fun NavHostController.showTonight() {
     navigate(Routes.Tonight) {
         popUpTo(graph.findStartDestination().id) { saveState = false }
         launchSingleTop = true

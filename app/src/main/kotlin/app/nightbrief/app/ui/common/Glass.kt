@@ -111,12 +111,9 @@ fun Modifier.glassSource(state: HazeState?, key: Any? = null): Modifier =
 /**
  * Which glass-backed scrollables are moving. [moving] is true while any reporter is.
  *
- * Glass stays up through a scroll. A flat fill for the gesture is what turned the buttons
- * and bars opaque until the finger stopped. A haze source is the whole viewport and is
- * recaptured while the effect is up; that cost is accepted so the glass does not flash.
- *
- * [settling] is separate: the frame a tab is becoming visible. Glass stays flat so the
- * source layer attaches on the following frame, not in the same turn as the tap.
+ * Glass stays up through a scroll and through a tab switch. A flat fill for the gesture is what
+ * turned the buttons and bars opaque until the finger stopped. A haze source is the whole viewport
+ * and is recaptured while the effect is up; that cost is accepted so the glass does not flash.
  *
  * Each caller passes its own [key]. The gate stays up until every key has reported stopped.
  * The host provides one gate. The default is a fresh idle gate, so a screen composed alone
@@ -124,41 +121,13 @@ fun Modifier.glassSource(state: HazeState?, key: Any? = null): Modifier =
  */
 class GlassScrollGate {
     private val active = HashSet<Any>()
-    private var heldFor: Any? = null
-    private var leftTabs = false
 
     var moving by mutableStateOf(false)
-        private set
-
-    /**
-     * True for the frame a tab is becoming visible. Glass stays flat so the source layer is
-     * attached on the following frame, not in the same turn as the tap.
-     */
-    var settling by mutableStateOf(false)
         private set
 
     fun report(key: Any, scrolling: Boolean) {
         val changed = if (scrolling) active.add(key) else active.remove(key)
         if (changed) moving = active.isNotEmpty()
-    }
-
-    /**
-     * [route] null means a screen pushed over the tabs. The next tab to show settles.
-     * The first route arms the gate without settling, so the cold start is not a flat frame.
-     */
-    fun holdFor(route: Any?) {
-        if (route == null) {
-            if (heldFor != null) leftTabs = true
-            return
-        }
-        val switched = heldFor != null && (route != heldFor || leftTabs)
-        heldFor = route
-        leftTabs = false
-        if (switched) settling = true
-    }
-
-    fun releaseFlat() {
-        settling = false
     }
 }
 
@@ -192,17 +161,13 @@ private fun HazeState.input(selection: HazeSourceSelection) =
 
 /**
  * Night vision draws a flat fill instead: glass speculars and white point add green and blue,
- * which [NightPalette.NightVision] keeps at zero. [GlassScrollGate.settling] does the same
- * for the frame a tab appears, so the source layer attaches on the next frame.
- * Scrolling does not: the pill stays glass for the whole gesture.
+ * which [NightPalette.NightVision] keeps at zero. Scrolling and tab switches keep the glass.
  */
 @Composable
 private fun Modifier.glassPill(state: HazeState?, tint: State<Color>): Modifier {
     val visibility = LocalPageVisibility.current
     val pageVisible = visibility?.visible != false
-    val gate = LocalGlassScrollGate.current
-    // Hidden pages stay flat and do not subscribe, so a tab change does not recompose them.
-    val settling = if (pageVisible) gate.settling else false
+    // Hidden pages stay flat, so a tab change does not recompose them.
     val style = remember(tint) {
         // The app is always dark, but Regular picks its light response on a light-mode device.
         GlassStyle.regular.then {
@@ -216,10 +181,10 @@ private fun Modifier.glassPill(state: HazeState?, tint: State<Color>): Modifier 
             tint(tint.value)
         }
     }
-    if (state == null || !pageVisible || settling || NightColors.palette == NightPalette.NightVision) {
+    if (state == null || !pageVisible || NightColors.palette == NightPalette.NightVision) {
         return background(NightColors.palette.surface.copy(alpha = 0.92f), Pill).background(tint.value, Pill)
     }
-    // None: settling detaches the glass for a frame. A geometry morph when it returns would hitch.
+    // None: a geometry morph on each change would hitch.
     val selection = LocalHazeSelection.current
     return hazeGlass(state.input(selection), style = style, memberTransition = GlassMemberTransition.None)
 }
@@ -403,8 +368,6 @@ fun GlassTopBarBackdrop(modifier: Modifier = Modifier) {
     val state = LocalHazeState.current
     val visibility = LocalPageVisibility.current
     val pageVisible = visibility?.visible != false
-    val gate = LocalGlassScrollGate.current
-    val settling = if (pageVisible) gate.settling else false
     val background = MaterialTheme.colorScheme.background
     val style = remember(background) {
         HazeBlurStyle {
@@ -414,8 +377,8 @@ fun GlassTopBarBackdrop(modifier: Modifier = Modifier) {
         }
     }
     // No source: an opaque bar, matching screens composed outside the tab host.
-    // Settling: a flat scrim for that one frame. Scrolling keeps the blur.
-    if (state == null || !pageVisible || settling) {
+    // A tab that is not showing keeps no blur. Scrolling and tab switches keep it.
+    if (state == null || !pageVisible) {
         Box(modifier.background(if (state == null) background else background.copy(alpha = 0.92f)))
         return
     }

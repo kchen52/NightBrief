@@ -77,6 +77,10 @@ class ForecastRepositoryTest {
         clock = clock,
     )
 
+    /** Open-Meteo calls other than the cloud-only second model. */
+    private fun primaryForecastRequests(): Int =
+        requests.count { it.startsWith("/om") && "icon_seamless" !in it }
+
     @Test
     fun mergesOpenMeteoAndSevenTimer() = runTest {
         val result = repo().forecast(43.65, -79.38)
@@ -171,12 +175,15 @@ class ForecastRepositoryTest {
         assertEquals(ForecastProblem.BUSY, busy.problem)
         assertEquals("Weather service busy — try again shortly", busy.userText())
         assertFalse(busy.userText().contains("HTTP"))
-        val after = requests.size
+        // The 429 cancels the seeing and second-model calls. MockWebServer can still
+        // record those after forecast() returns, so the cooldown is judged on the primary
+        // call, which is recorded before that response comes back.
+        val primaries = primaryForecastRequests()
         val second = runCatching { source.forecast(43.65, -79.38) }.exceptionOrNull()
         assertEquals(ForecastProblem.BUSY, (second as WeatherApiException).problem)
-        assertEquals("cooldown should not call the network again, requests=$requests", after, requests.size)
+        assertEquals("cooldown should not call the network again, requests=$requests", primaries, primaryForecastRequests())
         runCatching { source.forecast(43.65, -79.38, forceRefresh = true) }
-        assertTrue("a forced refresh may try again", requests.size > after)
+        assertTrue("a forced refresh may try again, requests=$requests", primaryForecastRequests() > primaries)
     }
 
     @Test
@@ -189,10 +196,10 @@ class ForecastRepositoryTest {
         assertEquals(ForecastStatus.STALE, stale.status)
         assertEquals("Weather service busy — try again shortly", stale.warnings.single())
         assertFalse(stale.warnings.single().contains("Offline"))
-        val after = requests.size
+        val primaries = primaryForecastRequests()
         clock.now = clock.now.plus(Duration.ofSeconds(10))
         assertEquals(ForecastStatus.STALE, source.forecast(43.65, -79.38).status)
-        assertEquals(after, requests.size)
+        assertEquals("cooldown should not call the network again, requests=$requests", primaries, primaryForecastRequests())
     }
 
     @Test

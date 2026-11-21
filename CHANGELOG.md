@@ -18,6 +18,7 @@ fixes bump the patch.
 ### Fixed
 
 - The Gear tab uses the floating glass tab bar again instead of the opaque bar, and Sites and Gear scroll under the same frosted glass as the other tabs.
+- Glass buttons, the tab bar, and the top bar stay translucent while a tab scrolls, instead of turning solid until the gesture stops.
 
 ### Security
 

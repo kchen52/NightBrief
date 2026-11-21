@@ -208,18 +208,44 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
             },
         )
     }
-    val week = remember(vm, openNight, openEvents) {
+    val week = remember(vm, openNight, openEvents, openSettings) {
         TabContent(
             movableContentOf { bottom: Dp ->
-                WeekScreen(vm, openNight, openEvents, PaddingValues(bottom = bottom), sourceKey = Routes.Week)
+                WeekScreen(
+                    vm,
+                    openNight,
+                    openEvents,
+                    PaddingValues(bottom = bottom),
+                    sourceKey = Routes.Week,
+                    onOpenSettings = openSettings,
+                )
             },
         )
     }
-    val sites = remember(vm, editSite) {
-        TabContent(movableContentOf { bottom: Dp -> SitesScreen(vm, editSite, PaddingValues(bottom = bottom)) })
+    val sites = remember(vm, editSite, openSettings) {
+        TabContent(
+            movableContentOf { bottom: Dp ->
+                SitesScreen(
+                    vm,
+                    editSite,
+                    PaddingValues(bottom = bottom),
+                    onOpenSettings = openSettings,
+                    sourceKey = Routes.Sites,
+                )
+            },
+        )
     }
-    val gear = remember(vm) {
-        TabContent(movableContentOf { bottom: Dp -> GearScreen(vm, PaddingValues(bottom = bottom)) })
+    val gear = remember(vm, openSettings) {
+        TabContent(
+            movableContentOf { bottom: Dp ->
+                GearScreen(
+                    vm,
+                    PaddingValues(bottom = bottom),
+                    onOpenSettings = openSettings,
+                    sourceKey = Routes.Gear,
+                )
+            },
+        )
     }
     CompositionLocalProvider(
         LocalHazeState provides hazeState,

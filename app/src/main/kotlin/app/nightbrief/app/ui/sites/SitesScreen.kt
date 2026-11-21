@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -48,8 +49,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.SiteDraft
 import app.nightbrief.app.ui.common.Format
+import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.ScorePill
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.common.TabTopBar
+import app.nightbrief.app.ui.common.glassSource
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.sites.BortleSource
 import app.nightbrief.sites.Site
@@ -66,12 +71,19 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: PaddingValues) {
+fun SitesScreen(
+    vm: AppViewModel,
+    onEdit: (String?) -> Unit,
+    contentPadding: PaddingValues,
+    onOpenSettings: () -> Unit = {},
+    sourceKey: Any? = null,
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val ui by vm.briefing.collectAsStateWithLifecycle()
     val book = state?.sites ?: return
+    val nightVision = state?.nightVision ?: false
+    val bottomInset = contentPadding.calculateBottomPadding()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -91,14 +103,17 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
         }
     }
 
+    val listState = rememberLazyListState()
+    ReportGlassScroll { listState.isScrollInProgress }
     Scaffold(
-        modifier = Modifier.padding(contentPadding),
         snackbarHost = { SnackbarHost(snackbar) },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
+            TabTopBar(
                 title = { Text(stringResource(R.string.nav_sites)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                nightVision = nightVision,
+                onToggleNightVision = { vm.setNightVision(!nightVision) },
+                onOpenSettings = onOpenSettings,
             )
         },
         floatingActionButton = {
@@ -107,13 +122,16 @@ fun SitesScreen(vm: AppViewModel, onEdit: (String?) -> Unit, contentPadding: Pad
                 onClick = { onEdit(null) },
                 icon = { Icon(NightBriefIcons.Add, contentDescription = null) },
                 text = { Text(addSite) },
-                modifier = Modifier.semantics { contentDescription = addSite },
+                modifier = Modifier
+                    .padding(bottom = bottomInset)
+                    .semantics { contentDescription = addSite },
             )
         },
     ) { inner ->
         LazyColumn(
-            Modifier.padding(inner).fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+            Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current, sourceKey),
+            state = listState,
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp + bottomInset),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             itemsIndexed(book.sites, key = { _, s -> s.id }) { index, site ->

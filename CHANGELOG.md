@@ -9,10 +9,15 @@ fixes bump the patch.
 
 ### Changed
 
+- The top bar is the same on every tab: night vision, then refresh and share where the tab has them, then settings. Tonight keeps refresh and the night-plan share; Week has refresh and a share placeholder for now; Sites and Gear have night vision and settings.
 - **Breaking:** Installs signed with the old shared sideload key cannot be updated in place. Uninstall NightBrief, then install again. After that, debug and release builds from the same machine replace each other.
 - Darker-sky search now checks open water before consulting the light-pollution grids and reads each grid in a single forward pass, so a search is several times faster on the same battery.
 - Night and target calculations reuse one solar-altitude sweep and one Moon position table instead of repeating them per threshold and per target.
 - Scrolling no longer recomposes the whole screen on every gesture start and stop, and changing an unrelated setting no longer re-runs window brightness and edge-to-edge setup.
+
+### Fixed
+
+- The Gear tab uses the floating glass tab bar again instead of the opaque bar, and Sites and Gear scroll under the same frosted glass as the other tabs.
 
 ### Security
 

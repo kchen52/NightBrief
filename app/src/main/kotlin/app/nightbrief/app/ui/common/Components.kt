@@ -258,7 +258,7 @@ fun SiteStrip(
     summarizeBestNight: Boolean = false,
 ) {
     val rowState = rememberLazyListState()
-    ReportGlassScroll(rowState.isScrollInProgress)
+    ReportGlassScroll { rowState.isScrollInProgress }
     Box(modifier.fillMaxWidth()) {
     LazyRow(
         state = rowState,

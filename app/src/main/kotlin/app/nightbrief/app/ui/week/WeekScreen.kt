@@ -103,7 +103,7 @@ fun WeekScreen(
     ) { inner ->
         if (window.weekColumns > 1) {
             val gridState = rememberLazyGridState()
-            ReportGlassScroll(gridState.isScrollInProgress)
+            ReportGlassScroll { gridState.isScrollInProgress }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(window.weekColumns),
                 state = gridState,
@@ -165,7 +165,7 @@ fun WeekScreen(
             }
         } else {
             val listState = rememberLazyListState()
-            ReportGlassScroll(listState.isScrollInProgress)
+            ReportGlassScroll { listState.isScrollInProgress }
             LazyColumn(
                 Modifier.padding(inner).fillMaxSize().glassSource(LocalHazeState.current, sourceKey),
                 state = listState,

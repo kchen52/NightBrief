@@ -7,6 +7,12 @@ fixes bump the patch.
 
 ## [Unreleased]
 
+### Changed
+
+- Darker-sky search now checks open water before consulting the light-pollution grids and reads each grid in a single forward pass, so a search is several times faster on the same battery.
+- Night and target calculations reuse one solar-altitude sweep and one Moon position table instead of repeating them per threshold and per target.
+- Scrolling no longer recomposes the whole screen on every gesture start and stop, and changing an unrelated setting no longer re-runs window brightness and edge-to-edge setup.
+
 ### Security
 
 - Removed the committed sideload signing keystore; release builds now sign only from private

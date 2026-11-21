@@ -99,6 +99,89 @@ class BortleLookupTest {
     }
 
     @Test
+    fun batchLookupOpensOneStreamAndMatchesIndividualResults() {
+        val rows = 4
+        val cols = 5
+        val payload = ByteArray(rows * cols) { if (it == 3) 0 else (it % 9 + 1).toByte() }
+        val bytes = nblp(south = 10.0, west = -20.0, cell = 0.5, rows = rows, cols = cols, payload = payload)
+        fun cell(row: Int, col: Int) = 10.0 + (row + 0.5) * 0.5 to -20.0 + (col + 0.5) * 0.5
+        // Reverse order, a duplicate cell, a zero byte, and a point outside the grid.
+        val points = listOf(
+            cell(3, 4), cell(0, 0), cell(1, 2), cell(0, 0), cell(2, 3), 0.0 to 0.0, cell(0, 3),
+        )
+        val streams = mutableListOf<CountingInputStream>()
+        val batch = StreamingGridBortleLookup {
+            CountingInputStream(ByteArrayInputStream(bytes)).also(streams::add)
+        }
+        val individual = StreamingGridBortleLookup { ByteArrayInputStream(bytes) }
+
+        assertEquals(points.map { (lat, lon) -> individual.lookup(lat, lon) }, batch.lookupAll(points))
+        assertEquals("streams opened", 1, streams.size)
+        // Header plus cells 0..19 in one forward pass, never a rewind or a second inflate.
+        assertEquals(NblpHeader.BYTES + (rows * cols).toLong(), streams.single().readBytes)
+    }
+
+    @Test
+    fun batchLookupSkipsEmptyAndOutOfBoundsPayloads() {
+        val bytes = nblp(south = 10.0, west = -20.0, cell = 0.5, rows = 2, cols = 2, payload = byteArrayOf(1, 2, 3, 4))
+        var opens = 0
+        val counting = mutableListOf<CountingInputStream>()
+        val lookup = StreamingGridBortleLookup {
+            opens++
+            CountingInputStream(ByteArrayInputStream(bytes)).also(counting::add)
+        }
+
+        assertEquals(emptyList<Int?>(), lookup.lookupAll(emptyList()))
+        assertEquals("empty batch must not open a stream", 0, opens)
+        assertEquals(listOf(null, null), lookup.lookupAll(listOf(0.0 to 0.0, 40.0 to 40.0)))
+        assertEquals("out-of-bounds batch opens only to read the header", 1, opens)
+        assertEquals(NblpHeader.BYTES.toLong(), counting.single().readBytes)
+    }
+
+    @Test
+    fun batchLookupHonoursShortSkips() {
+        val bytes = nblp(
+            south = 40.0, west = -80.0, cell = 1.0, rows = 3, cols = 4,
+            payload = ByteArray(12) { (it % 9 + 1).toByte() },
+        )
+        val lookup = StreamingGridBortleLookup { ShortSkipInputStream(ByteArrayInputStream(bytes), maxSkip = 3) }
+        val points = (2 downTo 0).flatMap { r -> (3 downTo 0).map { c -> 40.0 + r + 0.5 to -80.0 + c + 0.5 } }
+        val individual = StreamingGridBortleLookup { ByteArrayInputStream(bytes) }
+        assertEquals(points.map { (lat, lon) -> individual.lookup(lat, lon) }, lookup.lookupAll(points))
+    }
+
+    @Test
+    fun compositeBatchQueriesOnlyUnresolvedPoints() {
+        val coarse = GridBortleLookup.read(
+            ByteArrayInputStream(
+                nblp(south = 0.0, west = 0.0, cell = 10.0, rows = 1, cols = 1, payload = byteArrayOf(4)),
+            ),
+        )
+        val forwarded = mutableListOf<Pair<Double, Double>>()
+        val fallback = BortleLookup { lat, lon -> forwarded += lat to lon; 2 }
+        val composite = CompositeBortleLookup(listOf(coarse, fallback))
+        val points = listOf(5.0 to 5.0, 15.0 to 5.0, 25.0 to 5.0, 5.0 to 6.0)
+
+        assertEquals(listOf(4, 2, 2, 4), composite.lookupAll(points))
+        assertEquals(listOf(15.0 to 5.0, 25.0 to 5.0), forwarded)
+        assertEquals(emptyList<Int?>(), composite.lookupAll(emptyList()))
+    }
+
+    @Test
+    fun compositeBatchDoesNotTouchLaterGridsWhenTheFirstResolvesEverything() {
+        val only = GridBortleLookup.read(
+            ByteArrayInputStream(
+                nblp(south = 0.0, west = 0.0, cell = 10.0, rows = 1, cols = 1, payload = byteArrayOf(4)),
+            ),
+        )
+        val unused = BortleLookup { _, _ -> error("later grid must not be consulted") }
+        assertEquals(
+            listOf(4, 4),
+            CompositeBortleLookup(listOf(only, unused)).lookupAll(listOf(5.0 to 5.0, 5.0 to 6.0)),
+        )
+    }
+
+    @Test
     fun compositeReturnsTheFirstNonNull() {
         val coarse = GridBortleLookup.read(
             ByteArrayInputStream(

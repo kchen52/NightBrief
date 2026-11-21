@@ -7,6 +7,7 @@ import app.nightbrief.sites.OpenWater
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.HourlyWeather
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -106,6 +107,46 @@ class DarkSkyFinderTest {
         val briefings = FakeBriefings()
         val found = DarkSkyFinder.search(primary(), kit, lookup, briefings)
         assertTrue("expected survivors, got none", found.isNotEmpty())
+        assertTrue(
+            "failing lookup side leaked: ${found.map { it.site.longitude }}",
+            found.all { it.site.longitude <= home.longitude },
+        )
+    }
+
+    @Test
+    fun checksOpenWaterBeforePayingForTheGrid() = runTest {
+        val waterCalls = mutableListOf<Pair<Double, Double>>()
+        val lookupCalls = mutableListOf<Pair<Double, Double>>()
+        val water = OpenWater { lat, lon ->
+            waterCalls += lat to lon
+            lon > home.longitude
+        }
+        val lookup = BortleLookup { lat, lon ->
+            lookupCalls += lat to lon
+            2
+        }
+        DarkSkyFinder.search(primary(), kit, lookup, FakeBriefings(), water = water)
+        assertEquals(DarkSkyFinder.RINGS_KM.size * DarkSkyFinder.BEARINGS_PER_RING, waterCalls.size)
+        assertTrue("grid was consulted before the water mask", lookupCalls.isNotEmpty())
+        assertTrue("wet samples reached the grid", lookupCalls.all { it in waterCalls })
+    }
+
+    @Test
+    fun waterCancellationPropagates() = runTest {
+        val water = OpenWater { _, _ -> throw CancellationException("cancelled") }
+        val thrown = runCatching {
+            DarkSkyFinder.search(primary(), kit, BortleLookup { _, _ -> 2 }, FakeBriefings(), water = water)
+        }.exceptionOrNull()
+        assertTrue("expected CancellationException, got $thrown", thrown is CancellationException)
+    }
+
+    @Test
+    fun gridCancellationPropagates() = runTest {
+        val lookup = BortleLookup { _, _ -> throw CancellationException("cancelled") }
+        val thrown = runCatching {
+            DarkSkyFinder.search(primary(), kit, lookup, FakeBriefings())
+        }.exceptionOrNull()
+        assertTrue("expected CancellationException, got $thrown", thrown is CancellationException)
     }
 
     @Test

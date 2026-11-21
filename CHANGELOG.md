@@ -14,6 +14,10 @@ fixes bump the patch.
 - Night and target calculations reuse one solar-altitude sweep and one Moon position table instead of repeating them per threshold and per target.
 - Scrolling no longer recomposes the whole screen on every gesture start and stop, and changing an unrelated setting no longer re-runs window brightness and edge-to-edge setup.
 
+### Fixed
+
+- Glass buttons, the tab bar, and the top bar stay translucent while a tab scrolls, instead of turning solid until the gesture stops.
+
 ### Security
 
 - Removed the committed sideload signing keystore; release builds now sign only from private

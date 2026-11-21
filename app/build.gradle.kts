@@ -82,6 +82,12 @@ android {
         debug {
             val channel = updateChannelOverride ?: "develop"
             buildConfigField("String", "UPDATE_CHANNEL", "\"$channel\"")
+            // Same private key as release when keystore.properties or CI env is set,
+            // so local debug and release installs can replace each other. Absent
+            // credentials leave the Android debug key in place. Not the Play key.
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             val channel = updateChannelOverride ?: "release"

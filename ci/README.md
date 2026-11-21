@@ -15,9 +15,24 @@ keyAlias=...
 keyPassword=...
 ```
 
-Release builds use `keystore.properties` when present, or the environment
-variables below in CI. Without either, `:app:assembleRelease` produces an
-unsigned APK instead of falling back to a debug or committed key.
+When `keystore.properties` is present, debug and release builds both use it, so
+a later build from this machine can update an install made here. The
+environment variables below are the fallback when that file is absent, which is
+how CI signs a release build. Without either, debug stays on the Android debug
+key and `:app:assembleRelease` stays unsigned. Do not restore a keystore that
+was ever committed.
+
+Example, stored outside the repo:
+
+```bash
+mkdir -p ~/.nightbrief
+keytool -genkeypair \
+  -keystore ~/.nightbrief/nightbrief-sideload.jks \
+  -storetype PKCS12 \
+  -alias nightbrief \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -dname "CN=NightBrief, OU=Local, O=NightBrief"
+```
 
 ## GitHub Actions release builds
 

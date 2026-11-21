@@ -24,7 +24,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,8 +35,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +57,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
+import app.nightbrief.app.ui.common.LocalHazeState
+import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.common.TabTopBar
+import app.nightbrief.app.ui.common.glassSource
 import app.nightbrief.gear.CameraBody
 import app.nightbrief.gear.ExposureCalculator
 import app.nightbrief.gear.GearCatalog
@@ -72,18 +73,26 @@ import app.nightbrief.gear.StarTracker
 import java.util.Locale
 import java.util.UUID
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GearScreen(vm: AppViewModel, contentPadding: PaddingValues) {
+fun GearScreen(
+    vm: AppViewModel,
+    contentPadding: PaddingValues,
+    onOpenSettings: () -> Unit = {},
+    sourceKey: Any? = null,
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val kit = state?.gear ?: return
+    val nightVision = state?.nightVision ?: false
+    val scroll = rememberScrollState()
+    ReportGlassScroll { scroll.isScrollInProgress }
     Scaffold(
-        modifier = Modifier.padding(contentPadding),
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
+            TabTopBar(
                 title = { Text(stringResource(R.string.nav_gear)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                nightVision = nightVision,
+                onToggleNightVision = { vm.setNightVision(!nightVision) },
+                onOpenSettings = onOpenSettings,
             )
         },
     ) { inner ->
@@ -91,9 +100,10 @@ fun GearScreen(vm: AppViewModel, contentPadding: PaddingValues) {
             Modifier
                 .padding(inner)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .glassSource(LocalHazeState.current, sourceKey)
+                .verticalScroll(scroll)
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
+                .padding(bottom = 24.dp + contentPadding.calculateBottomPadding()),
         ) {
             GearEditor(kit, onChange = { next -> vm.updateGear { next } })
         }

@@ -15,15 +15,10 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +35,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nightbrief.app.AppViewModel
@@ -48,16 +42,14 @@ import app.nightbrief.app.ui.common.Banner
 import app.nightbrief.app.ui.common.CardCollapse
 import app.nightbrief.app.ui.common.LocalCardCollapse
 import app.nightbrief.app.ui.common.Format
-import app.nightbrief.app.ui.common.GlassActionCluster
-import app.nightbrief.app.ui.common.GlassTopBarBackdrop
 import app.nightbrief.app.ui.common.LocalHazeState
 import app.nightbrief.app.ui.common.ReportGlassScroll
 import app.nightbrief.app.ui.common.glassSource
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import app.nightbrief.app.ui.common.SiteChip
+import app.nightbrief.app.ui.common.TabTopBar
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.passport.NewStampNotice
 import app.nightbrief.app.ui.theme.NightColors
@@ -70,7 +62,6 @@ import app.nightbrief.score.WindowAlarms
 import app.nightbrief.sites.Site
 import java.time.LocalDate
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TonightScreen(
     vm: AppViewModel,
@@ -94,40 +85,18 @@ fun TonightScreen(
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
-            Box {
-                GlassTopBarBackdrop(Modifier.matchParentSize())
-                TopAppBar(
-                    title = { Text(stringResource(R.string.nav_tonight)) },
-                    actions = {
-                        GlassActionCluster {
-                            Action(highlighted = current.nightVision) {
-                                IconButton(onClick = { vm.setNightVision(!current.nightVision) }) {
-                                    Icon(
-                                        NightBriefIcons.Visibility,
-                                        contentDescription = stringResource(
-                                            if (current.nightVision) R.string.night_vision_on else R.string.night_vision_off,
-                                        ),
-                                        tint = if (current.nightVision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
-                            Action {
-                                IconButton(onClick = { vm.refresh(force = true) }) {
-                                    Icon(NightBriefIcons.Refresh, stringResource(R.string.refresh_forecast))
-                                }
-                            }
-                            if (report != null) Action { ShareNightPlanButton(report) }
-                            Action {
-                                IconButton(onClick = onOpenSettings) { Icon(NightBriefIcons.Settings, stringResource(R.string.settings)) }
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
-                )
-            }
+            TabTopBar(
+                title = { Text(stringResource(R.string.nav_tonight)) },
+                nightVision = current.nightVision,
+                onToggleNightVision = { vm.setNightVision(!current.nightVision) },
+                onOpenSettings = onOpenSettings,
+                onRefresh = { vm.refresh(force = true) },
+                share = if (report != null) {
+                    { ShareNightPlanButton(report) }
+                } else {
+                    null
+                },
+            )
         },
     ) { inner ->
         val collapse = remember(current.collapsedCards) { CardCollapse(current.collapsedCards, vm::toggleCardCollapsed) }

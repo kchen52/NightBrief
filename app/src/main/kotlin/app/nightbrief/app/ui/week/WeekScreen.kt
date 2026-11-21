@@ -24,15 +24,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -57,6 +56,8 @@ import app.nightbrief.app.ui.common.SectionCard
 import app.nightbrief.app.ui.tonight.StaleForecastBanner
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
+import app.nightbrief.app.ui.common.TabTopBar
+import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
 import app.nightbrief.score.BigNightAlerts
@@ -67,7 +68,6 @@ import app.nightbrief.score.WeeklyOutlook
 import app.nightbrief.weather.ForecastStatus
 import java.time.LocalDate
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeekScreen(
     vm: AppViewModel,
@@ -75,9 +75,11 @@ fun WeekScreen(
     onOpenEvents: () -> Unit,
     contentPadding: PaddingValues,
     sourceKey: Any? = null,
+    onOpenSettings: () -> Unit = {},
 ) {
     val window = rememberWindowForm()
     val state by vm.state.collectAsStateWithLifecycle()
+    val nightVision = state?.nightVision ?: false
     val ui by vm.briefing.collectAsStateWithLifecycle()
     val selected by vm.selectedSiteId.collectAsStateWithLifecycle()
     val book = state?.sites ?: return
@@ -95,9 +97,18 @@ fun WeekScreen(
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
+            TabTopBar(
                 title = { WeekTitle(outlook) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                nightVision = nightVision,
+                onToggleNightVision = { vm.setNightVision(!nightVision) },
+                onOpenSettings = onOpenSettings,
+                onRefresh = { vm.refresh(force = true) },
+                // TODO: share the week outlook. Tonight's night-plan share does not fit a week.
+                share = {
+                    IconButton(onClick = {}) {
+                        Icon(NightBriefIcons.Share, stringResource(R.string.share_week))
+                    }
+                },
             )
         },
     ) { inner ->

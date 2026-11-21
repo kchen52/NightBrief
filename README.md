@@ -188,9 +188,11 @@ runs; the app never installs silently.
   publishes the release. Release builds check `/releases/latest` by SemVer.
   Pre-release tags (`v0.2.0-beta.1`) stay out of that endpoint.
 - **Signing.** No keystore is committed to the repo (see `ci/README.md`).
-  Release builds sign from a gitignored `keystore.properties` or CI secrets and
-  stay unsigned otherwise. A GitHub sideload build cannot update a Play Store
-  install, and a Play upload key stays separate.
+  A gitignored `keystore.properties` signs local debug and release builds with
+  the same private key. CI release builds sign from repository secrets. Without
+  credentials, debug stays on the Android debug key and release stays unsigned.
+  A GitHub sideload build cannot update a Play Store install, and a Play upload
+  key stays separate.
 
 A failed update check leaves Tonight alone. Skip remembers that build until a different
 one appears. Android 8+ needs “Allow from this source” for NightBrief once; the banner

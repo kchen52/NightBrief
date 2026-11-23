@@ -9,6 +9,7 @@ fixes bump the patch.
 
 ### Changed
 
+- The Week tab title says "Week ahead".
 - The top bar is the same on every tab: night vision, then refresh and share where the tab has them, then settings. Tonight keeps refresh and the night-plan share; Week has refresh and a share placeholder for now; Sites and Gear have night vision and settings.
 - **Breaking:** Installs signed with the old shared sideload key cannot be updated in place. Uninstall NightBrief, then install again. After that, debug and release builds from the same machine replace each other.
 - Darker-sky search now checks open water before consulting the light-pollution grids and reads each grid in a single forward pass, so a search is several times faster on the same battery.

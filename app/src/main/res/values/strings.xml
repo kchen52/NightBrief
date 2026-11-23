@@ -54,7 +54,7 @@
         <item>Counting photons…</item>
         <item>Checking under the Moon…</item>
     </string-array>
-    <string name="week_title">This week</string>
+    <string name="week_title">Week ahead</string>
     <string name="week_best_label">Best night</string>
     <string name="week_chip_night">%1$s · %2$s</string>
     <string name="week_footnote">Nights marked est. estimate seeing and transparency from humidity and jet-stream wind.</string>

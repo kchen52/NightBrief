@@ -224,7 +224,7 @@ class FoldableLayoutTest {
         // Visit Week, so Tonight parks offscreen beside the rail.
         compose.onNodeWithText("Week").performTouchInput { click(center) }
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithText("This week").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Week ahead").fetchSemanticsNodes().isNotEmpty()
         }
         // The tap lands where a page parked at (-width, 0) would reach across the rail and
         // steal it. It has to reach the rail item, so the Sites tab opens.
@@ -250,7 +250,7 @@ class FoldableLayoutTest {
                 WeekScreen(vm, onOpenNight = { _, _ -> }, onOpenEvents = {}, contentPadding = PaddingValues())
             }
         }
-        compose.onNodeWithText("This week").assertIsDisplayed()
+        compose.onNodeWithText("Week ahead").assertIsDisplayed()
         compose.onNodeWithTag("week-grid").assertDoesNotExist()
     }
 

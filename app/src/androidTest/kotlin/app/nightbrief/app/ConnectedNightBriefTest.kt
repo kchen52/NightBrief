@@ -63,7 +63,7 @@ class ConnectedNightBriefTest {
         // The selected tab and the screen title share a label, so "Tonight" is two nodes.
         compose.onAllNodesWithText("Tonight").assertCountEquals(2)
         compose.onNode(hasText("Week") and hasClickAction()).performClick()
-        compose.onNodeWithText("This week").assertIsDisplayed()
+        compose.onNodeWithText("Week ahead").assertIsDisplayed()
         compose.onNode(hasText("Sites") and hasClickAction()).performClick()
         compose.onAllNodesWithText("Sites").assertCountEquals(2)
         compose.onNode(hasText("Gear") and hasClickAction()).performClick()

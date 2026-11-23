@@ -175,7 +175,11 @@ class ReadmeScreenshotTest {
         val outlook = weekOutlook()
         val nightNames = NightNames.titles(outlook.nights, BigNightAlerts.threshold)
         paparazzi.snapshot("week") {
-            Phone("This week", "Week", subtitle = Format.daySpan(outlook.nights.first().date, outlook.nights.last().date)) { padding ->
+            Phone(
+                stringResource(R.string.week_title),
+                stringResource(R.string.nav_week),
+                subtitle = Format.daySpan(outlook.nights.first().date, outlook.nights.last().date),
+            ) { padding ->
                 LazyColumn(
                     Modifier.padding(padding).fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),

@@ -1,0 +1,24 @@
+project:
+    id: 90b5e337-125f-4b64-88d6-85bdc6d88918
+session:
+    idle_timeout_seconds: 1800
+build:
+    framework: android
+    profiles:
+        preview:
+            android:
+                app_id: "6f741421-7e41-4f11-a562-66628fb8e33f"
+                setup_commands:
+                    - "sudo apt-get update -qq && sudo apt-get install -y -qq openjdk-21-jdk-headless"
+                build_commands:
+                    - "JAVA_HOME=$(ls -d /usr/lib/jvm/java-21-openjdk-*) ./gradlew :app:assembleDebug"
+                output_path: app/build/outputs/apk/debug/app-debug.apk
+pr_review:
+    enabled: true
+    build:
+        kind: revyl
+        profile: preview
+    proof_of_changes:
+        enabled: true
+        harness:
+            kind: revyl

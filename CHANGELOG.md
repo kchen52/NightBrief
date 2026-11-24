@@ -7,6 +7,10 @@ fixes bump the patch.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-24
+
+Performance, security, and UI polish release (`versionCode` 4). Switches release builds to a private signing key (uninstall and reinstall required from `1.0.0`), unifies the tab top bar, fixes frosted glass during scroll and tab switches, and cuts forecast, Bortle-search, and UI overhead.
+
 ### Changed
 
 - The top bar is the same on every tab: night vision, then refresh and share where the tab has them, then settings. Tonight keeps refresh and the night-plan share; Week has refresh and a share placeholder for now; Sites and Gear have night vision and settings.

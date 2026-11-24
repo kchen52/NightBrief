@@ -2,7 +2,6 @@ package app.nightbrief.app
 
 import android.app.Application
 import android.os.StrictMode
-import app.nightbrief.app.wear.WearPublisher
 import app.nightbrief.data.AppGraph
 import app.nightbrief.work.DigestNotifier
 import app.nightbrief.work.DigestScheduler
@@ -25,6 +24,5 @@ class NightBriefApp : Application() {
         val graph = AppGraph.get(this)
         DigestNotifier.ensureChannels(this)
         graph.appScope.launch { DigestScheduler.reschedule(this@NightBriefApp) }
-        WearPublisher.enqueue(this)
     }
 }

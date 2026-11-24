@@ -70,6 +70,18 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             forceRefresh = true,
             customTargets = ready.customTargets,
         )
+        val primary = ready.sites.primary
+        if (primary != null) {
+            briefing.reportFor(primary.id)?.let { report ->
+                try {
+                    graph.glanceSnapshot.save(primary, report)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Snapshot persistence must not block the morning digest.
+                }
+            }
+        }
         try {
             WindowAlarmScheduler.onBriefingRefreshed(applicationContext, briefing)
         } catch (e: CancellationException) {
@@ -146,21 +158,10 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val sites = state.sites.sites
         if (!state.onboardingComplete || sites.isEmpty()) return Result.success()
 
-        // Fetch every site concurrently; a sequential loop waits out each timeout in turn.
-        val failures = coroutineScope {
-            sites.map { site ->
-                async {
-                    try {
-                        graph.forecasts.forecast(site.latitude, site.longitude)
-                        null
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
-                        site.id
-                    }
-                }
-            }.awaitAll().count { it != null }
-        }
+        // Batch Open-Meteo calls by weather model across all saved sites.
+        val failures = graph.forecasts
+            .forecastBatch(sites.map { it.latitude to it.longitude })
+            .count { it.isFailure }
         if (failures > 0 && failures == sites.size) return Result.retry()
 
         var briefing: Briefing? = null
@@ -183,10 +184,9 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
         if (state.windowAlarm != null) {
             try {
-                val refreshed = briefing ?: graph.briefings.brief(
+                val refreshed = briefing ?: graph.briefings.briefLean(
                     sites = state.sites.primaryFirst(),
                     kit = state.gear,
-                    outlookDays = 1,
                     forceRefresh = false,
                 )
                 WindowAlarmScheduler.onBriefingRefreshed(applicationContext, refreshed)
@@ -204,12 +204,10 @@ class PrefetchWorker(context: Context, params: WorkerParameters) : CoroutineWork
     private suspend fun postBigNightAlerts(graph: AppGraph): Briefing? {
         val current = graph.settings.current()
         if (bigNightQuiet(current, Instant.now().epochSecond)) return null
-        val briefing = graph.briefings.brief(
+        val briefing = graph.briefings.briefLean(
             sites = current.sites.primaryFirst(),
             kit = current.gear,
-            outlookDays = 1,
             forceRefresh = false,
-            customTargets = current.customTargets,
         )
         BigNightPosts.withLock {
             val latest = graph.settings.current()

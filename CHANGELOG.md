@@ -18,6 +18,9 @@ fixes bump the patch.
 - Forecasts, ISS elements, and comet files now keep an in-memory cache in front of disk storage, move file reads and writes off the caller thread, reuse parsed comet orbits across planner days, and keep an in-flight forecast refresh running for other callers if one screen cancels.
 - Tonight's hour grid, emphasized text, and aurora ripple animation avoid redundant recomposition and formatting work during scrolling and animation frames.
 - Darker-sky road-access lookups now limit concurrent Overpass requests and reuse cached results for nearby spots to avoid rate-limit failures.
+- The home-screen widget and Wear OS publisher now reuse the latest primary-site briefing snapshot instead of rescoring from scratch, Wear publishing skips work when no watch is connected, background prefetch uses lean night scoring, and future Week nights skip building unused timelines.
+- Multi-site refreshes and background prefetch now batch Open-Meteo forecast requests across sites sharing the same weather model.
+- Added a Compose compiler stability configuration for immutable domain models and `java.time` types on phone and watch to reduce unnecessary UI recomposition checks.
 
 ### Fixed
 

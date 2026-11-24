@@ -22,8 +22,10 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.nightbrief.app.MainActivity
 import app.nightbrief.data.AppGraph
+import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.SavedForecast
 import app.nightbrief.score.WidgetCopy
+import java.time.Clock
 
 class NightBriefWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -33,11 +35,32 @@ class NightBriefWidget : GlanceAppWidget() {
         }
     }
 
-    private suspend fun load(context: Context): WidgetContent {
+    internal suspend fun load(context: Context, clock: Clock = Clock.systemUTC()): WidgetContent {
         val graph = AppGraph.get(context)
         val state = graph.settings.current()
         val primary = state.sites.primary
         if (!state.onboardingComplete || primary == null) return WidgetContent.Setup
+
+        val tonight = NightPlanner.tonight(clock.instant(), primary.zone)
+        graph.glanceSnapshot.currentFor(primary, tonight)?.let { snap ->
+            return WidgetContent.Night(
+                siteName = snap.siteName,
+                scoreLine = WidgetCopy.scoreLine(snap.scoreValue),
+                flavorLine = snap.flavorLine,
+                milkyWayLine = WidgetCopy.milkyWayLine(
+                    snap.milkyWayWindow,
+                    primary.zone,
+                    clearsHorizonAt = snap.milkyWayClearsHorizonAt,
+                    blockedByHorizon = snap.milkyWayBlockedByHorizon,
+                ),
+                savedLine = SavedForecast.shortLabel(
+                    snap.parsedForecastStatus,
+                    snap.forecastFetchedAt,
+                    primary.zone,
+                ),
+            )
+        }
+
         val briefing = graph.briefings.brief(
             sites = listOf(primary),
             kit = state.gear,
@@ -45,6 +68,9 @@ class NightBriefWidget : GlanceAppWidget() {
             forceRefresh = false,
         )
         val report = briefing.reportFor(primary.id)
+        if (report != null) {
+            graph.glanceSnapshot.save(primary, report)
+        }
         return WidgetContent.Night(
             siteName = primary.name,
             scoreLine = WidgetCopy.scoreLine(report?.scoreValue),

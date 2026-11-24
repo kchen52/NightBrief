@@ -487,4 +487,82 @@ class ForecastRepositoryTest {
             server.shutdown()
         }
     }
+
+    @Test
+    fun forecastBatchCombinesSameModelLocationsIntoOnePrimaryAndOneSecondaryCall() = runTest {
+        val sample = resource("open_meteo_gem.json")
+        val batchServer = MockWebServer()
+        val batchRequests = CopyOnWriteArrayList<String>()
+        val primaryCode = java.util.concurrent.atomic.AtomicInteger(200)
+        batchServer.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.path.orEmpty()
+                batchRequests += path
+                val latParam = request.requestUrl?.queryParameter("latitude").orEmpty()
+                val count = latParam.split(",").filter { it.isNotBlank() }.size
+                val body = if (count > 1) {
+                    "[" + List(count) { sample }.joinToString(",") + "]"
+                } else {
+                    sample
+                }
+                val code = primaryCode.get()
+                return when {
+                    path.startsWith("/om") && "icon_seamless" in path ->
+                        MockResponse().setResponseCode(200).setBody(body)
+                    path.startsWith("/om") ->
+                        MockResponse().setResponseCode(code)
+                            .setBody(if (code == 200) body else "{\"error\":true,\"reason\":\"down\"}")
+                    path.startsWith("/7t") ->
+                        MockResponse().setResponseCode(200).setBody(resource("seven_timer_astro.json"))
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        batchServer.start()
+        try {
+            val cache = InMemoryForecastCache()
+            val source = ForecastRepository(
+                openMeteo = OpenMeteoClient(baseUrl = batchServer.url("/om").toString(), clock = clock),
+                sevenTimer = SevenTimerClient(baseUrl = batchServer.url("/7t").toString()),
+                cache = cache,
+                clock = clock,
+            )
+            // Five coordinates inside the GEM box.
+            val coords = listOf(
+                43.65 to -79.38,
+                44.10 to -79.90,
+                45.42 to -75.69,
+                45.50 to -73.57,
+                43.25 to -79.87,
+            )
+            val results = source.forecastBatch(coords)
+            assertEquals(5, results.size)
+            assertTrue(
+                "all 5 batched locations should succeed as FRESH, got $results",
+                results.all { it.isSuccess && it.getOrThrow().status == ForecastStatus.FRESH },
+            )
+            val primaryCalls = batchRequests.count { it.startsWith("/om") && "icon_seamless" !in it }
+            val secondaryCalls = batchRequests.count { it.startsWith("/om") && "icon_seamless" in it }
+            assertEquals("expected 1 batched primary Open-Meteo call, got $batchRequests", 1, primaryCalls)
+            assertEquals("expected 1 batched secondary Open-Meteo call, got $batchRequests", 1, secondaryCalls)
+
+            // Every cell must now be individually cached.
+            for ((lat, lon) in coords) {
+                val cached = cache.get(ForecastRepository.cacheKey(lat, lon))
+                assertTrue("missing cache entry for $lat,$lon", cached != null && cached.hours.size == 24)
+            }
+
+            // Advance past cache age and fail the batch with HTTP 429:
+            // previously cached cells fall back to STALE, while a brand-new cell fails cleanly.
+            clock.now = clock.now.plus(Duration.ofHours(2))
+            primaryCode.set(429)
+            val mixed = listOf(coords[0], 46.81 to -71.21)
+            val fallback = source.forecastBatch(mixed)
+            assertEquals(ForecastStatus.STALE, fallback[0].getOrThrow().status)
+            assertTrue("uncached cell should fail on 429", fallback[1].isFailure)
+            assertEquals(ForecastProblem.BUSY, (fallback[1].exceptionOrNull() as WeatherApiException).problem)
+        } finally {
+            batchServer.shutdown()
+        }
+    }
 }

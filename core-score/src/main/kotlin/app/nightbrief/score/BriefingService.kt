@@ -109,6 +109,17 @@ interface BriefingSource {
     ): NightReport = plan(site, date, kit)
 
     /**
+     * Scores tonight for [sites] with only what background alerts and window alarms need:
+     * no aurora, ISS, smoke, comet, or target suggestions, and no multi-day outlook.
+     * The published score and best window are the same ones [brief] produces.
+     */
+    suspend fun briefLean(
+        sites: List<Site>,
+        kit: GearKit,
+        forceRefresh: Boolean = false,
+    ): Briefing = brief(sites, kit, outlookDays = 1, forceRefresh = forceRefresh)
+
+    /**
      * Plans [site] for [date] with only what the score and coverage need: no aurora, ISS,
      * smoke, comet, or target suggestions. Darker-sky candidates render none of those, so
      * they use this instead of [plan]. The score itself is the same one [plan] publishes.
@@ -158,14 +169,15 @@ class BriefingService(
         val issDeferred = async { fetchIss() }
         val cometDeferred = async { fetchComets() }
         val airQualityDeferred = async { fetchAirQualityForSites(sites) }
-        // Sites in the same ~1 km cache cell share one fetch; ephemeris and scoring still run per site.
+        // Sites in the same ~1 km cache cell share one fetch; distinct cells batch by weather model.
         val keys = sites.map { ForecastRepository.cacheKey(it.latitude, it.longitude) }
-        val fetchedByKey = keys.distinct().map { key ->
-            async {
-                val site = sites[keys.indexOf(key)]
-                key to fetchForecast(site, forceRefresh)
-            }
-        }.awaitAll().toMap()
+        val distinctKeys = keys.distinct()
+        val distinctCoords = distinctKeys.map { key ->
+            val site = sites[keys.indexOf(key)]
+            site.latitude to site.longitude
+        }
+        val batchResults = forecasts.forecastBatch(distinctCoords, forceRefresh)
+        val fetchedByKey = distinctKeys.zip(batchResults).toMap()
         val fetched = sites.map { site ->
             site to fetchedByKey.getValue(ForecastRepository.cacheKey(site.latitude, site.longitude))
         }
@@ -186,52 +198,82 @@ class BriefingService(
             }
             val start = NightPlanner.tonight(now, site.zone)
             val skyEvents = skyEventsFor(start, outlookDays, site.zone)
-            val nights = (0 until outlookDays).map { offset ->
-                val planned = NightPlanner.plan(
+            val tonightReport = NightPlanner.plan(
+                site = site,
+                date = start,
+                forecast = fr?.forecast,
+                kit = kit,
+                forecastStatus = fr?.status,
+                warnings = warnings,
+                includeSuggestions = true,
+                customTargets = customTargets,
+            ).withAurora(kpForecast)
+                .withIss(issTle)
+                .withSmoke(airQualityBySite[site.id])
+                .withComet(cometOrbits)
+            tonight += tonightReport
+            val onTonight = skyEvents.filter { event ->
+                event.instant.atZone(site.zone).toLocalDate() == tonightReport.date
+            }
+            val tonightOutlook = OutlookNight(
+                tonightReport.date,
+                tonightReport.scoreValue,
+                tonightReport.ephemeris.moonIllumination,
+                tonightReport.ephemeris.darkness,
+                tonightReport.coverage,
+                estimated = tonightReport.score?.factors?.any { factor -> factor.estimated } == true,
+                clearSkies = NightNames.clearSkies(tonightReport),
+                fullMoon = tonightReport.ephemeris.moonPhaseName == MoonPhase.FULL,
+                showerLabel = NightNames.showerLabel(tonightReport.meteor),
+                skyEventTitle = NightNames.eventTitle(onTonight),
+                forecastMissing = fr == null,
+            )
+            // Future Week nights only need OutlookNight fields; skip timeline, dew, cloud layers, and side products.
+            val futureOutlooks = (1 until outlookDays).map { offset ->
+                NightPlanner.planOutlookNight(
                     site = site,
                     date = start.plusDays(offset.toLong()),
                     forecast = fr?.forecast,
-                    kit = kit,
-                    forecastStatus = fr?.status,
-                    warnings = warnings,
-                    includeSuggestions = offset == 0,
-                    customTargets = customTargets,
+                    skyEvents = skyEvents,
+                    forecastMissing = fr == null,
                 )
-                // Aurora, ISS, smoke, and comets are Tonight-only cards. An OutlookNight keeps none
-                // of them, so future nights skip the side products rather than enriching and discarding.
-                if (offset == 0) {
-                    planned.withAurora(kpForecast)
-                        .withIss(issTle)
-                        .withSmoke(airQualityBySite[site.id])
-                        .withComet(cometOrbits)
-                } else {
-                    planned
-                }
             }
-            tonight += nights.first()
-            outlooks += WeeklyOutlook(
-                site,
-                nights.map {
-                    val onDate = skyEvents.filter { event ->
-                        event.instant.atZone(site.zone).toLocalDate() == it.date
-                    }
-                    OutlookNight(
-                        it.date,
-                        it.scoreValue,
-                        it.ephemeris.moonIllumination,
-                        it.ephemeris.darkness,
-                        it.coverage,
-                        estimated = it.score?.factors?.any { factor -> factor.estimated } == true,
-                        clearSkies = NightNames.clearSkies(it),
-                        fullMoon = it.ephemeris.moonPhaseName == MoonPhase.FULL,
-                        showerLabel = NightNames.showerLabel(it.meteor),
-                        skyEventTitle = NightNames.eventTitle(onDate),
-                        forecastMissing = fr == null,
-                    )
-                },
-            )
+            outlooks += WeeklyOutlook(site, listOf(tonightOutlook) + futureOutlooks)
         }
         Briefing(now, tonight, outlooks, kpForecast)
+    }
+
+    override suspend fun briefLean(
+        sites: List<Site>,
+        kit: GearKit,
+        forceRefresh: Boolean,
+    ): Briefing {
+        val now = clock.instant()
+        val keys = sites.map { ForecastRepository.cacheKey(it.latitude, it.longitude) }
+        val distinctKeys = keys.distinct()
+        val distinctCoords = distinctKeys.map { key ->
+            val site = sites[keys.indexOf(key)]
+            site.latitude to site.longitude
+        }
+        val fetchedByKey = distinctKeys.zip(forecasts.forecastBatch(distinctCoords, forceRefresh)).toMap()
+        val tonight = sites.map { site ->
+            val result = fetchedByKey.getValue(ForecastRepository.cacheKey(site.latitude, site.longitude))
+            val fr = result.getOrNull()
+            val warnings = buildList {
+                fr?.warnings?.let(::addAll)
+                result.exceptionOrNull()?.let { add(forecastUserText(it)) }
+            }
+            NightPlanner.plan(
+                site = site,
+                date = NightPlanner.tonight(now, site.zone),
+                forecast = fr?.forecast,
+                kit = kit,
+                forecastStatus = fr?.status,
+                warnings = warnings,
+                includeSuggestions = false,
+            )
+        }
+        return Briefing(now, tonight, emptyList(), kp = null)
     }
 
     /** Plans a single site for a specific date (planning mode). */

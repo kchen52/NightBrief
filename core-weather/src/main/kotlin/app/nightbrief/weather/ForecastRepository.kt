@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -124,6 +125,27 @@ data class ForecastResult(
 interface ForecastSource {
     /** Throws [WeatherApiException] when no forecast (fresh or cached) is available. */
     suspend fun forecast(latitude: Double, longitude: Double, forceRefresh: Boolean = false): ForecastResult
+
+    /**
+     * Fetches forecasts for multiple coordinates, returning one [Result] per coordinate in order.
+     * Repositories may batch Open-Meteo calls for coordinates sharing a [WeatherModel].
+     */
+    suspend fun forecastBatch(
+        coords: List<Pair<Double, Double>>,
+        forceRefresh: Boolean = false,
+    ): List<Result<ForecastResult>> = coroutineScope {
+        coords.map { (lat, lon) ->
+            async {
+                try {
+                    Result.success(forecast(lat, lon, forceRefresh))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+        }.awaitAll()
+    }
 }
 
 /**
@@ -217,6 +239,135 @@ class ForecastRepository(
             }
         }
     }
+
+    override suspend fun forecastBatch(
+        coords: List<Pair<Double, Double>>,
+        forceRefresh: Boolean,
+    ): List<Result<ForecastResult>> {
+        if (coords.isEmpty()) return emptyList()
+        val keys = coords.map { (lat, lon) -> cacheKey(lat, lon) }
+        val uniqueEntries = LinkedHashMap<String, Pair<Double, Double>>()
+        for (i in coords.indices) {
+            uniqueEntries.putIfAbsent(keys[i], coords[i])
+        }
+        if (uniqueEntries.size <= 1) {
+            return super.forecastBatch(coords, forceRefresh)
+        }
+
+        val resolved = LinkedHashMap<String, Result<ForecastResult>>()
+        val toFetch = mutableListOf<BatchPending>()
+        val now = clock.instant()
+
+        for ((key, coord) in uniqueEntries) {
+            val (lat, lon) = coord
+            val cached = cache.get(key)
+            val age = cached?.let { Duration.between(it.fetchedAt, now) }
+            if (!forceRefresh && cached != null && age != null && age < maxCacheAge) {
+                resolved[key] = Result.success(ForecastResult(cached, ForecastStatus.CACHED))
+                continue
+            }
+            val quietUntil = busyUntil[key]
+            if (!forceRefresh && quietUntil != null && now.isBefore(quietUntil)) {
+                resolved[key] = if (cached != null) {
+                    Result.success(ForecastResult(cached, ForecastStatus.STALE, listOf(ForecastProblem.BUSY.userText())))
+                } else {
+                    Result.failure(WeatherApiException("HTTP 429", problem = ForecastProblem.BUSY))
+                }
+                continue
+            }
+            toFetch += BatchPending(key, lat, lon, cached)
+        }
+
+        if (toFetch.isNotEmpty()) {
+            val byModel = toFetch.groupBy { WeatherModel.forLocation(it.lat, it.lon) }
+            val fetchedPairs = coroutineScope {
+                byModel.map { (model, group) ->
+                    async {
+                        if (group.size == 1) {
+                            val item = group.single()
+                            val res = try {
+                                Result.success(forecast(item.lat, item.lon, forceRefresh))
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                Result.failure(e)
+                            }
+                            listOf(item.key to res)
+                        } else {
+                            fetchModelGroup(model, group)
+                        }
+                    }
+                }.awaitAll().flatten()
+            }
+            for ((key, res) in fetchedPairs) {
+                resolved[key] = res
+            }
+        }
+
+        return keys.map { resolved.getValue(it) }
+    }
+
+    private suspend fun fetchModelGroup(
+        model: WeatherModel,
+        group: List<BatchPending>,
+    ): List<Pair<String, Result<ForecastResult>>> = coroutineScope {
+        val groupCoords = group.map { it.lat to it.lon }
+        val astroDeferreds = group.map { item ->
+            async { runCatching { sevenTimer.fetch(item.lat, item.lon) } }
+        }
+        val secondaryDeferred = async {
+            runCatching {
+                openMeteo.fetchBatch(
+                    groupCoords,
+                    model = WeatherModel.secondaryFor(model),
+                    hourly = OpenMeteoClient.SECONDARY_HOURLY_FIELDS,
+                )
+            }
+        }
+        val primaryForecasts = try {
+            openMeteo.fetchBatch(groupCoords, model = model)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: WeatherApiException) {
+            if (e.problem == ForecastProblem.BUSY) {
+                val until = clock.instant().plus(busyCooldown)
+                for (item in group) busyUntil[item.key] = until
+            }
+            return@coroutineScope group.map { item ->
+                val res = if (item.cached != null) {
+                    Result.success(ForecastResult(item.cached, ForecastStatus.STALE, listOf(e.userText())))
+                } else {
+                    Result.failure(e)
+                }
+                item.key to res
+            }
+        } catch (e: Exception) {
+            return@coroutineScope group.map { item ->
+                item.key to Result.failure(e)
+            }
+        }
+
+        val secondaries = secondaryDeferred.await().getOrNull()
+        val astros = astroDeferreds.awaitAll()
+        group.mapIndexed { i, item ->
+            val weather = primaryForecasts[i]
+            val points = astros[i]
+            val warnings = points.exceptionOrNull()?.let { listOf("Seeing and transparency unavailable") }.orEmpty()
+            val merged = secondaries?.getOrNull(i)?.let { weather.withSecondary(it) } ?: weather
+            val complete = merged.withSevenTimer(points.getOrDefault(emptyList()))
+            try {
+                cache.put(item.key, complete)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: IOException) {
+                // Disk failure must not drop a freshly fetched forecast.
+            }
+            busyUntil.remove(item.key)
+            item.key to Result.success(ForecastResult(complete, ForecastStatus.FRESH, warnings))
+        }
+    }
+
+    private data class BatchPending(val key: String, val lat: Double, val lon: Double, val cached: Forecast?)
 
     private suspend fun load(
         latitude: Double,

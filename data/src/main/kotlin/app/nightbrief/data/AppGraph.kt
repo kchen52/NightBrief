@@ -107,6 +107,12 @@ class AppGraph private constructor(context: Context) {
         private set
 
     /**
+     * Shared snapshot of the primary site's tonight glance (score, flavor, Milky Way, status)
+     * published by the app and morning digest so the widget and Wear reuse it without rescoring.
+     */
+    val glanceSnapshot = GlanceSnapshotStore(File(context.filesDir, "cache/glance_snapshot.json"))
+
+    /**
      * Ocean and lakes for darker-sky search. Null only when the mask asset is not packaged.
      * The first lookup inflates the gzip (about 3 MB) and keeps the bits; call it off the
      * main thread. A mask that cannot be read reports land, so the search still returns.
@@ -197,6 +203,7 @@ class AppGraph private constructor(context: Context) {
     fun replaceSourcesForTest(forecasts: ForecastSource, briefings: BriefingSource) {
         this.forecasts = forecasts
         this.briefings = briefings
+        glanceSnapshot.clearSync()
     }
 
     /** Points the aurora nowcast at a fake series without a network call. */
@@ -208,5 +215,6 @@ class AppGraph private constructor(context: Context) {
         forecasts = realForecasts
         briefings = realBriefings
         observedKp = realObservedKp
+        glanceSnapshot.clearSync()
     }
 }

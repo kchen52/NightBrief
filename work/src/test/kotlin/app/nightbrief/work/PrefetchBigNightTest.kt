@@ -179,6 +179,47 @@ class PrefetchBigNightTest {
         assertEquals(0, notifications(context).activeNotifications.size)
     }
 
+    @Test
+    fun prefetchUsesLeanBriefingPathInsteadOfFullBrief() = runBlocking {
+        val context = context()
+        val graph = AppGraph.get(context)
+        graph.settings.update {
+            AppState(
+                onboardingComplete = true,
+                sites = SiteBook().add(site, makePrimary = true),
+                bigNightAlertsEnabled = true,
+                lastBigNightAlerts = emptyMap(),
+            )
+        }
+        var leanCalls = 0
+        val report = report(BigNightAlerts.threshold)
+        graph.replaceSourcesForTest(
+            OkForecasts,
+            object : BriefingSource {
+                override suspend fun brief(
+                    sites: List<Site>,
+                    kit: GearKit,
+                    outlookDays: Int,
+                    forceRefresh: Boolean,
+                ): Briefing = throw AssertionError("PrefetchWorker must use briefLean, not full brief")
+
+                override suspend fun briefLean(
+                    sites: List<Site>,
+                    kit: GearKit,
+                    forceRefresh: Boolean,
+                ): Briefing {
+                    leanCalls++
+                    return Briefing(Instant.parse("2026-08-12T12:00:00Z"), listOf(report), emptyList())
+                }
+
+                override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport = report
+            },
+        )
+        val result = TestListenableWorkerBuilder<PrefetchWorker>(context).build().doWork()
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertEquals("expected 1 briefLean call, got $leanCalls", 1, leanCalls)
+    }
+
     private suspend fun prepare(context: Context, score: Int): AppGraph {
         val graph = AppGraph.get(context)
         graph.settings.update {

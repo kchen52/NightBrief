@@ -153,6 +153,101 @@ class BriefingEnrichmentTest {
         assertTrue("full plan lost its suggestions", full.suggestions.isNotEmpty())
     }
 
+    @Test
+    fun briefLeanFetchesNoSideProductsAndMatchesFullScore() = runTest {
+        var cometFetches = 0
+        val service = BriefingService(
+            FakeForecasts,
+            clock,
+            kp = object : KpSource {
+                override suspend fun fetch(): KpForecast = throw AssertionError("briefLean fetched Kp")
+            },
+            iss = object : TleSource {
+                override suspend fun fetchIss(): IssTle = throw AssertionError("briefLean fetched ISS")
+            },
+            airQuality = object : AirQualitySource {
+                override suspend fun fetch(latitude: Double, longitude: Double): AirQualitySeries =
+                    throw AssertionError("briefLean fetched air quality")
+            },
+            comets = FixedComets,
+            cometParser = { cometFetches++; listOf(opposition()) },
+        )
+        val lean = service.briefLean(listOf(home, near), kit, forceRefresh = false)
+        assertEquals("briefLean parsed comets, got $cometFetches", 0, cometFetches)
+        assertNull(lean.kp)
+        assertTrue(lean.outlooks.isEmpty())
+        assertEquals(2, lean.tonight.size)
+        for (report in lean.tonight) {
+            assertNull(report.aurora)
+            assertNull(report.comet)
+            assertNull(report.smoke)
+            assertTrue(report.issPasses.isEmpty())
+            assertTrue(report.suggestions.isEmpty())
+        }
+
+        val full = BriefingService(FakeForecasts, clock).brief(listOf(home, near), kit, outlookDays = 1)
+        assertEquals(
+            full.tonight.map { Triple(it.site.id, it.scoreValue, it.score?.bestWindow) },
+            lean.tonight.map { Triple(it.site.id, it.scoreValue, it.score?.bestWindow) },
+        )
+    }
+
+    @Test
+    fun planOutlookNightMatchesFullNightPlannerAcrossFixtures() {
+        val start = Instant.parse("2024-10-12T00:00:00Z").epochSecond
+        val clear = Forecast(
+            home.latitude, home.longitude, "best_match", start,
+            (0 until 24 * 8).map {
+                HourlyWeather(
+                    epochSecond = start + it * 3600L, cloudCover = 5, humidity = 35,
+                    windKmh = 6.0, seeing = 2, transparency = 2,
+                )
+            },
+        )
+        val overcast = Forecast(
+            home.latitude, home.longitude, "best_match", start,
+            (0 until 24 * 8).map {
+                HourlyWeather(epochSecond = start + it * 3600L, cloudCover = 95, humidity = 80, windKmh = 25.0)
+            },
+        )
+        val partial = Forecast(
+            home.latitude, home.longitude, "best_match", start,
+            (0 until 30).map {
+                HourlyWeather(epochSecond = start + it * 3600L, cloudCover = 15, humidity = 45, windKmh = 10.0)
+            },
+        )
+        val base = LocalDate.of(2024, 10, 12)
+        val skyEvents = app.nightbrief.astro.SkyEvents.between(base, base.plusDays(6), home.zone)
+        for (forecast in listOf(clear, overcast, partial, null)) {
+            for (offset in 0..6) {
+                val date = base.plusDays(offset.toLong())
+                val full = NightPlanner.plan(home, date, forecast, kit, includeSuggestions = false)
+                val onDate = skyEvents.filter { it.instant.atZone(home.zone).toLocalDate() == date }
+                val expected = OutlookNight(
+                    date = full.date,
+                    score = full.scoreValue,
+                    moonIllumination = full.ephemeris.moonIllumination,
+                    darkness = full.ephemeris.darkness,
+                    coverage = full.coverage,
+                    estimated = full.score?.factors?.any { it.estimated } == true,
+                    clearSkies = NightNames.clearSkies(full),
+                    fullMoon = full.ephemeris.moonPhaseName == app.nightbrief.astro.MoonPhase.FULL,
+                    showerLabel = NightNames.showerLabel(full.meteor),
+                    skyEventTitle = NightNames.eventTitle(onDate),
+                    forecastMissing = forecast == null,
+                )
+                val actual = NightPlanner.planOutlookNight(
+                    site = home,
+                    date = date,
+                    forecast = forecast,
+                    skyEvents = skyEvents,
+                    forecastMissing = forecast == null,
+                )
+                assertEquals("mismatch for offset=$offset forecast=${forecast != null}", expected, actual)
+            }
+        }
+    }
+
     /** Perihelion at the middle of the dark window, opposite the Sun, so it culminates near midnight. */
     private fun opposition(): CometOrbit {
         val date = LocalDate.of(2024, 10, 12)

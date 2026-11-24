@@ -84,8 +84,11 @@ object NightNames {
     }
 
     /** True when cloud cover was measured and the night is clear. A proxy stays false. */
-    fun clearSkies(report: NightReport): Boolean {
-        val cloud = report.score?.factor(Factor.CLOUD) ?: return false
+    fun clearSkies(report: NightReport): Boolean = clearSkies(report.score)
+
+    /** True when cloud cover was measured and the night is clear. A proxy stays false. */
+    fun clearSkies(score: NightScore?): Boolean {
+        val cloud = score?.factor(Factor.CLOUD) ?: return false
         return !cloud.estimated && cloud.quality >= CLEAR_CLOUD
     }
 

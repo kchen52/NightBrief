@@ -59,3 +59,12 @@ dependencies {
 kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
+
+composeCompiler {
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose-stability.conf"))
+    if (providers.gradleProperty("nightbrief.composeMetrics").orNull == "true") {
+        val dir = layout.buildDirectory.dir("compose_compiler")
+        reportsDestination.set(dir)
+        metricsDestination.set(dir)
+    }
+}

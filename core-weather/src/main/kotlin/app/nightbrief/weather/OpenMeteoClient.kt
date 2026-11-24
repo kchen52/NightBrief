@@ -3,6 +3,7 @@ package app.nightbrief.weather
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -40,55 +41,117 @@ class OpenMeteoClient(
         return parse(body, latitude, longitude, model)
     }
 
+    /**
+     * Fetches forecasts for multiple coordinates sharing [model] in a single Open-Meteo HTTP call.
+     * Falls back to [fetch] when [coords] has one entry.
+     */
+    suspend fun fetchBatch(
+        coords: List<Pair<Double, Double>>,
+        days: Int = DEFAULT_FORECAST_DAYS,
+        model: WeatherModel,
+        hourly: List<String> = HOURLY_FIELDS,
+    ): List<Forecast> {
+        if (coords.isEmpty()) return emptyList()
+        if (coords.size == 1) {
+            val (lat, lon) = coords.single()
+            return listOf(fetch(lat, lon, days, model, hourly))
+        }
+        val url = baseUrl.toHttpUrl().newBuilder()
+            .addQueryParameter("latitude", coords.joinToString(",") { "%.4f".format(java.util.Locale.ROOT, it.first) })
+            .addQueryParameter("longitude", coords.joinToString(",") { "%.4f".format(java.util.Locale.ROOT, it.second) })
+            .addQueryParameter("hourly", hourly.joinToString(","))
+            .addQueryParameter("timeformat", "unixtime")
+            .addQueryParameter("timezone", "GMT")
+            .addQueryParameter("wind_speed_unit", "kmh")
+            .addQueryParameter("forecast_days", days.coerceIn(1, 16).toString())
+            .addQueryParameter("models", model.apiName)
+            .build()
+        val body = http.getString(url.toString())
+        return parseBatch(body, coords, model)
+    }
+
+    internal fun parseBatch(
+        body: String,
+        coords: List<Pair<Double, Double>>,
+        model: WeatherModel,
+    ): List<Forecast> {
+        return try {
+            val element = Json.parseToJsonElement(body)
+            if (element is JsonObject && element["error"]?.jsonPrimitive?.content == "true") {
+                throw WeatherApiException("Open-Meteo error: ${element["reason"]?.jsonPrimitive?.content}")
+            }
+            val array = element.jsonArray
+            if (array.size != coords.size) {
+                throw WeatherApiException("Open-Meteo batch size mismatch: expected ${coords.size}, got ${array.size}")
+            }
+            coords.mapIndexed { i, (lat, lon) ->
+                parseObject(array[i].jsonObject, lat, lon, model)
+            }
+        } catch (e: WeatherApiException) {
+            throw e
+        } catch (e: Exception) {
+            throw WeatherApiException("malformed Open-Meteo batch response", e)
+        }
+    }
+
     internal fun parse(body: String, latitude: Double, longitude: Double, model: WeatherModel): Forecast {
         return try {
             val root = Json.parseToJsonElement(body).jsonObject
-            if (root["error"]?.jsonPrimitive?.content == "true") {
-                throw WeatherApiException("Open-Meteo error: ${root["reason"]?.jsonPrimitive?.content}")
-            }
-            val hourly = root["hourly"]?.jsonObject ?: throw WeatherApiException("Open-Meteo response missing hourly data")
-            val times = hourly["time"]?.jsonArray ?: throw WeatherApiException("Open-Meteo response missing time")
-
-            fun series(name: String): JsonArray? = hourly[name] as? JsonArray
-            fun JsonArray?.num(i: Int): Double? =
-                this?.getOrNull(i)?.takeUnless { it is JsonNull }?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() }
-            fun JsonArray?.int(i: Int): Int? = num(i)?.roundToInt()
-
-            val cloud = series("cloud_cover")
-            val low = series("cloud_cover_low")
-            val mid = series("cloud_cover_mid")
-            val high = series("cloud_cover_high")
-            val rh = series("relative_humidity_2m")
-            val temp = series("temperature_2m")
-            val dew = series("dew_point_2m")
-            val wind = series("wind_speed_10m")
-            val gust = series("wind_gusts_10m")
-            val windDir = series("winddirection_10m")
-            val jet = series("wind_speed_250hPa")
-
-            val hours = times.mapIndexedNotNull { i, t ->
-                val epoch = t.jsonPrimitive.longOrNull ?: return@mapIndexedNotNull null
-                HourlyWeather(
-                    epochSecond = epoch,
-                    cloudCover = cloud.int(i),
-                    cloudLow = low.int(i),
-                    cloudMid = mid.int(i),
-                    cloudHigh = high.int(i),
-                    humidity = rh.int(i),
-                    temperatureC = temp.num(i),
-                    dewPointC = dew.num(i),
-                    windKmh = wind.num(i),
-                    windDirectionDeg = windDir.int(i),
-                    gustKmh = gust.num(i),
-                    jetStreamKmh = jet.num(i),
-                )
-            }
-            Forecast(latitude, longitude, model.apiName, clock.instant().epochSecond, hours)
+            parseObject(root, latitude, longitude, model)
         } catch (e: WeatherApiException) {
             throw e
         } catch (e: Exception) {
             throw WeatherApiException("malformed Open-Meteo response", e)
         }
+    }
+
+    private fun parseObject(
+        root: JsonObject,
+        latitude: Double,
+        longitude: Double,
+        model: WeatherModel,
+    ): Forecast {
+        if (root["error"]?.jsonPrimitive?.content == "true") {
+            throw WeatherApiException("Open-Meteo error: ${root["reason"]?.jsonPrimitive?.content}")
+        }
+        val hourly = root["hourly"]?.jsonObject ?: throw WeatherApiException("Open-Meteo response missing hourly data")
+        val times = hourly["time"]?.jsonArray ?: throw WeatherApiException("Open-Meteo response missing time")
+
+        fun series(name: String): JsonArray? = hourly[name] as? JsonArray
+        fun JsonArray?.num(i: Int): Double? =
+            this?.getOrNull(i)?.takeUnless { it is JsonNull }?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() }
+        fun JsonArray?.int(i: Int): Int? = num(i)?.roundToInt()
+
+        val cloud = series("cloud_cover")
+        val low = series("cloud_cover_low")
+        val mid = series("cloud_cover_mid")
+        val high = series("cloud_cover_high")
+        val rh = series("relative_humidity_2m")
+        val temp = series("temperature_2m")
+        val dew = series("dew_point_2m")
+        val wind = series("wind_speed_10m")
+        val gust = series("wind_gusts_10m")
+        val windDir = series("winddirection_10m")
+        val jet = series("wind_speed_250hPa")
+
+        val hours = times.mapIndexedNotNull { i, t ->
+            val epoch = t.jsonPrimitive.longOrNull ?: return@mapIndexedNotNull null
+            HourlyWeather(
+                epochSecond = epoch,
+                cloudCover = cloud.int(i),
+                cloudLow = low.int(i),
+                cloudMid = mid.int(i),
+                cloudHigh = high.int(i),
+                humidity = rh.int(i),
+                temperatureC = temp.num(i),
+                dewPointC = dew.num(i),
+                windKmh = wind.num(i),
+                windDirectionDeg = windDir.int(i),
+                gustKmh = gust.num(i),
+                jetStreamKmh = jet.num(i),
+            )
+        }
+        return Forecast(latitude, longitude, model.apiName, clock.instant().epochSecond, hours)
     }
 
     companion object {

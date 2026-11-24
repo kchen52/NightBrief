@@ -34,6 +34,7 @@ import app.nightbrief.app.update.ApkInstaller
 import app.nightbrief.app.update.AppUpdateUiState
 import app.nightbrief.app.update.AvailableUpdate
 import app.nightbrief.app.update.GithubReleaseClient
+import app.nightbrief.app.wear.WearPublisher
 import app.nightbrief.work.DigestScheduler
 import app.nightbrief.work.WidgetRefresh
 import app.nightbrief.work.WindowAlarmScheduler
@@ -262,6 +263,12 @@ class AppViewModel(
                 val statuses = result.tonight.joinToString(",") { it.forecastStatus?.name ?: "null" }
                 Log.d(AppGraph.NET_LOG_TAG, "brief done sites=${s.sites.sites.size} force=$force took=${tookMs}ms statuses=[$statuses]")
                 _briefing.value = BriefingUiState(result, loading = false)
+                s.sites.primary?.let { primary ->
+                    result.reportFor(primary.id)?.let { report ->
+                        graph.glanceSnapshot.save(primary, report)
+                    }
+                }
+                WearPublisher.enqueue(getApplication())
                 WindowAlarmScheduler.onBriefingRefreshed(getApplication(), result)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -618,6 +625,7 @@ class AppViewModel(
                 }
             }
             if (before == null || before.sites != newState.sites) {
+                graph.glanceSnapshot.clear()
                 WidgetRefresh.request(getApplication())
             }
         }

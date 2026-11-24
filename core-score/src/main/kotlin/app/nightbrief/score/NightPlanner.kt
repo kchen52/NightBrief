@@ -2,7 +2,9 @@ package app.nightbrief.score
 
 import app.nightbrief.astro.Darkness
 import app.nightbrief.astro.IssPass
+import app.nightbrief.astro.MoonPhase
 import app.nightbrief.astro.NightEphemeris
+import app.nightbrief.astro.SkyEvent
 import app.nightbrief.astro.Target
 import app.nightbrief.astro.TargetCatalog
 import app.nightbrief.gear.GearKit
@@ -117,32 +119,33 @@ object NightPlanner {
         return date.isBefore(reachable)
     }
 
-    fun plan(
-        site: Site,
-        date: LocalDate,
-        forecast: Forecast?,
-        kit: GearKit,
-        forecastStatus: ForecastStatus? = null,
-        warnings: List<String> = emptyList(),
-        includeSuggestions: Boolean = true,
-        customTargets: List<Target> = emptyList(),
-    ): NightReport {
+    private data class CoreNightScore(
+        val horizon: (Double) -> Double,
+        val ephemeris: NightEphemeris,
+        val bortle: Int,
+        val inputs: List<Pair<HourInput, HourlyWeather?>>,
+        val darkInputs: List<HourInput>,
+        val coverage: ForecastCoverage,
+        val score: NightScore?,
+        val weatherAt: (Instant) -> HourlyWeather?,
+    )
+
+    private fun scoreCore(site: Site, date: LocalDate, forecast: Forecast?): CoreNightScore {
         val horizon = { azimuthDeg: Double -> site.horizon.obstructionDeg(azimuthDeg) }
         val eph = NightEphemeris.compute(
             date, site.zone, site.latitude, site.longitude, horizonObstructionDeg = horizon,
         )
-        val dark = eph.darkWindow
         val bortle = site.effectiveBortle
 
         // Index the forecast once; the hourly scan below used to walk the whole list per hour.
         val byHour = forecast?.hours?.associateBy { it.epochSecond }
-        fun at(time: Instant): HourlyWeather? {
+        val weatherAt: (Instant) -> HourlyWeather? = { time ->
             val key = time.epochSecond - Math.floorMod(time.epochSecond, 3600L)
-            return byHour?.get(key)
+            byHour?.get(key)
         }
 
         val inputs = eph.hourly.map { a ->
-            val w = at(a.time)
+            val w = weatherAt(a.time)
             HourInput(
                 time = a.time,
                 cloudCover = w?.cloudCover,
@@ -160,7 +163,7 @@ object NightPlanner {
         }
 
         val darkInputs = darkHours(eph, inputs.map { it.first })
-        val covered = darkInputs.count { at(it.time)?.cloudCover != null }
+        val covered = darkInputs.count { weatherAt(it.time)?.cloudCover != null }
         val coverage = when {
             darkInputs.isEmpty() -> if (forecast != null) ForecastCoverage.FULL else ForecastCoverage.NONE
             covered == darkInputs.size -> ForecastCoverage.FULL
@@ -172,9 +175,56 @@ object NightPlanner {
             coverage == ForecastCoverage.NONE -> null
             else -> NightScoreEngine.scoreNight(darkInputs)
         }
+        return CoreNightScore(horizon, eph, bortle, inputs, darkInputs, coverage, score, weatherAt)
+    }
+
+    /**
+     * Scores a future night for [WeeklyOutlook] using the exact same ephemeris and [NightScoreEngine]
+     * path as [plan], without allocating [TimelineHour] rows, [DewOutlook], [CloudReason], or targets.
+     */
+    fun planOutlookNight(
+        site: Site,
+        date: LocalDate,
+        forecast: Forecast?,
+        skyEvents: List<SkyEvent> = emptyList(),
+        forecastMissing: Boolean = forecast == null,
+    ): OutlookNight {
+        val core = scoreCore(site, date, forecast)
+        val eph = core.ephemeris
+        val onDate = skyEvents.filter { event ->
+            event.instant.atZone(site.zone).toLocalDate() == date
+        }
+        return OutlookNight(
+            date = date,
+            score = core.score?.score,
+            moonIllumination = eph.moonIllumination,
+            darkness = eph.darkness,
+            coverage = core.coverage,
+            estimated = core.score?.factors?.any { it.estimated } == true,
+            clearSkies = NightNames.clearSkies(core.score),
+            fullMoon = eph.moonPhaseName == MoonPhase.FULL,
+            showerLabel = NightNames.showerLabel(MeteorAdvisor.forNight(eph)),
+            skyEventTitle = NightNames.eventTitle(onDate),
+            forecastMissing = forecastMissing,
+        )
+    }
+
+    fun plan(
+        site: Site,
+        date: LocalDate,
+        forecast: Forecast?,
+        kit: GearKit,
+        forecastStatus: ForecastStatus? = null,
+        warnings: List<String> = emptyList(),
+        includeSuggestions: Boolean = true,
+        customTargets: List<Target> = emptyList(),
+    ): NightReport {
+        val core = scoreCore(site, date, forecast)
+        val eph = core.ephemeris
+        val dark = eph.darkWindow
 
         val astroByTime = eph.hourly.associateBy { it.time }
-        val timeline = inputs.map { (input, w) ->
+        val timeline = core.inputs.map { (input, w) ->
             val a = astroByTime.getValue(input.time)
             TimelineHour(
                 time = input.time,
@@ -200,29 +250,29 @@ object NightPlanner {
             site = site,
             date = date,
             ephemeris = eph,
-            score = score,
+            score = core.score,
             timeline = timeline,
             suggestions = if (includeSuggestions) {
                 TargetAdvisor.suggest(
                     eph,
-                    bortle,
+                    core.bortle,
                     kit,
                     catalog = TargetCatalog.withCustoms(customTargets),
-                    horizonObstructionDeg = horizon,
+                    horizonObstructionDeg = core.horizon,
                 )
             } else {
                 emptyList()
             },
-            coverage = coverage,
+            coverage = core.coverage,
             forecastStatus = forecastStatus,
             warnings = warnings,
             meteor = MeteorAdvisor.forNight(eph),
             dew = Dew.assess(
-                darkHours = darkInputs.map { it.time },
+                darkHours = core.darkInputs.map { it.time },
                 overnightHours = eph.hourly.map { it.time },
                 forecast = forecast,
             ),
-            cloudReason = CloudLayers.reason(darkInputs.mapNotNull { at(it.time) }),
+            cloudReason = CloudLayers.reason(core.darkInputs.mapNotNull { core.weatherAt(it.time) }),
             forecastFetchedAt = forecast?.fetchedAt,
         )
     }

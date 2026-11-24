@@ -14,6 +14,10 @@ fixes bump the patch.
 - Darker-sky search now checks open water before consulting the light-pollution grids and reads each grid in a single forward pass, so a search is several times faster on the same battery.
 - Night and target calculations reuse one solar-altitude sweep and one Moon position table instead of repeating them per threshold and per target.
 - Scrolling no longer recomposes the whole screen on every gesture start and stop, and changing an unrelated setting no longer re-runs window brightness and edge-to-edge setup.
+- Changing display-only settings (such as collapsing cards, Night Vision, units, or alert thresholds) no longer reschedules alarms and background workers on the UI thread.
+- Forecasts, ISS elements, and comet files now keep an in-memory cache in front of disk storage, move file reads and writes off the caller thread, reuse parsed comet orbits across planner days, and keep an in-flight forecast refresh running for other callers if one screen cancels.
+- Tonight's hour grid, emphasized text, and aurora ripple animation avoid redundant recomposition and formatting work during scrolling and animation frames.
+- Darker-sky road-access lookups now limit concurrent Overpass requests and reuse cached results for nearby spots to avoid rate-limit failures.
 
 ### Fixed
 

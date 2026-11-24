@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
@@ -399,7 +400,8 @@ fun EmphasizedText(
     color: Color = Color.Unspecified,
     fontWeight: FontWeight? = null,
 ) {
-    Text(emphasize(text), modifier = modifier, style = style, color = color, fontWeight = fontWeight)
+    val annotated = remember(text) { emphasize(text) }
+    Text(annotated, modifier = modifier, style = style, color = color, fontWeight = fontWeight)
 }
 
 private val EMPHASIS = Regex(

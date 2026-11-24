@@ -595,7 +595,7 @@ class AppViewModel(
     }
 
     fun rescheduleDigest() {
-        viewModelScope.launch { DigestScheduler.reschedule(getApplication()) }
+        viewModelScope.launch(Dispatchers.IO) { DigestScheduler.reschedule(getApplication()) }
     }
 
     private companion object {
@@ -606,10 +606,20 @@ class AppViewModel(
 
     private fun mutate(transform: (AppState) -> AppState) {
         viewModelScope.launch {
-            val previousSites = graph.settings.current().sites
-            val newState = graph.settings.update(transform)
-            DigestScheduler.reschedule(getApplication(), newState)
-            if (previousSites != newState.sites) WidgetRefresh.request(getApplication())
+            var previous: AppState? = null
+            val newState = graph.settings.update { current ->
+                previous = current
+                transform(current)
+            }
+            val before = previous
+            if (before == null || DigestScheduler.needsReschedule(before, newState)) {
+                withContext(Dispatchers.IO) {
+                    DigestScheduler.reschedule(getApplication(), newState)
+                }
+            }
+            if (before == null || before.sites != newState.sites) {
+                WidgetRefresh.request(getApplication())
+            }
         }
     }
 }

@@ -32,7 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -225,6 +227,7 @@ private fun ColumnScope.ScoreCards(report: NightReport, units: UnitSystem, ui: D
  * at its default. Remembering it once at [NightDetail], which stays in one position, keeps
  * the same key across the fold.
  */
+@Stable
 private class DetailUiState(
     private val whyOpen: MutableState<Set<String>>,
     private val expandedTargets: MutableState<Set<String>>,
@@ -261,7 +264,9 @@ private fun rememberDetailUiState(report: NightReport): DetailUiState {
     }
     // The position is part of what the user was comparing.
     val hoursScroll = rememberSaveable(report.site.id, report.date, saver = ScrollState.Saver) { ScrollState(0) }
-    return DetailUiState(whyOpen, expandedTargets, hoursScroll)
+    return remember(whyOpen, expandedTargets, hoursScroll) {
+        DetailUiState(whyOpen, expandedTargets, hoursScroll)
+    }
 }
 
 @Composable
@@ -893,12 +898,26 @@ private data class TimelineRow(
     val emphasize: Boolean = false,
 )
 
+private data class TimelineCellData(
+    val text: String,
+    val color: Color?,
+    val emphasize: Boolean,
+)
+
+private data class TimelineColumnData(
+    val hourLabel: String,
+    val isDark: Boolean,
+    val cells: List<TimelineCellData>,
+)
+
 @Composable
 private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiState) {
     val zone = report.site.zone
     val colors = NightColors.palette
     val twentyFourHour = DateFormat.is24HourFormat(LocalContext.current)
-    val hours = report.timeline.filter { it.isDark }.ifEmpty { report.timeline }
+    val hours = remember(report.timeline) {
+        report.timeline.filter { it.isDark }.ifEmpty { report.timeline }
+    }
     // A fold recreates the activity and can move this card to another layout; the
     // position lives on NightDetail so it survives both.
     val hoursScroll = ui.hoursScroll
@@ -908,38 +927,69 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
     val fair = stringResource(R.string.quality_fair)
     val poor = stringResource(R.string.quality_poor)
     val bad = stringResource(R.string.quality_bad)
-    fun layer(percent: Int?): String = percent?.let { "$it%" } ?: "–"
-    fun layerColor(percent: Int?): Color? = percent?.let { colors.forScore(100 - it) }
-    val rows = listOf(
-        TimelineRow(
-            stringResource(R.string.timeline_score),
-            { h -> h.score?.toString() ?: "–" },
-            { h -> h.score?.let(colors::forScore) },
-            emphasize = true,
-        ),
-        TimelineRow(stringResource(R.string.timeline_cloud), { h -> layer(h.cloudCover) }, { h -> layerColor(h.cloudCover) }),
-        TimelineRow(stringResource(R.string.timeline_cloud_low), { h -> layer(h.cloudLow) }, { h -> layerColor(h.cloudLow) }),
-        TimelineRow(stringResource(R.string.timeline_cloud_mid), { h -> layer(h.cloudMid) }, { h -> layerColor(h.cloudMid) }),
-        TimelineRow(stringResource(R.string.timeline_cloud_high), { h -> layer(h.cloudHigh) }, { h -> layerColor(h.cloudHigh) }),
-        TimelineRow(stringResource(R.string.timeline_moon), { h -> if (h.moonAltitudeDeg > 0) Format.degrees(h.moonAltitudeDeg) else "↓" }, { h ->
-            if (h.moonAltitudeDeg > 0 && h.moonIllumination > 0.05) colors.fair else null
-        }),
-        TimelineRow(stringResource(R.string.timeline_mw), { h -> if (h.galacticCenterAltitudeDeg > 0) Format.degrees(h.galacticCenterAltitudeDeg) else "↓" }, { h ->
-            if (h.isDark && h.galacticCenterAltitudeDeg >= 10) colors.primary else null
-        }),
-        TimelineRow(stringResource(R.string.timeline_seeing), { h -> h.seeingIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.seeingIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow(stringResource(R.string.timeline_transp), { h -> h.transparencyIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.transparencyIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
-        TimelineRow(
-            stringResource(R.string.timeline_wind),
-            // The unit stays in the footnote: a 56.dp cell fits "6 NW" but not "6 km/h NW".
-            { h ->
-                val dir = h.windDirectionDeg?.let { " " + DigestComposer.compass(it.toDouble()) }.orEmpty()
-                h.windKmh?.let { units.formatWind(it) + dir } ?: "–"
-            },
-            // Colour stays on km/h so a unit change does not repaint the same wind.
-            { h -> h.windKmh?.let { colors.forScore((100 - it * 2.5).roundToInt()) } },
-        ),
-    )
+    val scoreLabel = stringResource(R.string.timeline_score)
+    val cloudLabel = stringResource(R.string.timeline_cloud)
+    val cloudLowLabel = stringResource(R.string.timeline_cloud_low)
+    val cloudMidLabel = stringResource(R.string.timeline_cloud_mid)
+    val cloudHighLabel = stringResource(R.string.timeline_cloud_high)
+    val moonLabel = stringResource(R.string.timeline_moon)
+    val mwLabel = stringResource(R.string.timeline_mw)
+    val seeingLabel = stringResource(R.string.timeline_seeing)
+    val transpLabel = stringResource(R.string.timeline_transp)
+    val windLabel = stringResource(R.string.timeline_wind)
+    val rows = remember(
+        colors, units, good, fair, poor, bad,
+        scoreLabel, cloudLabel, cloudLowLabel, cloudMidLabel, cloudHighLabel,
+        moonLabel, mwLabel, seeingLabel, transpLabel, windLabel,
+    ) {
+        fun layer(percent: Int?): String = percent?.let { "$it%" } ?: "–"
+        fun layerColor(percent: Int?): Color? = percent?.let { colors.forScore(100 - it) }
+        listOf(
+            TimelineRow(
+                scoreLabel,
+                { h -> h.score?.toString() ?: "–" },
+                { h -> h.score?.let(colors::forScore) },
+                emphasize = true,
+            ),
+            TimelineRow(cloudLabel, { h -> layer(h.cloudCover) }, { h -> layerColor(h.cloudCover) }),
+            TimelineRow(cloudLowLabel, { h -> layer(h.cloudLow) }, { h -> layerColor(h.cloudLow) }),
+            TimelineRow(cloudMidLabel, { h -> layer(h.cloudMid) }, { h -> layerColor(h.cloudMid) }),
+            TimelineRow(cloudHighLabel, { h -> layer(h.cloudHigh) }, { h -> layerColor(h.cloudHigh) }),
+            TimelineRow(moonLabel, { h -> if (h.moonAltitudeDeg > 0) Format.degrees(h.moonAltitudeDeg) else "↓" }, { h ->
+                if (h.moonAltitudeDeg > 0 && h.moonIllumination > 0.05) colors.fair else null
+            }),
+            TimelineRow(mwLabel, { h -> if (h.galacticCenterAltitudeDeg > 0) Format.degrees(h.galacticCenterAltitudeDeg) else "↓" }, { h ->
+                if (h.isDark && h.galacticCenterAltitudeDeg >= 10) colors.primary else null
+            }),
+            TimelineRow(seeingLabel, { h -> h.seeingIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.seeingIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
+            TimelineRow(transpLabel, { h -> h.transparencyIndex?.let { seeingWord(it, good, fair, poor, bad) } ?: "–" }, { h -> h.transparencyIndex?.let { colors.forScore(((8 - it) * 100) / 7) } }),
+            TimelineRow(
+                windLabel,
+                // The unit stays in the footnote: a 56.dp cell fits "6 NW" but not "6 km/h NW".
+                { h ->
+                    val dir = h.windDirectionDeg?.let { " " + DigestComposer.compass(it.toDouble()) }.orEmpty()
+                    h.windKmh?.let { units.formatWind(it) + dir } ?: "–"
+                },
+                // Colour stays on km/h so a unit change does not repaint the same wind.
+                { h -> h.windKmh?.let { colors.forScore((100 - it * 2.5).roundToInt()) } },
+            ),
+        )
+    }
+    val columns = remember(hours, zone, twentyFourHour, rows) {
+        hours.map { h ->
+            TimelineColumnData(
+                hourLabel = Format.hour(h.time, zone, twentyFourHour),
+                isDark = h.isDark,
+                cells = rows.map { row ->
+                    TimelineCellData(
+                        text = row.value(h),
+                        color = row.color(h),
+                        emphasize = row.emphasize,
+                    )
+                },
+            )
+        }
+    }
     SectionCard(stringResource(R.string.section_timeline), icon = NightBriefIcons.Timeline, collapseId = CardIds.TIMELINE) {
         Row(Modifier.fillMaxWidth()) {
             Column {
@@ -959,12 +1009,12 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
             }
             Spacer(Modifier.width(8.dp))
             Row(Modifier.weight(1f).horizontalScroll(hoursScroll)) {
-                hours.forEach { h ->
+                columns.forEach { column ->
                     Column(
                         Modifier
                             .width(56.dp)
                             .then(
-                                if (h.isDark) {
+                                if (column.isDark) {
                                     Modifier.background(
                                         MaterialTheme.colorScheme.surfaceContainerHigh,
                                         RoundedCornerShape(10.dp),
@@ -977,19 +1027,19 @@ private fun TimelineCard(report: NightReport, units: UnitSystem, ui: DetailUiSta
                     ) {
                         Box(Modifier.timelineHead(), contentAlignment = Alignment.Center) {
                             Text(
-                                Format.hour(h.time, zone, twentyFourHour),
+                                column.hourLabel,
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 softWrap = false,
                             )
                         }
-                        rows.forEach { row ->
+                        column.cells.forEach { cell ->
                             Box(Modifier.timelineCell(), contentAlignment = Alignment.Center) {
                                 Text(
-                                    row.value(h),
+                                    cell.text,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = row.color(h) ?: MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = if (row.emphasize) FontWeight.Bold else FontWeight.Normal,
+                                    color = cell.color ?: MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (cell.emphasize) FontWeight.Bold else FontWeight.Normal,
                                     maxLines = 1,
                                     softWrap = false,
                                     overflow = TextOverflow.Ellipsis,

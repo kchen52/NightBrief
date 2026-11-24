@@ -7,9 +7,11 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 /** ISS two-line elements and the moment they were obtained. */
@@ -87,31 +89,39 @@ class CachingTleSource(
     private val failureCooldown: Duration = Duration.ofMinutes(30),
 ) : TleSource {
     private val mutex = Mutex()
+    @Volatile private var memoryCache: IssTle? = null
     private var lastFailure: Instant? = null
 
-    override suspend fun fetchIss(): IssTle = mutex.withLock {
+    override suspend fun fetchIss(): IssTle {
         val now = clock.instant()
-        val cached = readCache()
-        if (cached != null && ageOf(cached, now) <= maxAge) return cached
-        val fallback: IssTle? = if (cached != null && ageOf(cached, now) <= staleMaxAge) cached else null
-        if (failedRecently(now)) {
-            // The last attempt just failed; a retry now would burn the timeout again.
-            if (fallback != null) return fallback
-            throw WeatherApiException("Celestrak TLE unavailable: the last fetch failed recently; retrying later")
+        memoryCache?.let { cached ->
+            if (ageOf(cached, now) <= maxAge) return cached
         }
-        try {
-            val fresh = withTimeout(originTimeout.toMillis()) { origin.fetchIss() }
-            writeCache(fresh)
-            lastFailure = null
-            fresh
-        } catch (e: TimeoutCancellationException) {
-            lastFailure = clock.instant()
-            if (fallback != null) fallback else throw WeatherApiException("Celestrak TLE fetch timed out", e)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (failure: WeatherApiException) {
-            lastFailure = clock.instant()
-            if (fallback != null) fallback else throw failure
+        return mutex.withLock {
+            val lockedNow = clock.instant()
+            val cached = memoryCache ?: readCache()?.also { memoryCache = it }
+            if (cached != null && ageOf(cached, lockedNow) <= maxAge) return@withLock cached
+            val fallback: IssTle? = if (cached != null && ageOf(cached, lockedNow) <= staleMaxAge) cached else null
+            if (failedRecently(lockedNow)) {
+                // The last attempt just failed; a retry now would burn the timeout again.
+                if (fallback != null) return@withLock fallback
+                throw WeatherApiException("Celestrak TLE unavailable: the last fetch failed recently; retrying later")
+            }
+            try {
+                val fresh = withTimeout(originTimeout.toMillis()) { origin.fetchIss() }
+                writeCache(fresh)
+                memoryCache = fresh
+                lastFailure = null
+                fresh
+            } catch (e: TimeoutCancellationException) {
+                lastFailure = clock.instant()
+                if (fallback != null) fallback else throw WeatherApiException("Celestrak TLE fetch timed out", e)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (failure: WeatherApiException) {
+                lastFailure = clock.instant()
+                if (fallback != null) fallback else throw failure
+            }
         }
     }
 
@@ -124,29 +134,34 @@ class CachingTleSource(
 
     private fun ageOf(tle: IssTle, now: Instant): Duration = Duration.between(tle.fetchedAt, now)
 
-    private fun readCache(): IssTle? {
-        if (!cacheFile.isFile) return null
-        return try {
+    private suspend fun readCache(): IssTle? = withContext(Dispatchers.IO) {
+        if (!cacheFile.isFile) return@withContext null
+        try {
             val lines = cacheFile.readLines()
-            if (lines.size < 4 || lines[0] != "v1") return null
+            if (lines.size < 4 || lines[0] != "v1") return@withContext null
             val fetchedAt = Instant.ofEpochSecond(lines[1].toLong())
             val line1 = lines[2]
             val line2 = lines[3]
-            if (!line1.startsWith("1 ") || !line2.startsWith("2 ")) return null
+            if (!line1.startsWith("1 ") || !line2.startsWith("2 ")) return@withContext null
             IssTle(line1, line2, fetchedAt)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 
-    private fun writeCache(tle: IssTle) {
+    private suspend fun writeCache(tle: IssTle) = withContext(Dispatchers.IO) {
         val parent = cacheFile.parentFile
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
             throw WeatherApiException("could not create TLE cache directory ${parent.path}")
         }
         val text = "v1\n${tle.fetchedAt.epochSecond}\n${tle.line1}\n${tle.line2}\n"
         try {
-            cacheFile.writeText(text)
+            val tmp = File(parent, "${cacheFile.name}.tmp")
+            tmp.writeText(text)
+            if (!tmp.renameTo(cacheFile)) {
+                cacheFile.writeText(text)
+                tmp.delete()
+            }
         } catch (e: IOException) {
             throw WeatherApiException("could not write TLE cache ${cacheFile.path}", e)
         }

@@ -7,9 +7,11 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 /**
@@ -98,30 +100,38 @@ class CachingCometSource(
     private val failureCooldown: Duration = Duration.ofMinutes(30),
 ) : CometSource {
     private val mutex = Mutex()
+    @Volatile private var memoryCache: CometElementsFile? = null
     private var lastFailure: Instant? = null
 
-    override suspend fun fetch(): CometElementsFile = mutex.withLock {
+    override suspend fun fetch(): CometElementsFile {
         val now = clock.instant()
-        val cached = readCache()
-        if (cached != null && ageOf(cached, now) <= maxAge) return cached
-        val fallback = if (cached != null && ageOf(cached, now) <= staleMaxAge) cached else null
-        if (failedRecently(now)) {
-            if (fallback != null) return fallback
-            throw WeatherApiException("MPC comet elements unavailable: the last fetch failed recently; retrying later")
+        memoryCache?.let { cached ->
+            if (ageOf(cached, now) <= maxAge) return cached
         }
-        try {
-            val fresh = withTimeout(originTimeout.toMillis()) { origin.fetch() }
-            writeCache(fresh)
-            lastFailure = null
-            fresh
-        } catch (e: TimeoutCancellationException) {
-            lastFailure = clock.instant()
-            if (fallback != null) fallback else throw WeatherApiException("MPC comet elements fetch timed out", e)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (failure: WeatherApiException) {
-            lastFailure = clock.instant()
-            if (fallback != null) fallback else throw failure
+        return mutex.withLock {
+            val lockedNow = clock.instant()
+            val cached = memoryCache ?: readCache()?.also { memoryCache = it }
+            if (cached != null && ageOf(cached, lockedNow) <= maxAge) return@withLock cached
+            val fallback = if (cached != null && ageOf(cached, lockedNow) <= staleMaxAge) cached else null
+            if (failedRecently(lockedNow)) {
+                if (fallback != null) return@withLock fallback
+                throw WeatherApiException("MPC comet elements unavailable: the last fetch failed recently; retrying later")
+            }
+            try {
+                val fresh = withTimeout(originTimeout.toMillis()) { origin.fetch() }
+                writeCache(fresh)
+                memoryCache = fresh
+                lastFailure = null
+                fresh
+            } catch (e: TimeoutCancellationException) {
+                lastFailure = clock.instant()
+                if (fallback != null) fallback else throw WeatherApiException("MPC comet elements fetch timed out", e)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (failure: WeatherApiException) {
+                lastFailure = clock.instant()
+                if (fallback != null) fallback else throw failure
+            }
         }
     }
 
@@ -134,30 +144,36 @@ class CachingCometSource(
 
     private fun ageOf(file: CometElementsFile, now: Instant): Duration = Duration.between(file.fetchedAt, now)
 
-    private fun readCache(): CometElementsFile? {
-        if (!cacheFile.isFile) return null
-        return try {
+    private suspend fun readCache(): CometElementsFile? = withContext(Dispatchers.IO) {
+        if (!cacheFile.isFile) return@withContext null
+        try {
             val text = cacheFile.readText()
             val headerEnd = text.indexOf('\n')
-            if (headerEnd < 0) return null
+            if (headerEnd < 0) return@withContext null
             val second = text.indexOf('\n', headerEnd + 1)
-            if (second < 0 || text.substring(0, headerEnd) != "v1") return null
+            if (second < 0 || text.substring(0, headerEnd) != "v1") return@withContext null
             val fetchedAt = Instant.ofEpochSecond(text.substring(headerEnd + 1, second).toLong())
             val body = text.substring(second + 1)
-            if (!looksLikeObservableComets(body)) return null
+            if (!looksLikeObservableComets(body)) return@withContext null
             CometElementsFile(body, fetchedAt)
         } catch (_: Exception) {
             null
         }
     }
 
-    private fun writeCache(file: CometElementsFile) {
+    private suspend fun writeCache(file: CometElementsFile) = withContext(Dispatchers.IO) {
         val parent = cacheFile.parentFile
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
             throw WeatherApiException("could not create comet cache directory ${parent.path}")
         }
+        val text = "v1\n${file.fetchedAt.epochSecond}\n${file.text}"
         try {
-            cacheFile.writeText("v1\n${file.fetchedAt.epochSecond}\n${file.text}")
+            val tmp = File(parent, "${cacheFile.name}.tmp")
+            tmp.writeText(text)
+            if (!tmp.renameTo(cacheFile)) {
+                cacheFile.writeText(text)
+                tmp.delete()
+            }
         } catch (e: IOException) {
             throw WeatherApiException("could not write comet cache ${cacheFile.path}", e)
         }

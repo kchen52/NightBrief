@@ -4,10 +4,16 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.LruCache
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,24 +23,37 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nightbrief.app.R
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.app.ui.theme.NightPalette
+import app.nightbrief.app.ui.tonight.whimsy.stillFrame
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * A resized photograph of one catalog target.
  *
  * [credit] is the line under the photo. [sourceUrl] is the Wikimedia Commons page for the
- * original; opening it is the licence link. The JPEG in the app is a smaller copy of that file.
+ * original; opening it is the licence link. The WebP in the app is a smaller copy of that file.
  * Night vision draws the photo in red so a colour image does not spoil dark adaptation.
  */
 data class TargetSample(
@@ -102,30 +121,72 @@ object TargetSamples {
 /** Small photo on the collapsed suggestion row. Replaces the kind icon when a sample exists. */
 @Composable
 fun TargetSampleThumb(sample: TargetSample, name: String, modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(sample.drawable),
-        contentDescription = stringResource(R.string.target_sample_photo, name),
-        modifier = modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
-        contentScale = ContentScale.Crop,
-        colorFilter = samplePhotoFilter(),
-    )
+    val thumbModifier = modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+    val description = stringResource(R.string.target_sample_photo, name)
+    if (stillFrame()) {
+        Image(
+            painter = painterResource(sample.drawable),
+            contentDescription = description,
+            modifier = thumbModifier,
+            contentScale = ContentScale.Crop,
+            colorFilter = samplePhotoFilter(),
+        )
+        return
+    }
+    val targetPx = with(LocalDensity.current) { 48.dp.roundToPx() }
+    val bitmap = rememberSampleBitmap(sample.drawable, targetPx)
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = description,
+            modifier = thumbModifier,
+            contentScale = ContentScale.Crop,
+            colorFilter = samplePhotoFilter(),
+        )
+    } else {
+        Box(
+            thumbModifier
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .semantics {
+                    contentDescription = description
+                    role = Role.Image
+                },
+        )
+    }
 }
 
 /** Larger photo and the credit, shown when the suggestion row is open. The thumbnail already names the target. */
 @Composable
 fun TargetSampleDetail(sample: TargetSample, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val imageModifier = Modifier
+        .fillMaxWidth()
+        .height(156.dp)
+        .clip(RoundedCornerShape(12.dp))
     Column(modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(sample.drawable),
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(156.dp)
-                .clip(RoundedCornerShape(12.dp)),
-            contentScale = ContentScale.Crop,
-            colorFilter = samplePhotoFilter(),
-        )
+        if (stillFrame()) {
+            Image(
+                painter = painterResource(sample.drawable),
+                contentDescription = null,
+                modifier = imageModifier,
+                contentScale = ContentScale.Crop,
+                colorFilter = samplePhotoFilter(),
+            )
+        } else {
+            val targetPx = with(LocalDensity.current) { 320.dp.roundToPx() }.coerceAtMost(640)
+            val bitmap = rememberSampleBitmap(sample.drawable, targetPx)
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = imageModifier,
+                    contentScale = ContentScale.Crop,
+                    colorFilter = samplePhotoFilter(),
+                )
+            } else {
+                Box(imageModifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
+            }
+        }
         Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.target_sample_credit, sample.credit),
@@ -136,6 +197,67 @@ fun TargetSampleDetail(sample: TargetSample, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+internal data class SampleBitmapKey(@DrawableRes val resId: Int, val targetPx: Int)
+
+internal object SampleBitmapCache {
+    // 8 MiB budget (tracked in KiB) holds dozens of downsampled RGB_565 thumbnails and details.
+    private val cache = object : LruCache<SampleBitmapKey, ImageBitmap>(8 * 1024) {
+        override fun sizeOf(key: SampleBitmapKey, value: ImageBitmap): Int =
+            (value.asAndroidBitmap().allocationByteCount / 1024).coerceAtLeast(1)
+    }
+
+    fun get(key: SampleBitmapKey): ImageBitmap? = cache.get(key)
+
+    fun put(key: SampleBitmapKey, bitmap: ImageBitmap) {
+        cache.put(key, bitmap)
+    }
+
+    fun clear() {
+        cache.evictAll()
+    }
+}
+
+@Composable
+private fun rememberSampleBitmap(@DrawableRes resId: Int, targetPx: Int): ImageBitmap? {
+    val context = LocalContext.current
+    val key = SampleBitmapKey(resId, targetPx)
+    SampleBitmapCache.get(key)?.let { return it }
+    val loaded by produceState<ImageBitmap?>(initialValue = null, key1 = key) {
+        value = withContext(Dispatchers.IO) {
+            SampleBitmapCache.get(key) ?: decodeSampledBitmap(context.resources, resId, targetPx)?.also {
+                SampleBitmapCache.put(key, it)
+            }
+        }
+    }
+    return loaded
+}
+
+/**
+ * Decodes [resId] downsampled to at least [targetPx] on its shorter edge using [Bitmap.Config.RGB_565].
+ * Photos have no alpha channel, so RGB_565 halves bitmap RAM compared to ARGB_8888.
+ */
+internal fun decodeSampledBitmap(resources: Resources, @DrawableRes resId: Int, targetPx: Int): ImageBitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeResource(resources, resId, bounds)
+    val inSampleSize = computeSampleSize(bounds.outWidth, bounds.outHeight, targetPx)
+    val decodeOpts = BitmapFactory.Options().apply {
+        this.inSampleSize = inSampleSize
+        inPreferredConfig = Bitmap.Config.RGB_565
+    }
+    return BitmapFactory.decodeResource(resources, resId, decodeOpts)?.asImageBitmap()
+}
+
+internal fun computeSampleSize(outWidth: Int, outHeight: Int, targetPx: Int): Int {
+    if (outWidth <= 0 || outHeight <= 0 || targetPx <= 0) return 1
+    var sampleSize = 1
+    val halfW = outWidth / 2
+    val halfH = outHeight / 2
+    while (halfW / sampleSize >= targetPx && halfH / sampleSize >= targetPx) {
+        sampleSize *= 2
+    }
+    return sampleSize
 }
 
 /** Luminance into red. Green and blue stay at zero, matching [NightPalette.NightVision]. */

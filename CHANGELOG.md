@@ -21,6 +21,10 @@ fixes bump the patch.
 - The home-screen widget and Wear OS publisher now reuse the latest primary-site briefing snapshot instead of rescoring from scratch, Wear publishing skips work when no watch is connected, background prefetch uses lean night scoring, and future Week nights skip building unused timelines.
 - Multi-site refreshes and background prefetch now batch Open-Meteo forecast requests across sites sharing the same weather model.
 - Added a Compose compiler stability configuration for immutable domain models and `java.time` types on phone and watch to reduce unnecessary UI recomposition checks.
+- Bundled target sample photos are now compressed as 640 px WebP images (cutting the release APK by ~1.8 MiB) and decoded asynchronously at thumbnail resolution with an in-memory cache instead of decoding full-size bitmaps on the UI thread.
+- Hidden retained tabs no longer run layout measurement passes while offscreen or behind a pushed screen, while keeping their scroll and UI state warm.
+- Reduce-motion checks now use the public `ValueAnimator.areAnimatorsEnabled()` API without hidden reflection or stack-trace allocation in production builds.
+- Standalone Wear OS fallback now reuses the local glance snapshot cache and lean night scoring, and the watch app declares a tile preview and Wear Recents task affinity.
 
 ### Fixed
 

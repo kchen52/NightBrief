@@ -33,7 +33,7 @@ class WearActivity : ComponentActivity() {
         setContent {
             var glance by remember { mutableStateOf<WearGlance?>(null) }
             LaunchedEffect(Unit) {
-                glance = withContext(Dispatchers.IO) { WearGlanceLoader.load(this@WearActivity) }
+                glance = withContext(Dispatchers.IO) { WearGlanceLoader.loadSuspend(this@WearActivity) }
             }
             val current = glance
             if (current == null) {

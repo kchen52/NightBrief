@@ -80,7 +80,7 @@ import android.net.Uri
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 
-private object Routes {
+internal object Routes {
     const val Tonight = "tonight"
     const val Week = "week"
     const val Sites = "sites"
@@ -381,18 +381,15 @@ fun NightBriefNavHost(vm: AppViewModel, openTonightSignal: Int = 0) {
 }
 
 /**
- * Tabs the user has opened stay measured. The visible one is placed on screen; the others
- * stay offscreen with their semantics cleared, so a return trip does not rebuild the tree.
+ * Tabs the user has opened stay composed so local scroll and UI state survive tab switches
+ * without rebuilding the tree. Only the active tab is measured and placed; hidden tabs stay
+ * unmeasured and unplaced with their semantics cleared, avoiding redundant layout passes and
+ * preventing offscreen pages from intercepting touches across a navigation rail.
  * [active] null covers a pushed screen: the pages stay warm and the layout reports no size,
  * so the screen on the back stack receives touches.
- *
- * Hidden pages park a full width *and* height up and left. Hit testing follows placed
- * bounds without clipping to this layout, and a rail narrows the content area by its own
- * width, so a page parked at `(-width, 0)` still reaches across the rail and steals its
- * taps. No touch has a negative window y, so `(-width, -height)` is out of reach.
  */
 @Composable
-private fun RetainedTabs(
+internal fun RetainedTabs(
     active: String?,
     bottom: Dp,
     tonight: TabContent,
@@ -422,25 +419,15 @@ private fun RetainedTabs(
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
-        val childConstraints = if (width == Constraints.Infinity || height == Constraints.Infinity) {
-            constraints
-        } else {
-            Constraints.fixed(width, height)
-        }
-        val placeables = measurables.map { it.measure(childConstraints) }
         if (active == null || width == Constraints.Infinity || height == Constraints.Infinity) {
-            layout(0, 0) {
-                placeables.forEach { it.place(-width.coerceAtLeast(0), -height.coerceAtLeast(0)) }
-            }
+            layout(0, 0) {}
         } else {
+            val childConstraints = Constraints.fixed(width, height)
+            val activeIndex = shown.indexOf(active)
+            val activePlaceable = activeIndex.takeIf { it in measurables.indices }
+                ?.let { measurables[it].measure(childConstraints) }
             layout(width, height) {
-                placeables.forEachIndexed { index, placeable ->
-                    if (shown[index] == active) {
-                        placeable.place(0, 0)
-                    } else {
-                        placeable.place(-width, -height)
-                    }
-                }
+                activePlaceable?.place(0, 0)
             }
         }
     }
@@ -471,7 +458,7 @@ private fun RetainedTab(bottom: Dp, content: TabContent) {
 }
 
 @Stable
-private class TabContent(val render: @Composable (Dp) -> Unit)
+internal class TabContent(val render: @Composable (Dp) -> Unit)
 
 private class VisibleRoute {
     var route by mutableStateOf<String?>(null)

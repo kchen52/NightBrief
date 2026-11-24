@@ -22,6 +22,7 @@ import app.nightbrief.score.NightReport
 import app.nightbrief.sites.Site
 import app.nightbrief.weather.Forecast
 import app.nightbrief.weather.HourlyWeather
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -61,6 +62,25 @@ class TargetSampleUiTest {
     @Test
     fun aCustomTargetHasNoSamplePhoto() {
         assertNull(TargetSamples.of("custom-veil"))
+    }
+
+    @Test
+    fun downsamplingThumbReducesDecodedBitmapMemoryAndCachesHits() {
+        val resources = ApplicationProvider.getApplicationContext<Application>().resources
+        val m42 = TargetSamples.of("m42")!!
+        val thumbSampleSize = app.nightbrief.app.ui.tonight.computeSampleSize(640, 640, 144)
+        assertEquals(4, thumbSampleSize)
+        assertEquals(8, app.nightbrief.app.ui.tonight.computeSampleSize(840, 840, 100))
+
+        app.nightbrief.app.ui.tonight.SampleBitmapCache.clear()
+        val decoded = app.nightbrief.app.ui.tonight.decodeSampledBitmap(resources, m42.drawable, 144)
+        assertNotNull("expected decoded bitmap for m42", decoded)
+        val key = app.nightbrief.app.ui.tonight.SampleBitmapKey(m42.drawable, 144)
+        app.nightbrief.app.ui.tonight.SampleBitmapCache.put(key, decoded!!)
+        assertTrue(
+            "cache should return the stored ImageBitmap instance",
+            app.nightbrief.app.ui.tonight.SampleBitmapCache.get(key) === decoded,
+        )
     }
 
     @Test

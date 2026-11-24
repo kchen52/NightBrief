@@ -39,26 +39,35 @@ Before starting **any** ticket below, read `AGENTS.md`, `README.md`, and `ROADMA
 
 ---
 
+## Implementation Status
+
+- **Done in [#138](https://github.com/kchen52/NightBrief/pull/138):** `PERF-A01`, `PERF-A02` (with follow-up glass refinements in `#140` and `#142`), `PERF-A07`.
+- **Done in [#145](https://github.com/kchen52/NightBrief/pull/145):** `PERF-A03`, `PERF-A05`, `PERF-A06` Part A, `PERF-A09` Part A.
+- **Still open:** `PERF-A04`, `PERF-A06` Part B (`TonightScreen` `LazyColumn`), `PERF-A08`, `PERF-A09` Part B (Open-Meteo multi-coordinate batching), `PERF-A10`, `PERF-A11`.
+
+---
+
 ## Ranked Summary Table
 
-| Rank | ID | Priority | Category | Modules | Summary | Relation to `POLISH_FINDINGS.md` |
-|---:|---|---|---|---|---|---|
-| 1 | [PERF-A01](#perf-a01--single-pass-batch-bortle-lookup-and-water-first-filtering-in-darker-sky-search) | P0 / High | I/O & CPU | `:core-sites`, `:core-score`, `:data` | Eliminate 32 parallel full GZIP inflations in Darker-Sky search; filter open water first | New (extends `PERF-04`) |
-| 2 | [PERF-A02](#perf-a02--eliminate-full-screen-compose-recomposition-on-scroll-startstop-and-mainactivity-sideeffect-churn) | P0 / High | UI Rendering | `:app` | Stop reading `isScrollInProgress` in composition (`ReportGlassScroll`) and narrow `MainActivity` `SideEffect` | New |
-| 3 | [PERF-A03](#perf-a03--stop-running-digestschedulerreschedule-on-the-main-thread-for-every-ui-state-mutation) | P1 / High | Main-Thread IPC / SQLite | `:app`, `:work` | Diff scheduling state before calling `DigestScheduler.reschedule()` and move it off Main | New (extends `PERF-05`) |
-| 4 | [PERF-A04](#perf-a04--share-a-single-briefing-snapshot-across-app-workers-widget-and-wear-with-lean-background-scoring) | P1 / High | Architecture / API / Battery | `:core-score`, `:data`, `:work`, `:app` | Share one briefing snapshot across surfaces, add lean background/outlook scoring, skip Wear IPC when unpaired | Extends open `PERF-01` & `PERF-02` step 3 |
-| 5 | [PERF-A05](#perf-a05--add-in-memory-cache-layers-and-fix-blocking-disk-io-in-core-weather-caches) | P1 / Med-High | Disk I/O & Concurrency | `:core-weather`, `:data` | Add in-memory cache in front of `FileForecastCache`, move TLE/Comet disk I/O to `Dispatchers.IO`, fix single-flight cancellation | New |
-| 6 | [PERF-A06](#perf-a06--lazify-tonight-vertical-layout-memoize-detailuistateemphasizedtexttimelinecard-and-fix-animation-composition-reads) | P2 / Med-High | UI Rendering & Memory | `:app` | Lazify `TonightScreen`, `remember` `DetailUiState` / `EmphasizedText` / `TimelineCard` rows, move `AuroraRipple` read to draw phase | Expands `PERF-09` |
-| 7 | [PERF-A07](#perf-a07--eliminate-redundant-ephemeris-sweeps-in-nightephemeriscompute-and-targetadvisorevaluate) | P2 / Medium | CPU / Algorithms | `:core-astro`, `:core-score` | Single-pass 24h solar altitude curve in `NightEphemeris.compute`; precompute Moon steps once per `TargetAdvisor.suggest` | New |
-| 8 | [PERF-A08](#perf-a08--convert-bundled-target-sample-jpegs-to-webp-and-decode-thumbnails-off-the-main-thread) | P2 / Medium | APK Size & Image Decoding | `:app` | Convert 40 JPEGs (3.6 MB) to WebP and asynchronously decode/downsample off Main thread | New |
-| 9 | [PERF-A09](#perf-a09--batch-open-meteo-forecast-calls-and-bound-overpass-api-concurrency) | P3 / Low-Med | Network / API Efficiency | `:core-weather`, `:core-score` | Bound/cache Overpass road-access queries (prevent HTTP 429) and evaluate Open-Meteo multi-coordinate batching | New |
-| 10 | [PERF-A10](#perf-a10--add-compose-compiler-stability-configuration-for-core--models-and-javatime-types) | P3 / Low-Med | Compose Recomposition | `:app`, `:wear` | Add Compose compiler stability config file so pure-JVM domain models and `java.time.*` types become skippable | New |
-| 11 | [PERF-A11](#perf-a11--add-baseline-profiles-and-androidxprofileinstaller-for-cold-start-and-scroll-aot) | P3 / Low-Med | Startup & Runtime AOT | `:app` | Add `androidx.profileinstaller` and an app-owned Baseline Profile (after macrobenchmark harness) | New |
+| Rank | ID | Status | Priority | Category | Modules | Summary | Relation to `POLISH_FINDINGS.md` |
+|---:|---|---|---|---|---|---|---|
+| 1 | [PERF-A01](#perf-a01--single-pass-batch-bortle-lookup-and-water-first-filtering-in-darker-sky-search) | Done ([#138](https://github.com/kchen52/NightBrief/pull/138)) | P0 / High | I/O & CPU | `:core-sites`, `:core-score`, `:data` | Eliminate 32 parallel full GZIP inflations in Darker-Sky search; filter open water first | New (extends `PERF-04`) |
+| 2 | [PERF-A02](#perf-a02--eliminate-full-screen-compose-recomposition-on-scroll-startstop-and-mainactivity-sideeffect-churn) | Done ([#138](https://github.com/kchen52/NightBrief/pull/138)) | P0 / High | UI Rendering | `:app` | Stop reading `isScrollInProgress` in composition (`ReportGlassScroll`) and narrow `MainActivity` `SideEffect` | New |
+| 3 | [PERF-A03](#perf-a03--stop-running-digestschedulerreschedule-on-the-main-thread-for-every-ui-state-mutation) | Done ([#145](https://github.com/kchen52/NightBrief/pull/145)) | P1 / High | Main-Thread IPC / SQLite | `:app`, `:work` | Diff scheduling state before calling `DigestScheduler.reschedule()` and move it off Main | New (extends `PERF-05`) |
+| 4 | [PERF-A04](#perf-a04--share-a-single-briefing-snapshot-across-app-workers-widget-and-wear-with-lean-background-scoring) | Open | P1 / High | Architecture / API / Battery | `:core-score`, `:data`, `:work`, `:app` | Share one briefing snapshot across surfaces, add lean background/outlook scoring, skip Wear IPC when unpaired | Extends open `PERF-01` & `PERF-02` step 3 |
+| 5 | [PERF-A05](#perf-a05--add-in-memory-cache-layers-and-fix-blocking-disk-io-in-core-weather-caches) | Done ([#145](https://github.com/kchen52/NightBrief/pull/145)) | P1 / Med-High | Disk I/O & Concurrency | `:core-weather`, `:data` | Add in-memory cache in front of `FileForecastCache`, move TLE/Comet disk I/O to `Dispatchers.IO`, fix single-flight cancellation | New |
+| 6 | [PERF-A06](#perf-a06--lazify-tonight-vertical-layout-memoize-detailuistateemphasizedtexttimelinecard-and-fix-animation-composition-reads) | Part A done ([#145](https://github.com/kchen52/NightBrief/pull/145)); Part B open | P2 / Med-High | UI Rendering & Memory | `:app` | Lazify `TonightScreen`, `remember` `DetailUiState` / `EmphasizedText` / `TimelineCard` rows, move `AuroraRipple` read to draw phase | Expands `PERF-09` |
+| 7 | [PERF-A07](#perf-a07--eliminate-redundant-ephemeris-sweeps-in-nightephemeriscompute-and-targetadvisorevaluate) | Done ([#138](https://github.com/kchen52/NightBrief/pull/138)) | P2 / Medium | CPU / Algorithms | `:core-astro`, `:core-score` | Single-pass 24h solar altitude curve in `NightEphemeris.compute`; precompute Moon steps once per `TargetAdvisor.suggest` | New |
+| 8 | [PERF-A08](#perf-a08--convert-bundled-target-sample-jpegs-to-webp-and-decode-thumbnails-off-the-main-thread) | Open | P2 / Medium | APK Size & Image Decoding | `:app` | Convert 40 JPEGs (3.6 MB) to WebP and asynchronously decode/downsample off Main thread | New |
+| 9 | [PERF-A09](#perf-a09--batch-open-meteo-forecast-calls-and-bound-overpass-api-concurrency) | Part A done ([#145](https://github.com/kchen52/NightBrief/pull/145)); Part B open | P3 / Low-Med | Network / API Efficiency | `:core-weather`, `:core-score` | Bound/cache Overpass road-access queries (prevent HTTP 429) and evaluate Open-Meteo multi-coordinate batching | New |
+| 10 | [PERF-A10](#perf-a10--add-compose-compiler-stability-configuration-for-core--models-and-javatime-types) | Open | P3 / Low-Med | Compose Recomposition | `:app`, `:wear` | Add Compose compiler stability config file so pure-JVM domain models and `java.time.*` types become skippable | New |
+| 11 | [PERF-A11](#perf-a11--add-baseline-profiles-and-androidxprofileinstaller-for-cold-start-and-scroll-aot) | Open | P3 / Low-Med | Startup & Runtime AOT | `:app` | Add `androidx.profileinstaller` and an app-owned Baseline Profile (after macrobenchmark harness) | New |
 
 ---
 
 ## PERF-A01 — Single-pass batch Bortle lookup and water-first filtering in Darker-Sky search
 
+- **Status:** **Done** in [#138](https://github.com/kchen52/NightBrief/pull/138) (`BortleLookup.lookupAll`, single-pass `StreamingGridBortleLookup.lookupAll`, `CompositeBortleLookup.lookupAll`, and water-first filtering in `DarkSkyFinder.search`; covered by `BortleLookupTest` and `DarkSkyFinderTest`).
 - **Impact Rank:** #1 (Highest)
 - **Priority:** P0 / High
 - **Category:** Disk/Asset I/O, CPU, Thermal & Battery
@@ -156,6 +165,7 @@ Result: 32 concurrent GZIP decompressions saturate CPU cores, cause heavy GC chu
 
 ## PERF-A02 — Eliminate full-screen Compose recomposition on scroll start/stop and `MainActivity` `SideEffect` churn
 
+- **Status:** **Done** in [#138](https://github.com/kchen52/NightBrief/pull/138) (`ReportGlassScroll` lambda reader with `snapshotFlow`, narrowed `MainActivity` `nightVision` flow + `LaunchedEffect`, covered by `ReportGlassScrollRecompositionTest`; further glass scroll/tab-switch refinements in `#140` and `#142`).
 - **Impact Rank:** #2
 - **Priority:** P0 / High
 - **Category:** Compose Recomposition & Frame Jank
@@ -254,6 +264,7 @@ Two high-frequency Compose state-read issues cause full-tree recompositions and 
 
 ## PERF-A03 — Stop running `DigestScheduler.reschedule()` on the Main thread for every UI state mutation
 
+- **Status:** **Done** in [#145](https://github.com/kchen52/NightBrief/pull/145) (`DigestScheduler.needsReschedule` scheduling-key projection + `Dispatchers.IO` rescheduling in `AppViewModel.mutate` and `rescheduleDigest`, covered by `DigestTimesTest`).
 - **Impact Rank:** #3
 - **Priority:** P1 / High
 - **Category:** Main-Thread Blocking (AlarmManager IPC + WorkManager SQLite)
@@ -427,6 +438,7 @@ The same night for the same primary site is repeatedly re-fetched, re-scored, an
 
 ## PERF-A05 — Add in-memory cache layers and fix blocking disk I/O in `core-weather` caches
 
+- **Status:** **Done** in [#145](https://github.com/kchen52/NightBrief/pull/145) (`FileForecastCache` 32-entry LRU memory tier, `ForecastRepository` single-flight cancellation isolation + `AppGraph.appScope` `flightScope`, `CachingTleSource` and `CachingCometSource` lock-free fresh memory fast paths + `Dispatchers.IO` + atomic writes, and `BriefingService` parsed-comet reuse across planner dates).
 - **Impact Rank:** #5
 - **Priority:** P1 / Med-High
 - **Category:** Disk I/O, Threading & Coroutine Concurrency
@@ -517,6 +529,7 @@ Three concrete I/O and concurrency issues exist in `:core-weather` cache wrapper
 
 ## PERF-A06 — Lazify Tonight vertical layout, memoize `DetailUiState`/`EmphasizedText`/`TimelineCard`, and fix animation composition reads
 
+- **Status:** **Part A done** in [#145](https://github.com/kchen52/NightBrief/pull/145) (`@Stable` + `remember` on `DetailUiState`, `remember(text)` in `EmphasizedText`, memoized `TimelineCard` hours/rows/columns, and draw-phase `anim.value` read in `AuroraRipple` covered by `AuroraRippleRecompositionTest`). **Part B open** (evaluating `LazyColumn` conversion on `TonightScreen` / `NightDetail`).
 - **Impact Rank:** #6
 - **Priority:** P2 / Med-High
 - **Category:** Compose Rendering, Allocations & Scroll Smoothness
@@ -599,6 +612,7 @@ Even before evaluating whether to convert `TonightScreen`'s vertical container t
 
 ## PERF-A07 — Eliminate redundant ephemeris sweeps in `NightEphemeris.compute` and `TargetAdvisor.evaluate`
 
+- **Status:** **Done** in [#138](https://github.com/kchen52/NightBrief/pull/138) (single-pass 24h solar altitude curve in `NightEphemeris.compute` + precomputed Moon table in `TargetAdvisor.suggest`, covered by `NightEphemerisSinglePassTest` and `TargetAdvisorMoonTableTest`).
 - **Impact Rank:** #7
 - **Priority:** P2 / Medium
 - **Category:** CPU & Astronomical Algorithms
@@ -725,6 +739,7 @@ In `TargetSamples.kt:104-129`:
 
 ## PERF-A09 — Batch Open-Meteo forecast calls and bound Overpass API concurrency
 
+- **Status:** **Part A done** in [#145](https://github.com/kchen52/NightBrief/pull/145) (`OverpassRoadAccessClient` bounded `Semaphore(maxConcurrent = 2)` + `CachingRoadAccessSource` ~500 m cell LRU cache wired in `AppGraph`, covered by `RoadAccessTest`). **Part B open** (evaluating Open-Meteo multi-coordinate batching).
 - **Impact Rank:** #9
 - **Priority:** P3 / Low-Medium
 - **Category:** Network / API Rate-Limit Resilience & Latency

@@ -19,6 +19,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
+import app.nightbrief.score.WindowAlarm
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -40,6 +41,43 @@ object DigestScheduler {
     private const val PREFETCH_WORK = "forecast-prefetch"
     internal const val DIGEST_WORK = "digest"
     internal const val REFRESH_WORK = "digest-refresh"
+
+    /**
+     * Projection of [AppState] holding every field read by [DigestScheduler],
+     * [WindowAlarmScheduler], and [AuroraWatch].
+     */
+    private data class SchedulingKey(
+        val onboardingComplete: Boolean,
+        val digestEnabled: Boolean,
+        val digestTime: String,
+        val primarySiteId: String?,
+        val siteKeys: List<SiteSchedulingKey>,
+        val windowAlarm: WindowAlarm?,
+        val auroraAlertsEnabled: Boolean,
+    )
+
+    private data class SiteSchedulingKey(
+        val id: String,
+        val zoneId: String,
+        val digestTimeOverride: String?,
+    )
+
+    private fun schedulingKey(state: AppState): SchedulingKey = SchedulingKey(
+        onboardingComplete = state.onboardingComplete,
+        digestEnabled = state.digestEnabled,
+        digestTime = state.digestTime,
+        primarySiteId = state.sites.primaryId,
+        siteKeys = state.sites.sites.map { SiteSchedulingKey(it.id, it.zoneId, it.digestTimeOverride) },
+        windowAlarm = state.windowAlarm,
+        auroraAlertsEnabled = state.auroraAlertsEnabled,
+    )
+
+    /**
+     * True when any field that affects digest alarms, the window reminder, prefetch, or the
+     * aurora nowcast worker changed between [previous] and [next].
+     */
+    fun needsReschedule(previous: AppState, next: AppState): Boolean =
+        schedulingKey(previous) != schedulingKey(next)
 
     suspend fun reschedule(context: Context) {
         val state = AppGraph.get(context).settings.current()

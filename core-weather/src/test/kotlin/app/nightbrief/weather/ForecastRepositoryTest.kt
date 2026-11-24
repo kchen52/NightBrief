@@ -1,8 +1,13 @@
 package app.nightbrief.weather
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -292,6 +297,81 @@ class ForecastRepositoryTest {
         val again = repo(cache).forecast(43.65, -79.38)
         assertEquals(ForecastStatus.CACHED, again.status)
         dir.deleteRecursively()
+    }
+
+    @Test
+    fun fileCacheServesRepeatedGetsFromMemoryAndEvictsLeastRecentlyUsed() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("fc-mem").toFile()
+        try {
+            val cache = FileForecastCache(dir, maxMemoryEntries = 2)
+            val first = repo(cache).forecast(43.65, -79.38).forecast
+            val key = ForecastRepository.cacheKey(43.65, -79.38)
+            val stored = File(dir, "$key.json")
+            assertTrue("expected persisted forecast file", stored.isFile)
+            assertTrue("expected disk file delete to succeed", stored.delete())
+
+            // Deleting the file on disk proves this hit came from memory, not flash.
+            val hit = cache.get(key)
+            assertEquals(first.fetchedAtEpochSecond, hit?.fetchedAtEpochSecond)
+
+            // Evict the first entry by inserting two newer keys into the 2-entry LRU.
+            cache.put("k2", first.copy(latitude = 44.0))
+            cache.put("k3", first.copy(latitude = 45.0))
+            assertNull("evicted key whose disk file was deleted must return null", cache.get(key))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun cancellingFirstCallerDoesNotAbortWaitingCaller() = runTest {
+        responseDelayMs = 200
+        val source = repo()
+        coroutineScope {
+            val first = async(Dispatchers.IO) { source.forecast(43.65, -79.38) }
+            val second = async(Dispatchers.IO) {
+                delay(40)
+                source.forecast(43.65, -79.38)
+            }
+            delay(80)
+            first.cancel()
+            val result = second.await()
+            assertEquals(ForecastStatus.FRESH, result.status)
+            assertEquals(24, result.forecast.hours.size)
+        }
+    }
+
+    @Test
+    fun detachedFlightScopeCompletesSingleRequestWhenFirstCallerCancels() = runTest {
+        responseDelayMs = 200
+        val flightScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val source = ForecastRepository(
+                openMeteo = OpenMeteoClient(baseUrl = server.url("/om").toString(), clock = clock),
+                sevenTimer = SevenTimerClient(baseUrl = server.url("/7t").toString()),
+                cache = InMemoryForecastCache(),
+                clock = clock,
+                flightScope = flightScope,
+            )
+            coroutineScope {
+                val first = async(Dispatchers.IO) { source.forecast(43.65, -79.38) }
+                val second = async(Dispatchers.IO) {
+                    delay(40)
+                    source.forecast(43.65, -79.38)
+                }
+                delay(80)
+                first.cancel()
+                val result = second.await()
+                assertEquals(ForecastStatus.FRESH, result.status)
+                assertEquals(
+                    "expected 1 primary fetch with detached flightScope, got $requests",
+                    1,
+                    primaryForecastRequests(),
+                )
+            }
+        } finally {
+            flightScope.cancel()
+        }
     }
 
     @Test

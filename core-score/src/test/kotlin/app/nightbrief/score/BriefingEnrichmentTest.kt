@@ -60,6 +60,30 @@ class BriefingEnrichmentTest {
     }
 
     @Test
+    fun steppingPlannerDatesReusesParsedCometsWhileFileIsUnchanged() = runTest {
+        var parses = 0
+        var currentFile = CometElementsFile("C/2099 A1\n", Instant.parse("2024-10-12T12:00:00Z"))
+        val orbits = listOf(opposition())
+        val service = BriefingService(
+            FakeForecasts,
+            clock,
+            comets = object : CometSource {
+                override suspend fun fetch(): CometElementsFile = currentFile
+            },
+            cometParser = { parses++; orbits },
+        )
+        val base = LocalDate.of(2024, 10, 12)
+        service.plan(home, base, kit)
+        service.plan(home, base.plusDays(1), kit)
+        service.plan(home, base.plusDays(2), kit)
+        assertEquals("expected 1 parse across 3 planner dates, got $parses", 1, parses)
+
+        currentFile = CometElementsFile("C/2099 A1\n", Instant.parse("2024-10-13T12:00:00Z"))
+        service.plan(home, base.plusDays(3), kit)
+        assertEquals("expected re-parse when comet file refreshes, got $parses", 2, parses)
+    }
+
+    @Test
     fun aCometParseFailureKeepsTheScoreAndDropsOnlyTheCard() = runTest {
         val service = BriefingService(
             FakeForecasts,

@@ -81,6 +81,13 @@ class MpcCometClientTest {
         assertEquals(FETCHED, second.fetchedAt)
         assertEquals(1, server.requestCount)
 
+        // Removing the file on disk proves a fresh hit returns from memory without touching disk.
+        assertTrue(cacheFile.delete())
+        val fromMemory = withContext(Dispatchers.IO) { source.fetch() }
+        assertEquals(ROW, fromMemory.text)
+        assertEquals(FETCHED, fromMemory.fetchedAt)
+        assertEquals(1, server.requestCount)
+
         clock.instant = FETCHED.plus(Duration.ofHours(2))
         server.enqueue(MockResponse().setResponseCode(500).setBody("down"))
         val stale = withContext(Dispatchers.IO) { source.fetch() }

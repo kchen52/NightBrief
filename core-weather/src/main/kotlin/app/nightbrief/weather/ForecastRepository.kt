@@ -2,10 +2,15 @@ package app.nightbrief.weather
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -38,14 +43,40 @@ class InMemoryForecastCache : ForecastCache {
  * in memory. [IOException] means the directory could not be created or the file could not be written;
  * the caller still has the forecast and should not treat that as a failed fetch.
  */
-class FileForecastCache(private val directory: File) : ForecastCache {
+class FileForecastCache(
+    private val directory: File,
+    private val maxMemoryEntries: Int = DEFAULT_MEMORY_ENTRIES,
+) : ForecastCache {
+    init {
+        require(maxMemoryEntries >= 0) { "maxMemoryEntries must be non-negative: $maxMemoryEntries" }
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
     private val writeLock = Mutex()
+    private val memoryLock = Any()
+    private val memory = object : LinkedHashMap<String, Forecast>(maxMemoryEntries + 1, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Forecast>): Boolean =
+            size > maxMemoryEntries
+    }
 
-    override suspend fun get(key: String): Forecast? = withContext(Dispatchers.IO) {
-        val file = File(directory, "$key.json")
-        if (!file.exists()) return@withContext null
-        runCatching { json.decodeFromString(Forecast.serializer(), file.readText()) }.getOrNull()
+    override suspend fun get(key: String): Forecast? {
+        if (maxMemoryEntries > 0) {
+            synchronized(memoryLock) { memory[key] }?.let { return it }
+        }
+        return withContext(Dispatchers.IO) {
+            val file = File(directory, "$key.json")
+            if (!file.exists()) return@withContext null
+            val decoded = runCatching { json.decodeFromString(Forecast.serializer(), file.readText()) }.getOrNull()
+            if (decoded != null && maxMemoryEntries > 0) {
+                synchronized(memoryLock) {
+                    val existing = memory[key]
+                    if (existing == null || decoded.fetchedAtEpochSecond >= existing.fetchedAtEpochSecond) {
+                        memory[key] = decoded
+                    }
+                }
+            }
+            decoded
+        }
     }
 
     override suspend fun put(key: String, forecast: Forecast) {
@@ -63,7 +94,14 @@ class FileForecastCache(private val directory: File) : ForecastCache {
                     tmp.delete()
                 }
             }
+            if (maxMemoryEntries > 0) {
+                synchronized(memoryLock) { memory[key] = forecast }
+            }
         }
+    }
+
+    companion object {
+        const val DEFAULT_MEMORY_ENTRIES = 32
     }
 }
 
@@ -104,37 +142,79 @@ class ForecastRepository(
     private val clock: Clock = Clock.systemUTC(),
     private val maxCacheAge: Duration = Duration.ofMinutes(60),
     private val busyCooldown: Duration = Duration.ofSeconds(30),
+    private val flightScope: CoroutineScope? = null,
 ) : ForecastSource {
     private val flights = ConcurrentHashMap<String, Deferred<ForecastResult>>()
     private val busyUntil = ConcurrentHashMap<String, Instant>()
 
     override suspend fun forecast(latitude: Double, longitude: Double, forceRefresh: Boolean): ForecastResult {
         val key = cacheKey(latitude, longitude)
-        val cached = cache.get(key)
-        val age = cached?.let { Duration.between(it.fetchedAt, clock.instant()) }
-        if (!forceRefresh && cached != null && age != null && age < maxCacheAge) {
-            return ForecastResult(cached, ForecastStatus.CACHED)
-        }
-        val quietUntil = busyUntil[key]
-        if (!forceRefresh && quietUntil != null && clock.instant().isBefore(quietUntil)) {
-            if (cached != null) {
-                return ForecastResult(cached, ForecastStatus.STALE, listOf(ForecastProblem.BUSY.userText()))
+        while (true) {
+            val cached = cache.get(key)
+            val age = cached?.let { Duration.between(it.fetchedAt, clock.instant()) }
+            if (!forceRefresh && cached != null && age != null && age < maxCacheAge) {
+                return ForecastResult(cached, ForecastStatus.CACHED)
             }
-            throw WeatherApiException("HTTP 429", problem = ForecastProblem.BUSY)
-        }
+            val quietUntil = busyUntil[key]
+            if (!forceRefresh && quietUntil != null && clock.instant().isBefore(quietUntil)) {
+                if (cached != null) {
+                    return ForecastResult(cached, ForecastStatus.STALE, listOf(ForecastProblem.BUSY.userText()))
+                }
+                throw WeatherApiException("HTTP 429", problem = ForecastProblem.BUSY)
+            }
 
-        val created = CompletableDeferred<ForecastResult>()
-        val inFlight = flights.putIfAbsent(key, created)
-        if (inFlight != null) return inFlight.await()
-        return try {
-            val result = load(latitude, longitude, key, cached)
-            created.complete(result)
-            result
-        } catch (e: Throwable) {
-            created.completeExceptionally(e)
-            throw e
-        } finally {
-            flights.remove(key, created)
+            val created = CompletableDeferred<ForecastResult>()
+            val inFlight = flights.putIfAbsent(key, created)
+            if (inFlight != null) {
+                try {
+                    return inFlight.await()
+                } catch (e: CancellationException) {
+                    currentCoroutineContext().ensureActive()
+                    continue
+                }
+            }
+
+            val detached = flightScope?.takeIf { it.isActive }
+            if (detached != null) {
+                val job = detached.launch {
+                    try {
+                        val result = load(latitude, longitude, key, cached)
+                        flights.remove(key, created)
+                        created.complete(result)
+                    } catch (e: Throwable) {
+                        flights.remove(key, created)
+                        created.completeExceptionally(e)
+                    }
+                }
+                job.invokeOnCompletion { cause ->
+                    flights.remove(key, created)
+                    if (!created.isCompleted) {
+                        created.completeExceptionally(cause ?: CancellationException("Forecast flight ended"))
+                    }
+                }
+                try {
+                    return created.await()
+                } catch (e: CancellationException) {
+                    currentCoroutineContext().ensureActive()
+                    continue
+                }
+            }
+
+            var removed = false
+            return try {
+                val result = load(latitude, longitude, key, cached)
+                flights.remove(key, created)
+                removed = true
+                created.complete(result)
+                result
+            } catch (e: Throwable) {
+                flights.remove(key, created)
+                removed = true
+                created.completeExceptionally(e)
+                throw e
+            } finally {
+                if (!removed) flights.remove(key, created)
+            }
         }
     }
 

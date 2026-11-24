@@ -401,11 +401,19 @@ class BriefingService(
         return copy(comet = outlook)
     }
 
-    /** Orbits from one fetched file. A parse failure drops the comet card and keeps the briefing. */
+    private data class ParsedComets(val file: CometElementsFile, val orbits: List<CometOrbit>)
+
+    @Volatile private var parsedComets: ParsedComets? = null
+
+    /** Orbits from one fetched file. Reuses the parsed list while [file] is unchanged; a parse failure drops the comet card and keeps the briefing. */
     private fun parseComets(file: CometElementsFile?): List<CometOrbit> {
         if (file == null) return emptyList()
+        val cached = parsedComets
+        if (cached != null && cached.file == file) return cached.orbits
         return try {
-            cometParser(file.text)
+            val orbits = cometParser(file.text)
+            parsedComets = ParsedComets(file, orbits)
+            orbits
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {

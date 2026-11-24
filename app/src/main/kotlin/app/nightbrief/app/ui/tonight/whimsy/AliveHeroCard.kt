@@ -139,21 +139,21 @@ fun AliveHeroCard(
 }
 
 @Composable
-private fun BoxScope.AuroraRipple(color: Color) {
+internal fun BoxScope.AuroraRipple(color: Color, onCompose: (() -> Unit)? = null) {
+    onCompose?.invoke()
     val motion = motionAllowed()
     val anim = remember { Animatable(0f) }
     LaunchedEffect(motion) {
         anim.snapTo(0f)
         if (motion) anim.animateTo(1f, tween(1600, easing = LinearEasing))
     }
-    val phase = if (motion) anim.value else 0f
     Canvas(
         Modifier
             .align(Alignment.TopCenter)
             .fillMaxWidth()
             .height(36.dp),
     ) {
-        drawRipples(phase, color)
+        drawRipples(if (motion) anim.value else 0f, color)
     }
 }
 

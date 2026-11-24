@@ -1,6 +1,8 @@
 package app.nightbrief.weather
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -9,6 +11,7 @@ import kotlinx.serialization.json.contentOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.Locale
+import kotlin.math.roundToLong
 
 /**
  * Paved-road accessibility of one darker-sky candidate.
@@ -45,12 +48,21 @@ class OverpassRoadAccessClient(
     private val http: OkHttpClient = defaultHttpClient(),
     private val baseUrl: String = DEFAULT_URL,
     private val radiusM: Int = DEFAULT_RADIUS_M,
+    maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
 ) : RoadAccessSource {
+    init {
+        require(maxConcurrent >= 1) { "maxConcurrent must be at least 1: $maxConcurrent" }
+    }
+
+    private val permits = Semaphore(maxConcurrent)
+
     override suspend fun accessFor(latitude: Double, longitude: Double): RoadAccess {
         val url = baseUrl.toHttpUrl().newBuilder()
             .addQueryParameter("data", buildQuery(latitude, longitude, radiusM))
             .build()
-        return parse(http.getString(url.toString()))
+        return permits.withPermit {
+            parse(http.getString(url.toString()))
+        }
     }
 
     internal fun parse(body: String): RoadAccess {
@@ -81,6 +93,7 @@ class OverpassRoadAccessClient(
     companion object {
         const val DEFAULT_URL = "https://overpass-api.de/api/interpreter"
         const val DEFAULT_RADIUS_M = 500
+        const val DEFAULT_MAX_CONCURRENT = 2
 
         /** Car-suitable highway values. Track/path/footway and friends never count as drive-up. */
         internal val MOTORABLE_HIGHWAYS = setOf(
@@ -122,5 +135,44 @@ class OverpassRoadAccessClient(
         /** [RoadAccess.DRIVE_UP] when any nearby way is a paved car road, else [RoadAccess.HIKE_IN]. */
         internal fun classify(tagMaps: List<Map<String, String>>): RoadAccess =
             if (tagMaps.any(::isDriveUp)) RoadAccess.DRIVE_UP else RoadAccess.HIKE_IN
+    }
+}
+
+/**
+ * In-memory ~500 m cell cache in front of a [RoadAccessSource].
+ *
+ * Only definitive answers ([RoadAccess.DRIVE_UP] and [RoadAccess.HIKE_IN]) are cached;
+ * [RoadAccess.UNKNOWN] and thrown failures are never cached so a later search can retry.
+ */
+class CachingRoadAccessSource(
+    private val origin: RoadAccessSource,
+    private val maxEntries: Int = DEFAULT_MAX_ENTRIES,
+) : RoadAccessSource {
+    init {
+        require(maxEntries >= 1) { "maxEntries must be at least 1: $maxEntries" }
+    }
+
+    private val lock = Any()
+    private val cache = object : LinkedHashMap<Pair<Long, Long>, RoadAccess>(maxEntries + 1, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Long, Long>, RoadAccess>): Boolean =
+            size > maxEntries
+    }
+
+    override suspend fun accessFor(latitude: Double, longitude: Double): RoadAccess {
+        val key = cellKey(latitude, longitude)
+        synchronized(lock) { cache[key] }?.let { return it }
+        val result = origin.accessFor(latitude, longitude)
+        if (result != RoadAccess.UNKNOWN) {
+            synchronized(lock) { cache[key] = result }
+        }
+        return result
+    }
+
+    companion object {
+        const val DEFAULT_MAX_ENTRIES = 128
+
+        /** 0.005° cell (~550 m in latitude), matching [OverpassRoadAccessClient.DEFAULT_RADIUS_M]. */
+        internal fun cellKey(latitude: Double, longitude: Double): Pair<Long, Long> =
+            (latitude * 200.0).roundToLong() to (longitude * 200.0).roundToLong()
     }
 }

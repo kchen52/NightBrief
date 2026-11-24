@@ -13,6 +13,7 @@ import app.nightbrief.weather.AirQualityClient
 import app.nightbrief.weather.CachingAirQualitySource
 import app.nightbrief.weather.CachingKpSource
 import app.nightbrief.weather.CachingCometSource
+import app.nightbrief.weather.CachingRoadAccessSource
 import app.nightbrief.weather.CachingTleSource
 import app.nightbrief.weather.CelestrakClient
 import app.nightbrief.weather.MpcCometClient
@@ -61,6 +62,7 @@ class AppGraph private constructor(context: Context) {
             openMeteo = OpenMeteoClient(http = http),
             sevenTimer = SevenTimerClient(http = http),
             cache = FileForecastCache(File(context.filesDir, "forecasts")),
+            flightScope = appScope,
         )
 
     var forecasts: ForecastSource = realForecasts
@@ -75,7 +77,7 @@ class AppGraph private constructor(context: Context) {
      * Paved-road access for darker-sky candidates (OpenStreetMap via Overpass).
      * A failed lookup leaves that candidate UNKNOWN and never fails the search.
      */
-    val roadAccess: RoadAccessSource = OverpassRoadAccessClient(http = http)
+    val roadAccess: RoadAccessSource = CachingRoadAccessSource(OverpassRoadAccessClient(http = http))
 
     val issTles = CachingTleSource(CelestrakClient(http = http), File(context.filesDir, "tle/iss.txt"))
 

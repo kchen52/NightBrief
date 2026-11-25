@@ -7,6 +7,14 @@ fixes bump the patch.
 
 ## [Unreleased]
 
+### Added
+
+- Week sharing from the Week tab: shares a postcard overview image of the week's forecast (best night highlight, nightly score bars, moon illumination, and 0.1° postmark) with a matching caption.
+
+### Changed
+
+- Sharing on Tonight, the planner, and Week now opens Android's share sheet directly instead of prompting to choose between Share and Print.
+
 ## [1.1.0] - 2026-11-24
 
 Performance, security, and UI polish release (`versionCode` 4). Switches release builds to a private signing key (uninstall and reinstall required from `1.0.0`), unifies the tab top bar, fixes frosted glass during scroll and tab switches, and cuts forecast, Bortle-search, and UI overhead.

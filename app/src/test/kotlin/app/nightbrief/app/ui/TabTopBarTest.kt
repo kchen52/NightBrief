@@ -17,13 +17,17 @@ import androidx.work.impl.utils.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.theme.NightBriefTheme
+import app.nightbrief.astro.Darkness
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.BriefingSource
+import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
+import app.nightbrief.score.OutlookNight
+import app.nightbrief.score.WeeklyOutlook
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.Forecast
@@ -168,8 +172,14 @@ class TabTopBarTest {
             outlookDays: Int,
             forceRefresh: Boolean,
         ): Briefing {
-            val report = plan(sites.first(), LocalDate.of(2024, 8, 12), kit)
-            return Briefing(Instant.EPOCH, listOf(report), emptyList())
+            val site = sites.first()
+            val date = LocalDate.of(2024, 8, 12)
+            val report = plan(site, date, kit)
+            val outlook = WeeklyOutlook(
+                site,
+                listOf(OutlookNight(date, 82, 0.25, Darkness.ASTRONOMICAL, ForecastCoverage.FULL)),
+            )
+            return Briefing(Instant.EPOCH, listOf(report), listOf(outlook))
         }
 
         override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport =

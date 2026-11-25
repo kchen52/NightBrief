@@ -156,13 +156,10 @@
     <string name="next_night">Next night</string>
     <string name="share_night_plan">Share night plan</string>
     <string name="share_week">Share week</string>
-    <string name="share_or_print">Share or print</string>
-    <string name="share">Share</string>
-    <string name="print">Print</string>
-    <string name="print_night_plan">Night plan</string>
     <string name="preparing_night_plan">Preparing night plan…</string>
+    <string name="preparing_week_plan">Preparing week outlook…</string>
     <string name="share_night_plan_failed">Couldn\'t prepare the night plan to share.</string>
-    <string name="print_night_plan_failed">Couldn\'t prepare the night plan to print.</string>
+    <string name="share_week_failed">Couldn\'t prepare the week outlook to share.</string>
 
     <string name="section_display">Display</string>
     <string name="night_vision">Night vision</string>

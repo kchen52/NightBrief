@@ -24,8 +24,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -53,11 +51,11 @@ import app.nightbrief.app.ui.rememberWindowForm
 import app.nightbrief.app.ui.common.Format
 import app.nightbrief.app.ui.common.ScorePill
 import app.nightbrief.app.ui.common.SectionCard
+import app.nightbrief.app.ui.tonight.ShareWeekButton
 import app.nightbrief.app.ui.tonight.StaleForecastBanner
 import app.nightbrief.app.ui.common.SiteChip
 import app.nightbrief.app.ui.common.SiteStrip
 import app.nightbrief.app.ui.common.TabTopBar
-import app.nightbrief.app.ui.icons.NightBriefIcons
 import app.nightbrief.app.ui.theme.NightColors
 import app.nightbrief.astro.Darkness
 import app.nightbrief.score.BigNightAlerts
@@ -103,11 +101,10 @@ fun WeekScreen(
                 onToggleNightVision = { vm.setNightVision(!nightVision) },
                 onOpenSettings = onOpenSettings,
                 onRefresh = { vm.refresh(force = true) },
-                // TODO: share the week outlook. Tonight's night-plan share does not fit a week.
-                share = {
-                    IconButton(onClick = {}) {
-                        Icon(NightBriefIcons.Share, stringResource(R.string.share_week))
-                    }
+                share = if (outlook != null && outlook.nights.isNotEmpty()) {
+                    { ShareWeekButton(outlook, report?.forecastStatus, report?.forecastFetchedAt) }
+                } else {
+                    null
                 },
             )
         },

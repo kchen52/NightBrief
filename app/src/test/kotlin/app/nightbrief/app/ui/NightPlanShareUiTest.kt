@@ -7,6 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
@@ -15,13 +17,18 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import app.nightbrief.app.AppViewModel
 import app.nightbrief.app.ui.theme.NightBriefTheme
 import app.nightbrief.app.ui.tonight.TonightScreen
+import app.nightbrief.app.ui.week.WeekScreen
+import app.nightbrief.astro.Darkness
 import app.nightbrief.data.AppGraph
 import app.nightbrief.data.AppState
 import app.nightbrief.gear.GearKit
 import app.nightbrief.score.Briefing
 import app.nightbrief.score.BriefingSource
+import app.nightbrief.score.ForecastCoverage
 import app.nightbrief.score.NightPlanner
 import app.nightbrief.score.NightReport
+import app.nightbrief.score.OutlookNight
+import app.nightbrief.score.WeeklyOutlook
 import app.nightbrief.sites.Site
 import app.nightbrief.sites.SiteBook
 import app.nightbrief.weather.Forecast
@@ -106,6 +113,58 @@ class NightPlanShareUiTest {
             compose.onAllNodesWithContentDescription("Share night plan").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithContentDescription("Share night plan").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Share night plan").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Share or print").assertDoesNotExist()
+        compose.onNodeWithText("Print").assertDoesNotExist()
+    }
+
+    @Test
+    fun weekHidesShareUntilAnOutlookIsLoaded() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, EmptyBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme {
+                WeekScreen(vm, onOpenNight = { _, _ -> }, onOpenEvents = {}, contentPadding = PaddingValues())
+            }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Retry").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Share week").assertDoesNotExist()
+    }
+
+    @Test
+    fun weekOffersDirectShareOnceAnOutlookIsLoaded() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val graph = AppGraph.get(app)
+        graph.replaceSourcesForTest(QuietForecasts, PlannedBriefings)
+        runBlocking {
+            graph.settings.update {
+                AppState(onboardingComplete = true, sites = SiteBook().add(home, makePrimary = true))
+            }
+        }
+        val vm = AppViewModel(app)
+        compose.setContent {
+            NightBriefTheme {
+                WeekScreen(vm, onOpenNight = { _, _ -> }, onOpenEvents = {}, contentPadding = PaddingValues())
+            }
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithContentDescription("Share week").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Share week").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Share week").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Share or print").assertDoesNotExist()
+        compose.onNodeWithText("Print").assertDoesNotExist()
     }
 
     private object QuietForecasts : ForecastSource {
@@ -139,8 +198,13 @@ class NightPlanShareUiTest {
             forceRefresh: Boolean,
         ): Briefing {
             val site = sites.first()
-            val report = NightPlanner.plan(site, LocalDate.of(2024, 8, 10), null, kit)
-            return Briefing(Instant.EPOCH, listOf(report), emptyList())
+            val date = LocalDate.of(2024, 8, 10)
+            val report = NightPlanner.plan(site, date, null, kit)
+            val outlook = WeeklyOutlook(
+                site,
+                listOf(OutlookNight(date, 84, 0.25, Darkness.ASTRONOMICAL, ForecastCoverage.FULL)),
+            )
+            return Briefing(Instant.EPOCH, listOf(report), listOf(outlook))
         }
 
         override suspend fun plan(site: Site, date: LocalDate, kit: GearKit): NightReport =

@@ -33,12 +33,12 @@ import kotlin.math.roundToInt
  */
 object NightPlanImage {
     const val WIDTH = 1080
-    private const val PAD = 80
+    internal const val PAD = 80
     private const val FRAME_INSET = 28f
     private const val STAMP_WIDTH = 200f
     private const val STAMP_HEIGHT = 240f
     /** Gap between the stamp and the date pill / site-name column. */
-    private const val STAMP_CLEARANCE = 40f
+    internal const val STAMP_CLEARANCE = 40f
     private const val POSTMARK_DATE_START = 18f
     private const val POSTMARK_PLACE_START = 16f
     private const val POSTMARK_MIN = 11f
@@ -228,7 +228,7 @@ object NightPlanImage {
         return bitmap
     }
 
-    private fun drawPaperBorder(canvas: Canvas, height: Float, ink: Int, hairline: Int) {
+    internal fun drawPaperBorder(canvas: Canvas, height: Float, ink: Int, hairline: Int) {
         val frame = RectF(FRAME_INSET, FRAME_INSET, WIDTH - FRAME_INSET, height - FRAME_INSET)
         canvas.drawRoundRect(frame, 18f, 18f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ink
@@ -243,7 +243,7 @@ object NightPlanImage {
         })
     }
 
-    private fun drawStamp(canvas: Canvas, rect: RectF, fill: Int, hole: Int, ink: Int) {
+    internal fun drawStamp(canvas: Canvas, rect: RectF, fill: Int, hole: Int, ink: Int) {
         canvas.drawRoundRect(rect, 8f, 8f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fill })
         val inner = RectF(rect.left + 16f, rect.top + 16f, rect.right - 16f, rect.bottom - 16f)
         canvas.drawRoundRect(inner, 4f, 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -284,6 +284,10 @@ object NightPlanImage {
     }
 
     private fun drawPostmark(canvas: Canvas, card: NightPlanCard, stamp: RectF, ink: Int) {
+        drawPostmark(canvas, card.dateLabel, card.place, stamp, ink)
+    }
+
+    internal fun drawPostmark(canvas: Canvas, date: String, place: String, stamp: RectF, ink: Int) {
         val cx = stamp.centerX()
         val cy = postmarkCenterY(stamp)
         val radius = postmarkRadius(stamp)
@@ -295,8 +299,8 @@ object NightPlanImage {
         canvas.drawCircle(cx, cy, radius, ring)
         canvas.drawCircle(cx, cy, radius * 0.86f, Paint(ring).apply { strokeWidth = 1.5f })
         val maxWidth = postmarkInnerTextWidth(stamp)
-        val dateLabel = card.dateLabel.trim().ifEmpty { "—" }
-        val placeLines = postmarkPlaceLines(card.place)
+        val dateLabel = date.trim().ifEmpty { "—" }
+        val placeLines = postmarkPlaceLines(place)
         val dateSize = sizeThatFits(listOf(dateLabel), maxWidth, bold = true, start = POSTMARK_DATE_START, min = POSTMARK_MIN)
         val placeSize = sizeThatFits(placeLines, maxWidth, bold = false, start = POSTMARK_PLACE_START, min = POSTMARK_MIN)
         val datePaint = paint(dateSize, ink, bold = true).apply { textAlign = Paint.Align.CENTER }
@@ -355,7 +359,7 @@ object NightPlanImage {
             drawnRight <= pillRight + 0.5f
     }
 
-    private fun besideStampWidth(): Int {
+    internal fun besideStampWidth(): Int {
         val textWidth = WIDTH - PAD * 2
         return (stampRect().left - STAMP_CLEARANCE - PAD).toInt().coerceIn(280, textWidth)
     }
@@ -375,7 +379,7 @@ object NightPlanImage {
     }
 
     /** Largest size in [min, start] at which every line is at most [maxWidth]. */
-    private fun sizeThatFits(lines: List<String>, maxWidth: Float, bold: Boolean, start: Float, min: Float): Float {
+    internal fun sizeThatFits(lines: List<String>, maxWidth: Float, bold: Boolean, start: Float, min: Float): Float {
         var size = start
         while (size > min && lines.any { paint(size, 0, bold).measureText(it) > maxWidth }) {
             size -= 0.5f
@@ -384,7 +388,7 @@ object NightPlanImage {
     }
 
     /** One line when it fits; otherwise latitude and longitude, never ellipsized. */
-    private fun fittedPlace(place: String, color: Int, width: Int): StaticLayout {
+    internal fun fittedPlace(place: String, color: Int, width: Int): StaticLayout {
         val raw = place.trim().ifEmpty { "—" }
         var size = 32f
         while (size > 16f && paint(size, color).measureText(raw) > width) size -= 1f
@@ -400,7 +404,7 @@ object NightPlanImage {
     private fun hasDetails(card: NightPlanCard): Boolean =
         card.bestWindow != null || card.milkyWay.isNotBlank() || card.target != null
 
-    private fun drawAt(canvas: Canvas, layout: StaticLayout, x: Float, y: Float): Float {
+    internal fun drawAt(canvas: Canvas, layout: StaticLayout, x: Float, y: Float): Float {
         canvas.save()
         canvas.translate(x, y)
         layout.draw(canvas)
@@ -408,7 +412,7 @@ object NightPlanImage {
         return y + layout.height
     }
 
-    private fun drawDivider(canvas: Canvas, y: Float, color: Int): Float {
+    internal fun drawDivider(canvas: Canvas, y: Float, color: Int): Float {
         val lineY = y.roundToInt().toFloat()
         canvas.drawLine(
             PAD.toFloat(), lineY, (WIDTH - PAD).toFloat(), lineY,
@@ -424,7 +428,7 @@ object NightPlanImage {
      * A faint deterministic starfield kept to the frame margins, so it never
      * sits under body copy and never touches the (0, 0) corner pixel.
      */
-    private fun drawStars(canvas: Canvas, width: Int, height: Int) {
+    internal fun drawStars(canvas: Canvas, width: Int, height: Int) {
         val random = Random(0x2E1A4L)
         val star = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
         var drawn = 0
@@ -449,7 +453,7 @@ object NightPlanImage {
         }
     }
 
-    private fun text(
+    internal fun text(
         value: String,
         paint: TextPaint,
         width: Int,
@@ -467,7 +471,7 @@ object NightPlanImage {
         return builder.build()
     }
 
-    private fun paint(size: Float, color: Int, bold: Boolean = false, tracking: Float = 0f): TextPaint =
+    internal fun paint(size: Float, color: Int, bold: Boolean = false, tracking: Float = 0f): TextPaint =
         TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = size
             this.color = color
